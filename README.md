@@ -17,10 +17,23 @@ npm run dev
 - `npm run typecheck` — typecheck without emitting
 - `npm run gen-icons` — regenerate the placeholder PWA icons in `public/icons/`
 
+## Configuration
+
+The `api/conversation` serverless function proxies AI calls so the provider API key never reaches the browser or this public repo. Copy `.env.example` to `.env` and fill in a real key for local development:
+
+```bash
+cp .env.example .env
+```
+
+- `AI_PROVIDER` — which provider to call (only `gemini` is currently supported)
+- `AI_MODEL` — the model name, swappable without a code change (defaults to `gemini-2.5-flash-lite`)
+- `GEMINI_API_KEY` — server-side only secret, get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+
 ## Deploying to Vercel
 
-This is a zero-config Vite project — Vercel autodetects the framework from `package.json`.
+This is a zero-config Vite project — Vercel autodetects the framework from `package.json` and the serverless function under `api/`.
 
 1. Import this GitHub repo in the [Vercel dashboard](https://vercel.com/new) (one-time, manual — requires your own Vercel account login, so it isn't automated here).
 2. Leave the default build settings (`npm run build`, output directory `dist`).
-3. Every push to `main` deploys automatically after that.
+3. Set `AI_PROVIDER`, `AI_MODEL`, and `GEMINI_API_KEY` as environment variables in the Vercel project settings (same names as `.env.example`).
+4. Every push to `main` deploys automatically after that.
