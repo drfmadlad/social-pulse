@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { saveHistoryEntry } from "../history/historyStore";
 import { AiProxyError, type ChatMessage } from "./aiProxyClient";
-import { requestFeedbackSummary, type FeedbackPoint, type FeedbackSummary } from "./feedbackSummary";
+import { FeedbackSummaryView } from "./FeedbackSummaryView";
+import { requestFeedbackSummary, type FeedbackSummary } from "./feedbackSummary";
 import type { ScenarioCategory } from "./scenarioCategories";
 import { useLatestRequestGuard } from "./useLatestRequestGuard";
 
@@ -15,19 +16,6 @@ type Status =
   | { kind: "loading" }
   | { kind: "ready"; summary: FeedbackSummary }
   | { kind: "error"; message: string };
-
-function FeedbackPointList({ points }: { points: FeedbackPoint[] }) {
-  return (
-    <ul>
-      {points.map((point, index) => (
-        <li key={index}>
-          <blockquote>&ldquo;{point.quote}&rdquo;</blockquote>
-          {point.explanation && <p>{point.explanation}</p>}
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export function FeedbackSummaryScreen({ category, transcript, onBack }: FeedbackSummaryScreenProps) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
@@ -62,7 +50,7 @@ export function FeedbackSummaryScreen({ category, transcript, onBack }: Feedback
 
   return (
     <div className="feedback-summary">
-      <button type="button" className="chat-screen__back" onClick={onBack}>
+      <button type="button" className="back-button" onClick={onBack}>
         ← Back to categories
       </button>
       <h3>Feedback on your conversation with {category.personaName}</h3>
@@ -75,18 +63,7 @@ export function FeedbackSummaryScreen({ category, transcript, onBack }: Feedback
           </button>
         </div>
       )}
-      {status.kind === "ready" && (
-        <>
-          <section aria-labelledby="feedback-did-well">
-            <h4 id="feedback-did-well">What you did well</h4>
-            <FeedbackPointList points={status.summary.didWell} />
-          </section>
-          <section aria-labelledby="feedback-can-improve">
-            <h4 id="feedback-can-improve">What you can do better</h4>
-            <FeedbackPointList points={status.summary.canImprove} />
-          </section>
-        </>
-      )}
+      {status.kind === "ready" && <FeedbackSummaryView summary={status.summary} />}
     </div>
   );
 }

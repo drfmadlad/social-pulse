@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { AiProxyError, requestAiReply, type ChatMessage } from "./aiProxyClient";
 import type { ScenarioCategory } from "./scenarioCategories";
+import { TranscriptView } from "./TranscriptView";
 import { useLatestRequestGuard } from "./useLatestRequestGuard";
 
 type Phase = "loading-opening" | "chatting" | "sending" | "error";
@@ -61,18 +62,11 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
 
   return (
     <div className="chat-screen">
-      <button type="button" className="chat-screen__back" onClick={onBack}>
+      <button type="button" className="back-button" onClick={onBack}>
         ← Back to categories
       </button>
       <h3>{category.personaName}</h3>
-      <ul className="chat-screen__messages">
-        {turns.map((turn, index) => (
-          <li key={`${turn.role}-${index}`} className={`chat-message chat-message--${turn.role}`}>
-            <span className="chat-message__author">{turn.role === "user" ? "You" : category.personaName}</span>
-            <p>{turn.content}</p>
-          </li>
-        ))}
-      </ul>
+      <TranscriptView transcript={turns} personaName={category.personaName} />
       {isBusy && <p role="status">{category.personaName} is typing…</p>}
       {phase === "error" && errorMessage && (
         <div role="alert" className="chat-screen__error">

@@ -15,6 +15,13 @@ export interface HistoryEntry {
 const DB_NAME = "social-pulse";
 const DB_VERSION = 1;
 const STORE_NAME = "historyEntries";
+const CHANGE_EVENT = "social-pulse:history-changed";
+
+/** Notifies subscribers when a History entry is saved, so an already-mounted list can refresh live. */
+export function subscribeToHistoryChanges(callback: () => void): () => void {
+  window.addEventListener(CHANGE_EVENT, callback);
+  return () => window.removeEventListener(CHANGE_EVENT, callback);
+}
 
 function promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -58,6 +65,7 @@ export async function saveHistoryEntry(entry: {
     db.close();
   }
 
+  window.dispatchEvent(new Event(CHANGE_EVENT));
   return fullEntry;
 }
 
