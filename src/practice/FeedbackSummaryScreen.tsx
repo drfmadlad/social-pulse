@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { saveHistoryEntry } from "../history/historyStore";
 import { AiProxyError, type ChatMessage } from "./aiProxyClient";
 import { requestFeedbackSummary, type FeedbackPoint, type FeedbackSummary } from "./feedbackSummary";
 import type { ScenarioCategory } from "./scenarioCategories";
@@ -37,6 +38,12 @@ export function FeedbackSummaryScreen({ category, transcript, onBack }: Feedback
     setStatus({ kind: "loading" });
     try {
       const summary = await requestFeedbackSummary(category, transcript);
+      if (isStale(requestId)) return;
+      try {
+        await saveHistoryEntry({ category, transcript, summary });
+      } catch (error) {
+        console.error("Failed to save Practice Conversation to History", error);
+      }
       if (isStale(requestId)) return;
       setStatus({ kind: "ready", summary });
     } catch (error) {

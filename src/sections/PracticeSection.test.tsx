@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { getAllHistoryEntries, resetHistoryStoreForTests } from "../history/historyStore";
 import { scenarioCategories } from "../practice/scenarioCategories";
 import { PracticeSection } from "./PracticeSection";
 
@@ -27,8 +28,9 @@ function mockFeedbackSummary(): Response {
   );
 }
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllGlobals();
+  await resetHistoryStoreForTests();
 });
 
 describe("PracticeSection", () => {
@@ -70,6 +72,21 @@ describe("PracticeSection", () => {
     expect(screen.getAllByText("“Hi, nice to meet you!”")).toHaveLength(2);
     expect(screen.getByText("A warm, direct opener sets a friendly tone.")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    await waitFor(async () => {
+      const entries = await getAllHistoryEntries();
+      expect(entries).toHaveLength(1);
+    });
+    const [entry] = await getAllHistoryEntries();
+    expect(entry.categoryId).toBe("dating");
+    expect(entry.personaName).toBe("Jordan");
+    expect(entry.transcript).toEqual([
+      { role: "assistant", content: "Hey! Thanks for coming out tonight." },
+      { role: "user", content: "Hi, nice to meet you!" },
+      { role: "assistant", content: "That sounds like a great start!" },
+    ]);
+    expect(entry.summary.didWell).toHaveLength(1);
+    expect(entry.summary.canImprove).toHaveLength(1);
   });
 
   it("shows a visible error with a retry action when an AI call fails, and recovers on retry", async () => {
