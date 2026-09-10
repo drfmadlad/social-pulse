@@ -1,0 +1,49 @@
+:root {
+  color-scheme: light dark;
+  --color-bg: #0f0f1a;
+  --color-surface: #1c1b2e;
+  --color-brand: #6c5ce7;
+  --color-accent: #ff7edb;
+  --color-text: #f4f2ff;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.home-feed {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.home-header h1 {
+  font-size: 1.75rem;
+  background: linear-gradient(90deg, var(--color-brand), var(--color-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.home-section {
+  background: var(--color-surface);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  margin-block: 1rem;
+}
+
+.home-section h2 {
+  margin: 0 0 0.5rem;
+}
+
+.home-section__placeholder {
+  color: color-mix(in srgb, var(--color-text) 65%, transparent);
+  margin: 0;
+}
