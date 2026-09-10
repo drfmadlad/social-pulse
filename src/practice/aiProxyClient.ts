@@ -17,7 +17,7 @@ export class AiProxyError extends Error {
   }
 }
 
-export async function requestPersonaReply(messages: ChatMessage[]): Promise<ChatMessage> {
+export async function requestAiReply(messages: ChatMessage[]): Promise<ChatMessage> {
   let response: Response;
   try {
     response = await fetch("/api/conversation", {

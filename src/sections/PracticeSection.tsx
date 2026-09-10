@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChatScreen } from "../practice/ChatScreen";
 import type { ChatMessage } from "../practice/aiProxyClient";
+import { FeedbackSummaryScreen } from "../practice/FeedbackSummaryScreen";
 import { scenarioCategories, type ScenarioCategory } from "../practice/scenarioCategories";
 
 type PracticeView =
@@ -33,15 +34,11 @@ export function PracticeSection() {
         />
       )}
       {view.kind === "ended" && (
-        <div className="practice-ended" role="status">
-          <p>
-            Conversation with {view.category.personaName} ended — {view.transcript.length} messages captured.
-          </p>
-          <p className="practice-ended__note">Feedback is coming in a future update.</p>
-          <button type="button" onClick={() => setView({ kind: "categories" })}>
-            Back to categories
-          </button>
-        </div>
+        <FeedbackSummaryScreen
+          category={view.category}
+          transcript={view.transcript}
+          onBack={() => setView({ kind: "categories" })}
+        />
       )}
     </section>
   );

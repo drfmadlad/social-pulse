@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { AiProxyError, requestPersonaReply, type ChatMessage } from "./aiProxyClient";
+import { AiProxyError, requestAiReply, type ChatMessage } from "./aiProxyClient";
 import type { ScenarioCategory } from "./scenarioCategories";
+import { useLatestRequestGuard } from "./useLatestRequestGuard";
 
 type Phase = "loading-opening" | "chatting" | "sending" | "error";
 
@@ -15,12 +16,14 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
   const [phase, setPhase] = useState<Phase>("loading-opening");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const { start, isStale } = useLatestRequestGuard();
 
   const isBusy = phase === "loading-opening" || phase === "sending";
   const canSend = !isBusy && draft.trim().length > 0;
   const canEnd = phase === "chatting" || phase === "error";
 
   async function sendTurns(nextTurns: ChatMessage[]) {
+    const requestId = start();
     const isOpeningLine = nextTurns.length === 0;
     setTurns(nextTurns);
     setPhase(isOpeningLine ? "loading-opening" : "sending");
@@ -28,10 +31,12 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
 
     try {
       const systemMessage: ChatMessage = { role: "system", content: category.systemPrompt };
-      const reply = await requestPersonaReply([systemMessage, ...nextTurns]);
+      const reply = await requestAiReply([systemMessage, ...nextTurns]);
+      if (isStale(requestId)) return;
       setTurns([...nextTurns, reply]);
       setPhase("chatting");
     } catch (error) {
+      if (isStale(requestId)) return;
       setErrorMessage(error instanceof AiProxyError ? error.message : "Something went wrong. Please try again.");
       setPhase("error");
     }
