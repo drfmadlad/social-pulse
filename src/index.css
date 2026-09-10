@@ -47,3 +47,89 @@ body {
   color: color-mix(in srgb, var(--color-text) 65%, transparent);
   margin: 0;
 }
+
+.scenario-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.scenario-list button {
+  width: 100%;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--color-brand) 25%, var(--color-surface));
+  color: var(--color-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-screen__back {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  padding: 0;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+}
+
+.chat-screen__messages {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat-message {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  max-width: 80%;
+}
+
+.chat-message--user {
+  align-self: flex-end;
+  background: color-mix(in srgb, var(--color-brand) 35%, var(--color-surface));
+}
+
+.chat-message__author {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.chat-message p {
+  margin: 0.1rem 0 0;
+}
+
+.chat-screen__error {
+  color: var(--color-accent);
+  margin-bottom: 0.75rem;
+}
+
+.chat-screen form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.chat-screen form label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.chat-screen form input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  border: none;
+}
