@@ -8,7 +8,7 @@ vi.mock("./_lib/aiProvider.js", async () => {
 });
 
 import { callAiProvider } from "./_lib/aiProvider.js";
-import handler from "./conversation";
+import handler from "./conversation.js";
 
 const callAiProviderMock = vi.mocked(callAiProvider);
 
