@@ -17,7 +17,7 @@ export class AiProviderError extends Error {
   }
 }
 
-const DEFAULT_MODEL = "gemini-2.5-flash-lite";
+const DEFAULT_MODEL = "gemini-3.5-flash-lite";
 
 export async function callAiProvider(messages: ChatMessage[]): Promise<{ content: string }> {
   const provider = process.env.AI_PROVIDER ?? "gemini";
@@ -45,6 +45,10 @@ async function callGemini(messages: ChatMessage[]): Promise<{ content: string }>
       role: message.role === "assistant" ? "model" : "user",
       parts: [{ text: message.content }],
     }));
+
+  if (contents.length === 0) {
+    contents.push({ role: "user", parts: [{ text: "(Begin the conversation in character.)" }] });
+  }
 
   let response: Response;
   try {

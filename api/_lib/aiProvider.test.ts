@@ -74,7 +74,7 @@ describe("callAiProvider", () => {
     expect((init.headers as Record<string, string>)["x-goog-api-key"]).toBe("test-secret-key");
   });
 
-  it("defaults to gemini-2.5-flash-lite when AI_MODEL is unset", async () => {
+  it("defaults to gemini-3.5-flash-lite when AI_MODEL is unset", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse(200, { candidates: [{ content: { parts: [{ text: "hi" }] } }] }),
     );
@@ -83,7 +83,7 @@ describe("callAiProvider", () => {
     await callAiProvider(messages);
 
     const [url] = fetchMock.mock.calls[0] as [string];
-    expect(url).toContain("gemini-2.5-flash-lite");
+    expect(url).toContain("gemini-3.5-flash-lite");
   });
 
   it("sends the system message as systemInstruction and other turns as contents", async () => {
@@ -105,6 +105,20 @@ describe("callAiProvider", () => {
       { role: "user", parts: [{ text: "Hello" }] },
       { role: "model", parts: [{ text: "Hi!" }] },
     ]);
+  });
+
+  it("sends a synthetic starter turn when there are no user/assistant messages yet", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, { candidates: [{ content: { parts: [{ text: "hi" }] } }] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await callAiProvider([{ role: "system", content: "Be nice." }]);
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.contents).toHaveLength(1);
+    expect(body.contents[0].role).toBe("user");
   });
 
   it("never includes the API key in the returned content or a thrown error message", async () => {

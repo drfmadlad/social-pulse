@@ -26,7 +26,7 @@ cp .env.example .env
 ```
 
 - `AI_PROVIDER` — which provider to call (only `gemini` is currently supported)
-- `AI_MODEL` — the model name, swappable without a code change (defaults to `gemini-2.5-flash-lite`)
+- `AI_MODEL` — the model name, swappable without a code change (defaults to `gemini-3.5-flash-lite`)
 - `GEMINI_API_KEY` — server-side only secret, get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 
 ## Deploying to Vercel
