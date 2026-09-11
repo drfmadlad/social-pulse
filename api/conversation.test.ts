@@ -1,13 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AiProviderError } from "./_lib/aiProvider";
+import { AiProviderError } from "./_lib/aiProvider.js";
 
-vi.mock("./_lib/aiProvider", async () => {
-  const actual = await vi.importActual<typeof import("./_lib/aiProvider")>("./_lib/aiProvider");
+vi.mock("./_lib/aiProvider.js", async () => {
+  const actual = await vi.importActual<typeof import("./_lib/aiProvider.js")>("./_lib/aiProvider.js");
   return { ...actual, callAiProvider: vi.fn() };
 });
 
-import { callAiProvider } from "./_lib/aiProvider";
+import { callAiProvider } from "./_lib/aiProvider.js";
 import handler from "./conversation";
 
 const callAiProviderMock = vi.mocked(callAiProvider);

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { AiProviderError, callAiProvider, type ChatMessage } from "./_lib/aiProvider";
+import { AiProviderError, callAiProvider, type ChatMessage } from "./_lib/aiProvider.js";
 
 function isValidMessage(value: unknown): value is ChatMessage {
   if (typeof value !== "object" || value === null) return false;
