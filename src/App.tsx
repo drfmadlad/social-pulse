@@ -7,21 +7,31 @@ import { LessonDetailScreen } from "./lessons/LessonDetailScreen";
 import { LessonsListScreen } from "./lessons/LessonsListScreen";
 import { HistoryEntryDetailScreen } from "./history/HistoryEntryDetailScreen";
 import { HistoryListScreen } from "./history/HistoryListScreen";
+import { ScreenDirectionProvider, ScreenTransition } from "./ScreenTransition";
 
 export function AppRoutes() {
   return (
     <div className="home-feed">
-      <Routes>
-        <Route path="/" element={<HomeScreen />} />
-        <Route path="/practice" element={<PracticePickerScreen />} />
-        <Route path="/practice/:categoryId" element={<ConversationScreen />} />
-        <Route path="/practice/:categoryId/feedback" element={<FeedbackSummaryRoute />} />
-        <Route path="/lessons" element={<LessonsListScreen />} />
-        <Route path="/lessons/:lessonId" element={<LessonDetailScreen />} />
-        <Route path="/history" element={<HistoryListScreen />} />
-        <Route path="/history/:entryId" element={<HistoryEntryDetailScreen />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ScreenDirectionProvider>
+        <Routes>
+          <Route path="/" element={<ScreenTransition><HomeScreen /></ScreenTransition>} />
+          <Route path="/practice" element={<ScreenTransition><PracticePickerScreen /></ScreenTransition>} />
+          {/* Conversation is position:fixed/full-viewport; it animates itself instead of via this wrapper. */}
+          <Route path="/practice/:categoryId" element={<ConversationScreen />} />
+          <Route
+            path="/practice/:categoryId/feedback"
+            element={<ScreenTransition><FeedbackSummaryRoute /></ScreenTransition>}
+          />
+          <Route path="/lessons" element={<ScreenTransition><LessonsListScreen /></ScreenTransition>} />
+          <Route path="/lessons/:lessonId" element={<ScreenTransition><LessonDetailScreen /></ScreenTransition>} />
+          <Route path="/history" element={<ScreenTransition><HistoryListScreen /></ScreenTransition>} />
+          <Route
+            path="/history/:entryId"
+            element={<ScreenTransition><HistoryEntryDetailScreen /></ScreenTransition>}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ScreenDirectionProvider>
     </div>
   );
 }

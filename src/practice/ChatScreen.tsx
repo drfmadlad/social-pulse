@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { AiProxyError, requestAiReply, type ChatMessage } from "./aiProxyClient";
+import { useScreenDirection } from "../ScreenTransition";
+import { screenTransitionClassName } from "../screenDirection";
 import type { ScenarioCategory } from "./scenarioCategories";
 import { TranscriptView } from "./TranscriptView";
 import { useLatestRequestGuard } from "./useLatestRequestGuard";
@@ -18,6 +20,7 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const { start, isStale } = useLatestRequestGuard();
+  const direction = useScreenDirection();
 
   const isBusy = phase === "loading-opening" || phase === "sending";
   const canSend = !isBusy && draft.trim().length > 0;
@@ -69,7 +72,7 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
   }
 
   return (
-    <div className="conversation-screen">
+    <div className={`conversation-screen ${screenTransitionClassName(direction)}`}>
       <header className="conversation-screen__header">
         <button type="button" className="back-button" onClick={handleBack}>
           ← Practice

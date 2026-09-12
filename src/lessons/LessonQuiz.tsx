@@ -37,7 +37,10 @@ export function LessonQuiz({ questions }: LessonQuizProps) {
           <fieldset key={question.id} className="lesson-quiz__question">
             <legend>{question.prompt}</legend>
             {question.options.map((option) => (
-              <label key={option.id} className="lesson-quiz__option">
+              <label
+                key={option.id}
+                className={`lesson-quiz__option${selected === option.id ? " lesson-quiz__option--selected" : ""}`}
+              >
                 <input
                   type="radio"
                   name={`${quizId}-${question.id}`}
