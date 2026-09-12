@@ -1,3 +1,26 @@
+## Screen structure and visual language
+
+Two documents at the repo root are the source of truth for how this app is put together. Read
+both before changing any screen, and keep them current when a decision changes.
+
+- **`INFORMATION-ARCHITECTURE.md`** — the screen inventory, what each screen is responsible for,
+  and how navigation flows between them. The app is a navigation stack rooted at Home with **no
+  tab bar**; detail views take over the screen rather than rendering inside a homepage card.
+- **`DESIGN.md`** — the design language: color tokens, type scale, spacing scale, radii,
+  per-surface density, motion specs, and the `DESIGN_VARIANCE` / `MOTION_INTENSITY` /
+  `VISUAL_DENSITY` dial values.
+
+Two standing constraints these encode, both easy to undo by accident:
+
+- **No gamification.** No streaks, XP, scores, leaderboards or progress charts (issue #1, user
+  story 28). The vocabulary app in `docs/design-references/` is built on streak mechanics; only
+  its palette discipline, card shapes and copy tone are borrowed.
+- **Home stays calm.** Five elements, hard ceiling. New features get their own screen rather
+  than another homepage card.
+
+Implementation runs screen by screen, so a session may touch only one screen — the docs, not the
+neighbouring code, are what keep the rest consistent with it.
+
 ## Agent skills
 
 ### Issue tracker
