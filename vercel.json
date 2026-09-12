@@ -1,5 +1,7 @@
 {
   "functions": {
-    "api/conversation.ts": {}
+    "api/conversation.ts": {
+      "maxDuration": 30
+    }
   }
 }
