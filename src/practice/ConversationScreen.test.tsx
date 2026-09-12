@@ -44,12 +44,77 @@ describe("ConversationScreen", () => {
     expect(screen.getByRole("button", { name: "← Practice" })).toBeInTheDocument();
   });
 
-  it("navigates back to the Practice picker when the back button is used", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
+  it("shows the typing indicator inside the transcript rather than as a floating status line", () => {
+    const fetchMock = vi.fn(() => new Promise(() => {}));
     vi.stubGlobal("fetch", fetchMock);
 
     renderAt("/practice/dating");
+
+    const indicator = screen.getByRole("status");
+    expect(indicator.closest("ul")).toHaveClass("chat-screen__messages");
+    expect(indicator).toHaveAccessibleName(/is typing/i);
+  });
+
+  it("does not ask for confirmation when backing out before any reply has arrived", () => {
+    const fetchMock = vi.fn(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    const confirmSpy = vi.spyOn(window, "confirm");
+
+    renderAt("/practice/dating");
+    fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(screen.getByText("Practice picker")).toBeInTheDocument();
+  });
+
+  it("does not ask for confirmation when backing out before the user has said anything", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
+    vi.stubGlobal("fetch", fetchMock);
+    const confirmSpy = vi.spyOn(window, "confirm");
+
+    renderAt("/practice/dating");
     await screen.findByText("Hey! Good to see you.");
+
+    fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(screen.getByText("Practice picker")).toBeInTheDocument();
+  });
+
+  it("asks for confirmation before leaving a conversation the user has actually taken part in, and stays if declined", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+      .mockResolvedValueOnce(mockReply("Likewise!"));
+    vi.stubGlobal("fetch", fetchMock);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText("Likewise!");
+
+    fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(screen.queryByText("Practice picker")).not.toBeInTheDocument();
+    expect(screen.getByText("Likewise!")).toBeInTheDocument();
+  });
+
+  it("navigates back to the Practice picker when leaving a conversation in progress and confirmed", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+      .mockResolvedValueOnce(mockReply("Likewise!"));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText("Likewise!");
 
     fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
 

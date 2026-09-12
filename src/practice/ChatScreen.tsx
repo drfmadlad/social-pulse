@@ -60,23 +60,44 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
     void sendTurns(turns);
   }
 
+  function handleBack() {
+    const hasSaidSomething = turns.some((turn) => turn.role === "user");
+    if (hasSaidSomething && !window.confirm("Leave this conversation? It won't be saved.")) {
+      return;
+    }
+    onBack();
+  }
+
   return (
-    <div className="chat-screen">
-      <button type="button" className="back-button" onClick={onBack}>
-        ← Practice
-      </button>
-      <h3>{category.personaName}</h3>
-      <TranscriptView transcript={turns} personaName={category.personaName} />
-      {isBusy && <p role="status">{category.personaName} is typing…</p>}
-      {phase === "error" && errorMessage && (
-        <div role="alert" className="chat-screen__error">
-          <p>{errorMessage}</p>
-          <button type="button" className="button-primary" onClick={handleRetry}>
-            Try again
-          </button>
-        </div>
-      )}
-      <form onSubmit={handleSend}>
+    <div className="conversation-screen">
+      <header className="conversation-screen__header">
+        <button type="button" className="back-button" onClick={handleBack}>
+          ← Practice
+        </button>
+        <h3>{category.personaName}</h3>
+        <button
+          type="button"
+          className="button-primary conversation-screen__end-button"
+          disabled={!canEnd}
+          onClick={() => onEnd(turns)}
+        >
+          End &amp; get feedback
+        </button>
+      </header>
+
+      <div className="conversation-screen__transcript">
+        <TranscriptView transcript={turns} personaName={category.personaName} isTyping={isBusy} />
+        {phase === "error" && errorMessage && (
+          <div role="alert" className="chat-screen__error">
+            <p>{errorMessage}</p>
+            <button type="button" className="button-primary" onClick={handleRetry}>
+              Try again
+            </button>
+          </div>
+        )}
+      </div>
+
+      <form className="conversation-screen__composer" onSubmit={handleSend}>
         <label htmlFor="chat-draft">Message</label>
         <input
           id="chat-draft"
@@ -88,9 +109,6 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
           Send
         </button>
       </form>
-      <button type="button" className="button-primary" disabled={!canEnd} onClick={() => onEnd(turns)}>
-        End &amp; get feedback
-      </button>
     </div>
   );
 }

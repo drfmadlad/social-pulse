@@ -16,9 +16,5 @@ export function ConversationScreen() {
     navigate(`/practice/${category!.id}/feedback`, { state: { transcript } });
   }
 
-  return (
-    <div className="home-section">
-      <ChatScreen category={category} onBack={() => navigate("/practice")} onEnd={handleEnd} />
-    </div>
-  );
+  return <ChatScreen category={category} onBack={() => navigate("/practice")} onEnd={handleEnd} />;
 }
