@@ -2,6 +2,8 @@
 
 A personal EQ/communication-coaching PWA. See [CONTEXT.md](./CONTEXT.md) for domain vocabulary.
 
+Live at [social-pulse-ruby.vercel.app](https://social-pulse-ruby.vercel.app).
+
 ## Development
 
 ```bash
