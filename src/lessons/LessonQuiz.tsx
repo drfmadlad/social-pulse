@@ -58,7 +58,7 @@ export function LessonQuiz({ questions }: LessonQuizProps) {
         );
       })}
       {!checked && (
-        <button type="submit" disabled={!answeredAll}>
+        <button type="submit" className="button-primary" disabled={!answeredAll}>
           Check answers
         </button>
       )}
@@ -67,7 +67,7 @@ export function LessonQuiz({ questions }: LessonQuizProps) {
           <p className="lesson-quiz__score" role="status">
             You got {correctCount} of {questions.length} correct.
           </p>
-          <button type="button" onClick={retake}>
+          <button type="button" className="button-primary" onClick={retake}>
             Retake quiz
           </button>
         </>

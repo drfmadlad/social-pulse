@@ -15,8 +15,8 @@ export default defineConfig({
         description: "Practice real-world conversations and get feedback on how you did.",
         start_url: "/",
         display: "standalone",
-        background_color: "#0f0f1a",
-        theme_color: "#6c5ce7",
+        background_color: "#F3F0E8",
+        theme_color: "#F3F0E8",
         icons: [
           {
             src: "icons/icon-192.png",

@@ -71,7 +71,7 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
       {phase === "error" && errorMessage && (
         <div role="alert" className="chat-screen__error">
           <p>{errorMessage}</p>
-          <button type="button" onClick={handleRetry}>
+          <button type="button" className="button-primary" onClick={handleRetry}>
             Try again
           </button>
         </div>
@@ -84,11 +84,11 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
           disabled={isBusy}
           onChange={(event) => setDraft(event.target.value)}
         />
-        <button type="submit" disabled={!canSend}>
+        <button type="submit" className="button-primary" disabled={!canSend}>
           Send
         </button>
       </form>
-      <button type="button" disabled={!canEnd} onClick={() => onEnd(turns)}>
+      <button type="button" className="button-primary" disabled={!canEnd} onClick={() => onEnd(turns)}>
         End &amp; get feedback
       </button>
     </div>

@@ -58,7 +58,7 @@ export function FeedbackSummaryScreen({ category, transcript, onBack }: Feedback
       {status.kind === "error" && (
         <div role="alert" className="chat-screen__error">
           <p>{status.message}</p>
-          <button type="button" onClick={() => void generate()}>
+          <button type="button" className="button-primary" onClick={() => void generate()}>
             Try again
           </button>
         </div>
