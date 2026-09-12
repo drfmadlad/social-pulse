@@ -73,8 +73,50 @@ body {
 
 .home-header h1 {
   margin: 0;
-  font: var(--text-display);
+  font: var(--text-title);
   color: var(--ink);
+}
+
+.todays-idea {
+  display: block;
+  margin-top: var(--space-8);
+  padding: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.todays-idea__eyebrow {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--primary);
+  font: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.todays-idea__title {
+  display: block;
+  font: var(--text-display);
+}
+
+.todays-idea__summary {
+  display: block;
+  margin-top: var(--space-2);
+  color: var(--ink-muted);
+  font: var(--text-body);
+}
+
+.start-practicing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: var(--space-8);
+  text-decoration: none;
 }
 
 .home-section {
@@ -109,13 +151,14 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-8);
 }
 
 .home-nav a {
   min-height: 44px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -123,6 +166,11 @@ body {
   color: var(--ink);
   font: var(--text-heading);
   text-decoration: none;
+}
+
+.home-nav__count {
+  color: var(--ink-faint);
+  font: var(--text-sm);
 }
 
 .scenario-list {

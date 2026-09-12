@@ -30,11 +30,13 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Social Pulse" })).toBeInTheDocument();
   });
 
-  it("renders Home with links to Lessons, Practice, and History, in order", () => {
+  it("renders Home as a calm screen with a Today's idea, a single primary action, and quiet Lessons/History rows", () => {
     renderApp();
 
-    const links = screen.getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Lessons", "Practice", "History"]);
+    expect(screen.getByRole("heading", { name: "Social Pulse" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start practicing" })).toHaveAttribute("href", "/practice");
+    expect(screen.getByRole("link", { name: /^Lessons/ })).toHaveAttribute("href", "/lessons");
+    expect(screen.getByRole("link", { name: /^History/ })).toHaveAttribute("href", "/history");
   });
 
   it("does not render tab navigation", () => {
@@ -54,7 +56,7 @@ describe("App", () => {
     renderApp();
     expect(screen.getByTestId("location")).toHaveTextContent("/");
 
-    fireEvent.click(screen.getByRole("link", { name: "Practice" }));
+    fireEvent.click(screen.getByRole("link", { name: "Start practicing" }));
     expect(screen.getByTestId("location")).toHaveTextContent("/practice");
     expect(screen.queryByRole("heading", { name: "Lessons" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "History" })).not.toBeInTheDocument();
@@ -76,9 +78,9 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(screen.getByTestId("location")).toHaveTextContent("/");
-    expect(screen.getByRole("link", { name: "History" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^History/ })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("link", { name: "History" }));
+    fireEvent.click(screen.getByRole("link", { name: /^History/ }));
     expect(screen.getByTestId("location")).toHaveTextContent("/history");
 
     const historyEntryLink = await screen.findByRole("link", { name: /Dating/ });
