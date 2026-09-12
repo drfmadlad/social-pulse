@@ -24,6 +24,6 @@ describe("LessonDetailScreen", () => {
   it("deep-links directly to a Lesson", () => {
     renderAt("/lessons/active-listening");
 
-    expect(screen.getByRole("heading", { name: "Active Listening" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^Active Listening/ })).toBeInTheDocument();
   });
 });

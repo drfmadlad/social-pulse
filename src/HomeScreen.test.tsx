@@ -65,7 +65,7 @@ describe("HomeScreen", () => {
   it("shows no draft-content badge", () => {
     renderHome();
 
-    expect(screen.queryByText("Placeholder")).not.toBeInTheDocument();
+    expect(screen.queryByText("Draft")).not.toBeInTheDocument();
   });
 
   it("shows no streak, XP, score, leaderboard, or progress indicator", () => {

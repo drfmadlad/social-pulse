@@ -10,7 +10,12 @@ export function PracticePickerScreen() {
       <ul className="scenario-list">
         {scenarioCategories.map((category) => (
           <li key={category.id}>
-            <Link to={`/practice/${category.id}`}>{category.name}</Link>
+            <Link className="scenario-list__card" to={`/practice/${category.id}`}>
+              <span className="scenario-list__name">{category.name}</span>
+              <span className="scenario-list__detail">
+                {category.personaName} · {category.blurb}
+              </span>
+            </Link>
           </li>
         ))}
       </ul>

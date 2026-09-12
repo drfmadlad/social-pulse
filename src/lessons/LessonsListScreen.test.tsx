@@ -41,7 +41,7 @@ describe("LessonsListScreen", () => {
     renderAt("/lessons");
 
     expect(activeListening.isPlaceholder).toBe(true);
-    expect(screen.getAllByText("Placeholder")).toHaveLength(lessons.filter((lesson) => lesson.isPlaceholder).length);
+    expect(screen.getAllByText("Draft")).toHaveLength(lessons.filter((lesson) => lesson.isPlaceholder).length);
   });
 
   it("names Home as the back destination", () => {
@@ -54,7 +54,8 @@ describe("LessonsListScreen", () => {
     renderAt("/lessons");
     fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
 
-    expect(screen.getByRole("heading", { name: activeListening.title })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: new RegExp(`^${activeListening.title}`) })).toBeInTheDocument();
+    expect(screen.getByText("Draft")).toBeInTheDocument();
     for (const paragraph of activeListening.passage) {
       expect(screen.getByText(paragraph)).toBeInTheDocument();
     }
@@ -96,7 +97,7 @@ describe("LessonsListScreen", () => {
   it("returns to the Lessons list from a Lesson", () => {
     renderAt("/lessons");
     fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
-    fireEvent.click(screen.getByRole("button", { name: "← Back to Lessons" }));
+    fireEvent.click(screen.getByRole("button", { name: "← Lessons" }));
 
     for (const lesson of lessons) {
       expect(screen.getByRole("link", { name: new RegExp(lesson.title) })).toBeInTheDocument();

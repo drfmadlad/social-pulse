@@ -33,7 +33,7 @@ describe("HistoryListScreen", () => {
   it("shows a placeholder when there is no History yet", async () => {
     renderAt("/history");
 
-    expect(await screen.findByText("Past Practice Conversations will appear here soon.")).toBeInTheDocument();
+    expect(await screen.findByText("Your finished conversations will show up here.")).toBeInTheDocument();
   });
 
   it("names Home as the back destination", () => {
@@ -92,7 +92,7 @@ describe("HistoryListScreen", () => {
   it("refreshes live when a new History entry is saved elsewhere", async () => {
     renderAt("/history");
 
-    expect(await screen.findByText("Past Practice Conversations will appear here soon.")).toBeInTheDocument();
+    expect(await screen.findByText("Your finished conversations will show up here.")).toBeInTheDocument();
 
     await saveHistoryEntry({
       category: datingCategory,

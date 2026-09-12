@@ -10,7 +10,7 @@ export function HistoryListScreen() {
       <HomeLink />
       <h2 id="history-heading">History</h2>
       {entries.length === 0 ? (
-        <p className="home-section__placeholder">Past Practice Conversations will appear here soon.</p>
+        <p className="home-section__placeholder">Your finished conversations will show up here.</p>
       ) : (
         <HistoryList entries={entries} />
       )}

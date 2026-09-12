@@ -5,7 +5,7 @@ import { scenarioCategories } from "./scenarioCategories";
 import { PracticePickerScreen } from "./PracticePickerScreen";
 
 describe("PracticePickerScreen", () => {
-  it("links to every Scenario Category's own Conversation URL", () => {
+  it("shows each Scenario Category's persona and setting, linking to its own Conversation URL", () => {
     render(
       <MemoryRouter>
         <PracticePickerScreen />
@@ -14,8 +14,10 @@ describe("PracticePickerScreen", () => {
 
     expect(scenarioCategories).toHaveLength(6);
     for (const category of scenarioCategories) {
-      const link = screen.getByRole("link", { name: category.name });
+      const link = screen.getByRole("link", { name: new RegExp(category.name) });
       expect(link).toHaveAttribute("href", `/practice/${category.id}`);
+      expect(link).toHaveTextContent(category.personaName);
+      expect(link).toHaveTextContent(category.blurb);
     }
   });
 

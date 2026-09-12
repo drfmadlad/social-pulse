@@ -10,14 +10,12 @@ export function LessonDetail({ lesson, onBack }: LessonDetailProps) {
   return (
     <div className="lesson-detail">
       <button type="button" className="back-button" onClick={onBack}>
-        ← Back to Lessons
+        ← Lessons
       </button>
-      <h3>{lesson.title}</h3>
-      {lesson.isPlaceholder && (
-        <p className="lesson-detail__placeholder-note">
-          Placeholder content — this Lesson is a stub while the real material is written.
-        </p>
-      )}
+      <h3>
+        {lesson.title}
+        {lesson.isPlaceholder && <span className="draft-chip">Draft</span>}
+      </h3>
       {lesson.passage.map((paragraph, index) => (
         <p key={index} className="lesson-detail__passage">
           {paragraph}

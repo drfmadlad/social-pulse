@@ -11,9 +11,5 @@ export function LessonDetailScreen() {
     return <Navigate to="/lessons" replace />;
   }
 
-  return (
-    <div className="home-section">
-      <LessonDetail lesson={lesson} onBack={() => navigate("/lessons")} />
-    </div>
-  );
+  return <LessonDetail lesson={lesson} onBack={() => navigate("/lessons")} />;
 }

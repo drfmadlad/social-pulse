@@ -61,7 +61,7 @@ describe("App", () => {
     expect(screen.queryByRole("heading", { name: "Lessons" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "History" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("link", { name: "Dating" }));
+    fireEvent.click(screen.getByRole("link", { name: /^Dating/ }));
     expect(screen.getByTestId("location")).toHaveTextContent("/practice/dating");
     expect(await screen.findByText("Hey! Thanks for coming out tonight.")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Practice" })).not.toBeInTheDocument();
@@ -97,7 +97,7 @@ describe("App", () => {
     renderApp("/practice");
     expect(screen.getByRole("link", { name: "← Home" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("link", { name: "Dating" }));
+    fireEvent.click(screen.getByRole("link", { name: /^Dating/ }));
     expect(await screen.findByRole("button", { name: "← Practice" })).toBeInTheDocument();
   });
 
@@ -117,7 +117,7 @@ describe("App", () => {
   it("deep-links directly to a Lesson detail screen", () => {
     renderApp("/lessons/active-listening");
 
-    expect(screen.getByRole("heading", { name: "Active Listening" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^Active Listening/ })).toBeInTheDocument();
   });
 
   it("redirects to the Lessons list when the Lesson URL names an unknown Lesson", () => {

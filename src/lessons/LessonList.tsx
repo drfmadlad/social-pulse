@@ -13,7 +13,7 @@ export function LessonList({ lessons }: LessonListProps) {
           <Link to={`/lessons/${lesson.id}`}>
             <span className="lesson-list__title">
               {lesson.title}
-              {lesson.isPlaceholder && <span className="lesson-placeholder-badge">Placeholder</span>}
+              {lesson.isPlaceholder && <span className="draft-chip">Draft</span>}
             </span>
             <span className="lesson-list__summary">{lesson.summary}</span>
           </Link>
