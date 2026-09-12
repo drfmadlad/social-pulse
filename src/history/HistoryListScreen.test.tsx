@@ -1,8 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
-import { resetHistoryStoreForTests, saveHistoryEntry } from "../history/historyStore";
 import { scenarioCategories } from "../practice/scenarioCategories";
-import { HistorySection } from "./HistorySection";
+import { resetHistoryStoreForTests, saveHistoryEntry } from "./historyStore";
+import { HistoryEntryDetailScreen } from "./HistoryEntryDetailScreen";
+import { HistoryListScreen } from "./HistoryListScreen";
 
 const datingCategory = scenarioCategories.find((category) => category.id === "dating")!;
 const jobInterviewCategory = scenarioCategories.find((category) => category.id === "job-interview")!;
@@ -12,18 +14,35 @@ const summary = {
   canImprove: [{ quote: "Hi, nice to meet you!" }],
 };
 
+function renderAt(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/history" element={<HistoryListScreen />} />
+        <Route path="/history/:entryId" element={<HistoryEntryDetailScreen />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 afterEach(async () => {
   await resetHistoryStoreForTests();
 });
 
-describe("HistorySection", () => {
+describe("HistoryListScreen", () => {
   it("shows a placeholder when there is no History yet", async () => {
-    render(<HistorySection />);
+    renderAt("/history");
 
     expect(await screen.findByText("Past Practice Conversations will appear here soon.")).toBeInTheDocument();
   });
 
-  it("lists persisted Practice Conversations most recent first, each identifiable by Scenario Category and date/time", async () => {
+  it("names Home as the back destination", () => {
+    renderAt("/history");
+
+    expect(screen.getByRole("link", { name: "← Home" })).toHaveAttribute("href", "/");
+  });
+
+  it("lists persisted Practice Conversations most recent first, each linking to its own detail URL", async () => {
     await saveHistoryEntry({
       category: datingCategory,
       transcript: [{ role: "user", content: "Hi!" }],
@@ -36,16 +55,15 @@ describe("HistorySection", () => {
       summary,
     });
 
-    render(<HistorySection />);
+    renderAt("/history");
 
-    const entryButtons = await screen.findAllByRole("button");
-    expect(entryButtons).toHaveLength(2);
-    expect(entryButtons[0]).toHaveTextContent("Job Interview");
-    expect(entryButtons[1]).toHaveTextContent("Dating");
-    expect(entryButtons[0].querySelector("time")).toBeInTheDocument();
+    const entryLinks = await screen.findAllByRole("link", { name: /Job Interview|Dating/ });
+    expect(entryLinks).toHaveLength(2);
+    expect(entryLinks[0]).toHaveTextContent("Job Interview");
+    expect(entryLinks[1]).toHaveTextContent("Dating");
   });
 
-  it("shows the full saved transcript and Feedback Summary, read-only, when an entry is tapped", async () => {
+  it("shows the full saved transcript and Feedback Summary, read-only, when an entry is opened", async () => {
     await saveHistoryEntry({
       category: datingCategory,
       transcript: [
@@ -55,9 +73,9 @@ describe("HistorySection", () => {
       summary,
     });
 
-    render(<HistorySection />);
+    renderAt("/history");
 
-    fireEvent.click(await screen.findByRole("button", { name: /Dating/ }));
+    fireEvent.click(await screen.findByRole("link", { name: /Dating/ }));
 
     expect(await screen.findByText("Hey! Thanks for coming out tonight.")).toBeInTheDocument();
     expect(screen.getAllByText("Hi, nice to meet you!").length).toBeGreaterThan(0);
@@ -67,12 +85,12 @@ describe("HistorySection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "← Back to History" }));
 
-    expect(await screen.findByRole("button", { name: /Dating/ })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Dating/ })).toBeInTheDocument();
     expect(screen.queryByText("What you did well")).not.toBeInTheDocument();
   });
 
-  it("refreshes live when a new History entry is saved elsewhere on the page", async () => {
-    render(<HistorySection />);
+  it("refreshes live when a new History entry is saved elsewhere", async () => {
+    renderAt("/history");
 
     expect(await screen.findByText("Past Practice Conversations will appear here soon.")).toBeInTheDocument();
 
@@ -82,6 +100,6 @@ describe("HistorySection", () => {
       summary,
     });
 
-    expect(await screen.findByRole("button", { name: /Dating/ })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Dating/ })).toBeInTheDocument();
   });
 });

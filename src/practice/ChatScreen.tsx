@@ -63,7 +63,7 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
   return (
     <div className="chat-screen">
       <button type="button" className="back-button" onClick={onBack}>
-        ← Back to categories
+        ← Practice
       </button>
       <h3>{category.personaName}</h3>
       <TranscriptView transcript={turns} personaName={category.personaName} />

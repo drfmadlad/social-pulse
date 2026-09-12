@@ -1,25 +1,21 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import App from "./App";
+import App, { AppRoutes } from "./App";
 import { resetHistoryStoreForTests } from "./history/historyStore";
+import { mockFeedbackSummary, mockReply } from "./test/apiMocks";
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+function LocationDisplay() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
 }
 
-function mockReply(content: string): Response {
-  return jsonResponse(200, { message: { role: "assistant", content } });
-}
-
-function mockFeedbackSummary(): Response {
-  return mockReply(
-    JSON.stringify({
-      didWell: [{ quote: "Hi, nice to meet you!", explanation: "A warm, direct opener sets a friendly tone." }],
-      canImprove: [{ quote: "Hi, nice to meet you!" }],
-    }),
+function renderApp(initialPath = "/") {
+  return render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <LocationDisplay />
+      <AppRoutes />
+    </MemoryRouter>,
   );
 }
 
@@ -29,24 +25,25 @@ afterEach(async () => {
 });
 
 describe("App", () => {
-  it("renders a single scrollable home feed with Lessons, Practice, and History sections in order", () => {
+  it("renders the real App shell", () => {
     render(<App />);
+    expect(screen.getByRole("heading", { name: "Social Pulse" })).toBeInTheDocument();
+  });
 
-    const headings = screen.getAllByRole("heading", { level: 2 });
-    expect(headings.map((h) => h.textContent)).toEqual([
-      "Lessons",
-      "Practice",
-      "History",
-    ]);
+  it("renders Home with links to Lessons, Practice, and History, in order", () => {
+    renderApp();
+
+    const links = screen.getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual(["Lessons", "Practice", "History"]);
   });
 
   it("does not render tab navigation", () => {
-    render(<App />);
+    renderApp();
 
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   });
 
-  it("adds a completed Practice Conversation to History, and reopening it shows the correct transcript and Feedback Summary", async () => {
+  it("gives each screen its own URL, and keeps a Practice Conversation off the homepage card", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(mockReply("Hey! Thanks for coming out tonight."))
@@ -54,33 +51,83 @@ describe("App", () => {
       .mockResolvedValueOnce(mockFeedbackSummary());
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<App />);
-    const practiceSection = screen.getByRole("heading", { name: "Practice" }).closest("section")!;
-    const historySection = screen.getByRole("heading", { name: "History" }).closest("section")!;
+    renderApp();
+    expect(screen.getByTestId("location")).toHaveTextContent("/");
 
-    expect(within(historySection).getByText("Past Practice Conversations will appear here soon.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "Practice" }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/practice");
+    expect(screen.queryByRole("heading", { name: "Lessons" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "History" })).not.toBeInTheDocument();
 
-    fireEvent.click(within(practiceSection).getByRole("button", { name: "Dating" }));
-    expect(await within(practiceSection).findByText("Hey! Thanks for coming out tonight.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "Dating" }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/practice/dating");
+    expect(await screen.findByText("Hey! Thanks for coming out tonight.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Practice" })).not.toBeInTheDocument();
 
-    fireEvent.change(within(practiceSection).getByLabelText("Message"), {
+    fireEvent.change(screen.getByLabelText("Message"), {
       target: { value: "Hi, nice to meet you!" },
     });
-    fireEvent.click(within(practiceSection).getByRole("button", { name: "Send" }));
-    expect(await within(practiceSection).findByText("That sounds like a great start!")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByText("That sounds like a great start!")).toBeInTheDocument();
 
-    fireEvent.click(within(practiceSection).getByRole("button", { name: "End & get feedback" }));
-    expect(await within(practiceSection).findByText("What you did well")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "End & get feedback" }));
+    expect(await screen.findByText("What you did well")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("/practice/dating/feedback");
 
-    const historyEntryButton = await within(historySection).findByRole("button", { name: /Dating/ });
-    expect(historyEntryButton).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/");
+    expect(screen.getByRole("link", { name: "History" })).toBeInTheDocument();
 
-    fireEvent.click(historyEntryButton);
+    fireEvent.click(screen.getByRole("link", { name: "History" }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/history");
 
-    expect(within(historySection).getByText("Hey! Thanks for coming out tonight.")).toBeInTheDocument();
-    expect(within(historySection).getByText("That sounds like a great start!")).toBeInTheDocument();
-    expect(within(historySection).getByText("What you did well")).toBeInTheDocument();
-    expect(within(historySection).getByText("What you can do better")).toBeInTheDocument();
-    expect(within(historySection).getByText("A warm, direct opener sets a friendly tone.")).toBeInTheDocument();
+    const historyEntryLink = await screen.findByRole("link", { name: /Dating/ });
+    fireEvent.click(historyEntryLink);
+
+    expect(screen.getByTestId("location").textContent).toMatch(/^\/history\/.+/);
+    expect(await screen.findByText("Hey! Thanks for coming out tonight.")).toBeInTheDocument();
+    expect(screen.getByText("That sounds like a great start!")).toBeInTheDocument();
+    expect(screen.getByText("What you did well")).toBeInTheDocument();
+    expect(screen.getByText("What you can do better")).toBeInTheDocument();
+  });
+
+  it("names each back affordance's destination", async () => {
+    renderApp("/practice");
+    expect(screen.getByRole("link", { name: "← Home" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Dating" }));
+    expect(await screen.findByRole("button", { name: "← Practice" })).toBeInTheDocument();
+  });
+
+  it("redirects to the Practice picker when the Conversation URL names an unknown category", () => {
+    renderApp("/practice/not-a-real-category");
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/practice");
+    expect(screen.getByRole("heading", { name: "Practice" })).toBeInTheDocument();
+  });
+
+  it("redirects to the Practice picker when the Feedback Summary URL has no conversation state", () => {
+    renderApp("/practice/dating/feedback");
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/practice");
+  });
+
+  it("deep-links directly to a Lesson detail screen", () => {
+    renderApp("/lessons/active-listening");
+
+    expect(screen.getByRole("heading", { name: "Active Listening" })).toBeInTheDocument();
+  });
+
+  it("redirects to the Lessons list when the Lesson URL names an unknown Lesson", () => {
+    renderApp("/lessons/not-a-real-lesson");
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/lessons");
+    expect(screen.getByRole("heading", { name: "Lessons" })).toBeInTheDocument();
+  });
+
+  it("redirects an unknown path to Home", () => {
+    renderApp("/this-does-not-exist");
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/");
   });
 });

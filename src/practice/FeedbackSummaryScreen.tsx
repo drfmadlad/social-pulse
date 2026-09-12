@@ -9,7 +9,7 @@ import { useLatestRequestGuard } from "./useLatestRequestGuard";
 interface FeedbackSummaryScreenProps {
   category: ScenarioCategory;
   transcript: ChatMessage[];
-  onBack: () => void;
+  onDone: () => void;
 }
 
 type Status =
@@ -17,7 +17,7 @@ type Status =
   | { kind: "ready"; summary: FeedbackSummary }
   | { kind: "error"; message: string };
 
-export function FeedbackSummaryScreen({ category, transcript, onBack }: FeedbackSummaryScreenProps) {
+export function FeedbackSummaryScreen({ category, transcript, onDone }: FeedbackSummaryScreenProps) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const { start, isStale } = useLatestRequestGuard();
 
@@ -50,8 +50,8 @@ export function FeedbackSummaryScreen({ category, transcript, onBack }: Feedback
 
   return (
     <div className="feedback-summary">
-      <button type="button" className="back-button" onClick={onBack}>
-        ← Back to categories
+      <button type="button" className="back-button" onClick={onDone}>
+        Done
       </button>
       <h3>Feedback on your conversation with {category.personaName}</h3>
       {status.kind === "loading" && <p role="status">Generating your feedback…</p>}
