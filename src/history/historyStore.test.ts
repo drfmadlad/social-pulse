@@ -6,6 +6,7 @@ const category: ScenarioCategory = {
   id: "dating",
   name: "Dating",
   personaName: "Jordan",
+  blurb: "a first date at a coffee shop",
   systemPrompt: "You are Jordan.",
 };
 

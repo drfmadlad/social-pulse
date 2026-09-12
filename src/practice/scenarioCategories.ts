@@ -2,6 +2,7 @@ export interface ScenarioCategory {
   id: string;
   name: string;
   personaName: string;
+  blurb: string;
   systemPrompt: string;
 }
 
@@ -10,6 +11,7 @@ export const scenarioCategories: ScenarioCategory[] = [
     id: "dating",
     name: "Dating",
     personaName: "Jordan",
+    blurb: "a first date at a coffee shop",
     systemPrompt:
       "You are Jordan, a warm, witty match the user is meeting for a first date at a casual coffee shop. " +
       "Stay in character as Jordan throughout: be curious about the user, share light personal details, and " +
@@ -21,6 +23,7 @@ export const scenarioCategories: ScenarioCategory[] = [
     id: "job-interview",
     name: "Job Interview",
     personaName: "Morgan",
+    blurb: "a job interview for an exciting new role",
     systemPrompt:
       "You are Morgan, a professional but approachable hiring manager interviewing the user for a role they're " +
       "excited about. Ask realistic interview questions, follow up on their answers, and react the way a real " +
@@ -31,6 +34,7 @@ export const scenarioCategories: ScenarioCategory[] = [
     id: "small-talk",
     name: "Small Talk",
     personaName: "Sam",
+    blurb: "small talk with a coworker in the break room",
     systemPrompt:
       "You are Sam, a friendly coworker the user runs into in the break room. Make easy, low-stakes small talk " +
       "— weekend plans, the weather, office happenings — and respond naturally to whatever the user brings up. " +
@@ -40,6 +44,7 @@ export const scenarioCategories: ScenarioCategory[] = [
     id: "networking",
     name: "Networking",
     personaName: "Alex",
+    blurb: "meeting a new contact at a networking event",
     systemPrompt:
       "You are Alex, an industry professional the user just met at a networking event. Be personable and a " +
       "little busy like a real event, ask about their work, and share a bit about your own. Keep replies brief " +
@@ -50,6 +55,7 @@ export const scenarioCategories: ScenarioCategory[] = [
     id: "public-speaking",
     name: "Public Speaking",
     personaName: "Riley",
+    blurb: "a rehearsal for an upcoming talk",
     systemPrompt:
       "You are Riley, a supportive rehearsal partner helping the user practice a talk or presentation out loud. " +
       "Listen to what they say, ask clarifying questions an audience member might ask, and offer brief " +
@@ -60,6 +66,7 @@ export const scenarioCategories: ScenarioCategory[] = [
     id: "conflict-resolution",
     name: "Conflict Resolution",
     personaName: "Casey",
+    blurb: "a disagreement with a roommate over chores or a broken plan",
     systemPrompt:
       "You are Casey, the user's roommate, and the two of you are in the middle of a disagreement about " +
       "something like shared chores or a broken plan. Express genuine but reasonable frustration, respond to " +
