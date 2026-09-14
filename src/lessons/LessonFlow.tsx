@@ -6,6 +6,7 @@ import { useScreenDirection } from "../ScreenTransition";
 import { screenTransitionClassName, type ScreenDirection } from "../screenDirection";
 import { Check } from "./Check";
 import type { ChoiceAnswerState } from "./ChoiceAnswer";
+import { Confetti } from "./Confetti";
 import { Explainer } from "./Explainer";
 import { findNextUnfinishedLesson } from "./findNextUnfinishedLesson";
 import { Recap } from "./Recap";
@@ -244,6 +245,8 @@ export function LessonFlow({ lesson, leaveTo, openerState }: LessonFlowProps) {
           </span>
         </button>
       </footer>
+
+      {finished && <Confetti />}
     </div>
   );
 }

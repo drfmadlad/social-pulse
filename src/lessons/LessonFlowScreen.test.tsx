@@ -361,6 +361,34 @@ describe("Lesson flow", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
   });
 
+  it("plays one confetti burst on Finish, hidden from assistive technology", async () => {
+    const { index } = firstStepOfKind(activeListening, "recap");
+    const { container } = renderApp(`/lessons/${activeListening.id}`);
+    await advanceTo(activeListening, index);
+
+    expect(container.querySelectorAll(".confetti-piece")).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+    await screen.findByRole("button", { name: "Next lesson" });
+
+    const burst = container.querySelector(".confetti");
+    expect(burst).toHaveAttribute("aria-hidden", "true");
+    expect(container.querySelectorAll(".confetti-piece").length).toBeGreaterThan(0);
+  });
+
+  it("shows no confetti under reduced motion, and the Lesson can still be finished", async () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true } as MediaQueryList));
+    const { index } = firstStepOfKind(activeListening, "recap");
+    const { container } = renderApp(`/lessons/${activeListening.id}`);
+    await advanceTo(activeListening, index);
+
+    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+
+    expect(await screen.findByRole("button", { name: "Next lesson" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Done" })).toBeInTheDocument();
+    expect(container.querySelectorAll(".confetti-piece")).toHaveLength(0);
+  });
+
   it("returns Home via Done when the Lesson was opened from Today's idea", async () => {
     const todaysLesson = pickTodaysLesson(lessons);
     renderApp("/");
