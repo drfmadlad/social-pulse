@@ -38,7 +38,6 @@ export function Explainer({ step }: { step: ExplainerStep }) {
         </p>
       )}
       {artwork?.placement === "bleed-edge" && (
-        // Clips the artwork at the screen edge, whatever the column width.
         <div className="explainer__bleed">
           <PlacedArtwork artwork={artwork} />
         </div>

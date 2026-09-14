@@ -667,7 +667,6 @@ body {
 
 /* Lesson flow: chrome-free and full-viewport, like Conversation (DESIGN.md §3, Lesson Steps). */
 .lesson-flow {
-  --lesson-column-width: 640px;
   position: fixed;
   inset: 0;
   height: 100dvh;
@@ -687,7 +686,7 @@ body {
 .lesson-flow__content,
 .lesson-flow__bottom {
   width: 100%;
-  max-width: var(--lesson-column-width);
+  max-width: 640px;
   margin-inline: auto;
   padding-inline: var(--space-4);
 }
@@ -735,7 +734,7 @@ body {
 .lesson-flow__step {
   flex: 1;
   min-height: 0;
-  /* Hidden, not auto, so bleed-edge artwork crops at the screen edge instead of scrolling sideways. */
+  /* Hidden, not auto, so bleed-edge artwork crops at a phone's screen edge instead of scrolling sideways. */
   overflow-x: hidden;
   overflow-y: auto;
   scroll-behavior: smooth;
@@ -911,10 +910,10 @@ body {
   margin-inline-start: var(--space-4);
 }
 
-/* Reaches past the column and its side padding to the screen edge, and clips there. */
+/* Reaches through the side padding to the Lesson column's outer edge. On a phone that's the screen
+   edge, so the step crops the overhang; on a wider screen the overhang shows in the margin. */
 .explainer__bleed {
-  margin-inline: calc(-1 * (var(--space-4) + max(0px, (100vw - var(--lesson-column-width)) / 2)));
-  overflow: hidden;
+  margin-inline: calc(-1 * var(--space-4));
 }
 
 /* A third of the artwork is pushed past the edge, inside DESIGN.md §8's 25–40%. */

@@ -473,7 +473,7 @@ below exist to break that rhythm.
 |---|---|---|
 | `above-title` | Above the title, from the content's leading edge | Full or marginal |
 | `beside-key-line` | In the margin beside the key line, with the line wrapping around it | Marginal only, and only on an Explainer with a key line |
-| `bleed-edge` | After the step's text, pushed off the left or right screen edge so 25–40% of it is cropped. Never centered. | Full only |
+| `bleed-edge` | After the step's text, pushed a third past the left or right edge of the Lesson column. On a phone that edge is the screen edge, so 25–40% of it is cropped; on a wider screen the overhang shows in the margin beside the column, never detached from it. Never centered. | Full only |
 
 - **Full** spans the content width, at most 180px tall.
 - **Marginal** fits a 64px square.
