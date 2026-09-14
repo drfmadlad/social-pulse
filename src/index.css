@@ -213,39 +213,47 @@ body {
   color: var(--ink-muted);
 }
 
+/* DESIGN.md §6, Screen push. Movement and opacity are separate animations because they run for
+   different durations. Whole screens never spring. */
 @keyframes screen-push-in {
   from {
-    opacity: 0;
-    transform: translateX(16px);
+    transform: translateX(24px);
   }
   to {
-    opacity: 1;
     transform: translateX(0);
   }
 }
 
 @keyframes screen-push-in-back {
   from {
-    opacity: 0;
-    transform: translateX(-16px);
+    transform: translateX(-24px);
   }
   to {
-    opacity: 1;
     transform: translateX(0);
   }
 }
 
-.screen-transition {
-  animation: screen-push-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+/* A Lesson Step change moves only the step's content, with the same values (DESIGN.md §6). */
+.screen-transition--forward,
+.lesson-flow__step--enter-forward {
+  animation:
+    screen-push-in 280ms var(--ease-out),
+    screen-fade-in 200ms var(--ease-out);
 }
 
-.screen-transition--back {
-  animation-name: screen-push-in-back;
+.screen-transition--back,
+.lesson-flow__step--enter-back {
+  animation:
+    screen-push-in-back 280ms var(--ease-out),
+    screen-fade-in 200ms var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .screen-transition {
-    animation: screen-fade-in 220ms ease-out;
+  .screen-transition--forward,
+  .screen-transition--back,
+  .lesson-flow__step--enter-forward,
+  .lesson-flow__step--enter-back {
+    animation: screen-fade-in 200ms var(--ease-out);
   }
 }
 
@@ -354,14 +362,13 @@ body {
   gap: var(--space-3);
 }
 
+/* DESIGN.md §6, Chat bubble in: springs up from its bottom corner on the speaker's side. */
 @keyframes chat-bubble-in {
   from {
-    opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(8px) scale(0.96);
   }
   to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -372,17 +379,21 @@ body {
   color: var(--ink);
   max-width: 80%;
   font: var(--text-body);
-  animation: chat-bubble-in 160ms ease-out;
+  transform-origin: bottom left;
+  animation:
+    chat-bubble-in 240ms var(--ease-spring),
+    screen-fade-in 160ms var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .chat-message {
-    animation: screen-fade-in 160ms ease-out;
+    animation: screen-fade-in 160ms var(--ease-out);
   }
 }
 
 .chat-message--user {
   align-self: flex-end;
+  transform-origin: bottom right;
   background: var(--primary);
   color: var(--on-primary);
 }
@@ -409,15 +420,15 @@ body {
   height: 6px;
   border-radius: var(--radius-full);
   background: var(--ink-faint);
-  animation: typing-bounce 1.2s ease-in-out infinite;
+  animation: typing-bounce 1200ms var(--ease-in-out) infinite;
 }
 
 .typing-indicator__dot:nth-child(2) {
-  animation-delay: 0.2s;
+  animation-delay: 150ms;
 }
 
 .typing-indicator__dot:nth-child(3) {
-  animation-delay: 0.4s;
+  animation-delay: 300ms;
 }
 
 @keyframes typing-bounce {
@@ -428,7 +439,7 @@ body {
     opacity: 0.4;
   }
   30% {
-    transform: translateY(-3px);
+    transform: translateY(-4px);
     opacity: 1;
   }
 }
@@ -489,24 +500,38 @@ body {
   padding: var(--space-3);
   border-radius: var(--radius-md);
   background: var(--positive-soft);
-  animation: chat-bubble-in 160ms ease-out both;
+  animation:
+    feedback-point-in 280ms var(--ease-spring) both,
+    screen-fade-in 200ms var(--ease-out) both;
 }
 
-/* Stagger caps at six items; anything beyond reveals with the first rather than drifting later. */
+/* DESIGN.md §6, Feedback Summary points. */
+@keyframes feedback-point-in {
+  from {
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Each group's list staggers from its own start. The stagger caps at six items; anything beyond
+   reveals with the first rather than drifting later. These outrank the reduced-motion shorthand
+   below, so the fades keep the same stagger. */
 .feedback-points__item:nth-child(2) {
-  animation-delay: 60ms;
+  animation-delay: 70ms;
 }
 .feedback-points__item:nth-child(3) {
-  animation-delay: 120ms;
+  animation-delay: 140ms;
 }
 .feedback-points__item:nth-child(4) {
-  animation-delay: 180ms;
+  animation-delay: 210ms;
 }
 .feedback-points__item:nth-child(5) {
-  animation-delay: 240ms;
+  animation-delay: 280ms;
 }
 .feedback-points__item:nth-child(6) {
-  animation-delay: 300ms;
+  animation-delay: 350ms;
 }
 
 .feedback-points--growth .feedback-points__item {
@@ -515,7 +540,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .feedback-points__item {
-    animation: screen-fade-in 160ms ease-out both;
+    animation: screen-fade-in 160ms var(--ease-out) both;
   }
 }
 
@@ -744,36 +769,6 @@ body {
   padding-block: var(--space-6);
 }
 
-@keyframes lesson-step-slide-forward {
-  from {
-    transform: translateX(24px);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes lesson-step-slide-back {
-  from {
-    transform: translateX(-24px);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-.lesson-flow__step--enter-forward {
-  animation:
-    lesson-step-slide-forward 280ms var(--ease-out),
-    screen-fade-in 200ms var(--ease-out);
-}
-
-.lesson-flow__step--enter-back {
-  animation:
-    lesson-step-slide-back 280ms var(--ease-out),
-    screen-fade-in 200ms var(--ease-out);
-}
-
 .lesson-flow__bottom {
   display: flex;
   align-items: center;
@@ -813,11 +808,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .lesson-flow__step {
     scroll-behavior: auto;
-  }
-
-  .lesson-flow__step--enter-forward,
-  .lesson-flow__step--enter-back {
-    animation: screen-fade-in 200ms var(--ease-out);
   }
 }
 
