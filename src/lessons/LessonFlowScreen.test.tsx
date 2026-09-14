@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRoutes } from "../App";
 import { resetHistoryStoreForTests } from "../history/historyStore";
+import { mockReply, mockWrittenReplyVerdict } from "../test/apiMocks";
 import { isChoiceStep, lessons, type ChoiceStep, type Lesson, type LessonStep } from "./lessons";
 import { markLessonFinished } from "./lessonProgressStore";
 import { pickTodaysLesson } from "./pickTodaysLesson";
@@ -46,6 +47,7 @@ function expectOnStep(lesson: Lesson, index: number) {
       expect(screen.getByRole("group", { name: step.prompt })).toBeInTheDocument();
       break;
     case "reply-choice":
+    case "written-reply":
       expect(screen.getByText(step.context)).toBeInTheDocument();
       expect(screen.getByText(step.line)).toBeInTheDocument();
       break;
@@ -66,16 +68,34 @@ function optionText(step: ChoiceStep, which: "correct" | "wrong") {
   return option!.text;
 }
 
-/** Steps through the Lesson from the step at `from` to the one at `index`, answering every Check and Reply Choice correctly on the way. */
-function advanceTo(lesson: Lesson, index: number, from = 0) {
+/** Sends a Written Reply and waits for a verdict or fallback to land, however the stubbed fetch resolves it. */
+async function sendWrittenReply(text = "Something I'd say.") {
+  fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: text } });
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  await screen.findByRole("button", { name: "Continue" });
+}
+
+/**
+ * Steps through the Lesson from the step at `from` to the one at `index`, answering every Check
+ * and Reply Choice correctly, and sending a Written Reply, on the way. A Written Reply step needs
+ * `fetch` stubbed (the default `beforeEach` stub below covers it, unless the test replaces it).
+ */
+async function advanceTo(lesson: Lesson, index: number, from = 0) {
   for (const step of lesson.steps.slice(from, index)) {
     if (isChoiceStep(step)) {
       fireEvent.click(screen.getByRole("radio", { name: optionText(step, "correct") }));
       fireEvent.click(screen.getByRole("button", { name: "Check" }));
     }
+    if (step.kind === "written-reply") await sendWrittenReply();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   }
 }
+
+beforeEach(() => {
+  // Default so every test that merely advances past a Written Reply (rather than testing it
+  // directly) doesn't need its own stub. Tests covering Written Reply's own behavior replace it.
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockWrittenReplyVerdict("landed", "That's a default test verdict.")));
+});
 
 afterEach(async () => {
   vi.unstubAllGlobals();
@@ -140,15 +160,15 @@ describe("Lesson flow", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
   });
 
-  it("shows each Explainer's paragraphs with their emphasised phrases, its quote and its key line", () => {
+  it("shows each Explainer's paragraphs with their emphasised phrases, its quote and its key line", async () => {
     const explainers = activeListening.steps.flatMap((step) => (step.kind === "explainer" ? [step] : []));
     expect(explainers.some((step) => step.quote)).toBe(true);
     expect(explainers.some((step) => step.keyLine)).toBe(true);
     renderApp(`/lessons/${activeListening.id}`);
 
-    activeListening.steps.forEach((step, index) => {
-      if (index > 0) advanceTo(activeListening, index, index - 1);
-      if (step.kind !== "explainer") return;
+    for (const [index, step] of activeListening.steps.entries()) {
+      if (index > 0) await advanceTo(activeListening, index, index - 1);
+      if (step.kind !== "explainer") continue;
 
       const emphasised = step.paragraphs.flat().filter((run) => run.emphasis).map((run) => run.text);
       expect(screen.queryAllByRole("emphasis").map((element) => element.textContent)).toEqual(emphasised);
@@ -166,17 +186,17 @@ describe("Lesson flow", () => {
       } else {
         expect(screen.queryByRole("mark")).not.toBeInTheDocument();
       }
-    });
+    }
   });
 
-  it("shows artwork, hidden from assistive technology, only on the Explainers that carry it", () => {
+  it("shows artwork, hidden from assistive technology, only on the Explainers that carry it", async () => {
     const explainers = activeListening.steps.flatMap((step) => (step.kind === "explainer" ? [step] : []));
     expect(explainers.some((step) => step.artwork)).toBe(true);
     expect(explainers.some((step) => !step.artwork)).toBe(true);
     const { container } = renderApp(`/lessons/${activeListening.id}`);
 
-    activeListening.steps.forEach((step, index) => {
-      if (index > 0) advanceTo(activeListening, index, index - 1);
+    for (const [index, step] of activeListening.steps.entries()) {
+      if (index > 0) await advanceTo(activeListening, index, index - 1);
       const artwork = container.querySelectorAll(".artwork");
 
       if (step.kind === "explainer" && step.artwork) {
@@ -185,13 +205,13 @@ describe("Lesson flow", () => {
       } else {
         expect(artwork).toHaveLength(0);
       }
-    });
+    }
   });
 
-  it("keeps a Check's primary action disabled until an option is chosen, and explains a right pick once committed", () => {
+  it("keeps a Check's primary action disabled until an option is chosen, and explains a right pick once committed", async () => {
     const { index, step } = firstStepOfKind(activeListening, "check");
     renderApp(`/lessons/${activeListening.id}`);
-    advanceTo(activeListening, index);
+    await advanceTo(activeListening, index);
     expectOnStep(activeListening, index);
 
     expect(screen.getByRole("button", { name: "Check" })).toBeDisabled();
@@ -210,10 +230,10 @@ describe("Lesson flow", () => {
     expectOnStep(activeListening, index + 1);
   });
 
-  it("explains a wrong pick, points out the better option, and continues without a retry", () => {
+  it("explains a wrong pick, points out the better option, and continues without a retry", async () => {
     const { index, step } = firstStepOfKind(activeListening, "check");
     renderApp(`/lessons/${activeListening.id}`);
-    advanceTo(activeListening, index);
+    await advanceTo(activeListening, index);
 
     fireEvent.click(screen.getByRole("radio", { name: optionText(step, "wrong") }));
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
@@ -232,10 +252,10 @@ describe("Lesson flow", () => {
     expectOnStep(activeListening, index + 1);
   });
 
-  it("shows a Reply Choice's context sentence and the other person's line as a persona message with no avatar or speaker label, on the your-move ground", () => {
+  it("shows a Reply Choice's context sentence and the other person's line as a persona message with no avatar or speaker label, on the your-move ground", async () => {
     const { index, step } = firstStepOfKind(activeListening, "reply-choice");
     const { container } = renderApp(`/lessons/${activeListening.id}`);
-    advanceTo(activeListening, index);
+    await advanceTo(activeListening, index);
 
     expect(screen.getByText(step.context)).toBeInTheDocument();
     const line = container.querySelector(".chat-message--assistant");
@@ -244,10 +264,10 @@ describe("Lesson flow", () => {
     expect(container.querySelector(".lesson-flow")).toHaveClass("lesson-flow--your-move");
   });
 
-  it("keeps a Reply Choice's primary action disabled until an option is chosen, and explains a right pick once committed, exactly like a Check", () => {
+  it("keeps a Reply Choice's primary action disabled until an option is chosen, and explains a right pick once committed, exactly like a Check", async () => {
     const { index, step } = firstStepOfKind(activeListening, "reply-choice");
     renderApp(`/lessons/${activeListening.id}`);
-    advanceTo(activeListening, index);
+    await advanceTo(activeListening, index);
     expectOnStep(activeListening, index);
 
     expect(screen.getByRole("button", { name: "Check" })).toBeDisabled();
@@ -266,10 +286,10 @@ describe("Lesson flow", () => {
     expectOnStep(activeListening, index + 1);
   });
 
-  it("explains a wrong pick on a Reply Choice, points out the better option, and continues without a retry, exactly like a Check", () => {
+  it("explains a wrong pick on a Reply Choice, points out the better option, and continues without a retry, exactly like a Check", async () => {
     const { index, step } = firstStepOfKind(activeListening, "reply-choice");
     renderApp(`/lessons/${activeListening.id}`);
-    advanceTo(activeListening, index);
+    await advanceTo(activeListening, index);
 
     fireEvent.click(screen.getByRole("radio", { name: optionText(step, "wrong") }));
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
@@ -288,7 +308,7 @@ describe("Lesson flow", () => {
     expectOnStep(activeListening, index + 1);
   });
 
-  it("shuffles a Reply Choice's options once when the Lesson starts, keeps that order for the run, and reshuffles on a fresh start", () => {
+  it("shuffles a Reply Choice's options once when the Lesson starts, keeps that order for the run, and reshuffles on a fresh start", async () => {
     const { index, step } = firstStepOfKind(activeListening, "reply-choice");
     const displayedOptionTexts = () =>
       screen.getAllByRole("radio").map((radio) => radio.closest("label")?.textContent);
@@ -299,7 +319,7 @@ describe("Lesson flow", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     openLesson();
     vi.restoreAllMocks();
-    advanceTo(activeListening, index);
+    await advanceTo(activeListening, index);
     const firstOrder = displayedOptionTexts();
     expect(firstOrder.slice().sort()).toEqual(step.options.map((option) => option.text).sort());
 
@@ -311,7 +331,7 @@ describe("Lesson flow", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     openLesson();
     vi.restoreAllMocks();
-    advanceTo(activeListening, index);
+    await advanceTo(activeListening, index);
     const secondOrder = displayedOptionTexts();
 
     expect(secondOrder).toEqual(step.options.map((option) => option.text));
@@ -322,7 +342,7 @@ describe("Lesson flow", () => {
     const { index, step } = firstStepOfKind(activeListening, "recap");
     renderApp("/lessons");
     fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
-    advanceTo(activeListening, index);
+    await advanceTo(activeListening, index);
 
     for (const takeaway of step.takeaways) {
       expect(screen.getByText(takeaway)).toBeInTheDocument();
@@ -345,7 +365,7 @@ describe("Lesson flow", () => {
     const todaysLesson = pickTodaysLesson(lessons);
     renderApp("/");
     fireEvent.click(screen.getByRole("link", { name: /Today.s idea/ }));
-    advanceTo(todaysLesson, todaysLesson.steps.length - 1);
+    await advanceTo(todaysLesson, todaysLesson.steps.length - 1);
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
     fireEvent.click(await screen.findByRole("link", { name: "Done" }));
@@ -357,7 +377,7 @@ describe("Lesson flow", () => {
     const { index } = firstStepOfKind(activeListening, "recap");
     renderApp("/lessons");
     fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
-    advanceTo(activeListening, index);
+    await advanceTo(activeListening, index);
 
     fireEvent.click(screen.getByRole("link", { name: "← Lessons" }));
 
@@ -369,7 +389,7 @@ describe("Lesson flow", () => {
     await markLessonFinished(activeListening.id);
     const { index } = firstStepOfKind(activeListening, "recap");
     renderApp(`/lessons/${activeListening.id}`);
-    advanceTo(activeListening, index);
+    await advanceTo(activeListening, index);
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
 
@@ -385,7 +405,7 @@ describe("Lesson flow", () => {
     const openQuestions = lessons.find((lesson) => lesson.id === "open-questions")!;
     renderApp("/lessons");
     fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
-    advanceTo(activeListening, activeListening.steps.length - 1);
+    await advanceTo(activeListening, activeListening.steps.length - 1);
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
     fireEvent.click(await screen.findByRole("button", { name: "Next lesson" }));
@@ -401,7 +421,7 @@ describe("Lesson flow", () => {
     const todaysLesson = pickTodaysLesson(lessons);
     renderApp("/");
     fireEvent.click(screen.getByRole("link", { name: /Today.s idea/ }));
-    advanceTo(todaysLesson, todaysLesson.steps.length - 1);
+    await advanceTo(todaysLesson, todaysLesson.steps.length - 1);
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Next lesson" }));
@@ -414,7 +434,7 @@ describe("Lesson flow", () => {
     await markLessonFinished("active-listening");
     await markLessonFinished("open-questions");
     renderApp(`/lessons/${readingTheRoom.id}`);
-    advanceTo(readingTheRoom, readingTheRoom.steps.length - 1);
+    await advanceTo(readingTheRoom, readingTheRoom.steps.length - 1);
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
 
@@ -426,31 +446,31 @@ describe("Lesson flow", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
   });
 
-  it("starts the Lesson from step 1 again after leaving mid-Lesson, by the leave action or by system back", () => {
+  it("starts the Lesson from step 1 again after leaving mid-Lesson, by the leave action or by system back", async () => {
     renderApp("/lessons");
     const openLesson = () => fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
 
     openLesson();
-    advanceTo(activeListening, 3);
+    await advanceTo(activeListening, 3);
     fireEvent.click(screen.getByRole("link", { name: "← Lessons" }));
     openLesson();
     expectOnStep(activeListening, 0);
 
-    advanceTo(activeListening, 3);
+    await advanceTo(activeListening, 3);
     fireEvent.click(screen.getByRole("button", { name: "System back" }));
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
     openLesson();
     expectOnStep(activeListening, 0);
   });
 
-  it("never shows a score, percentage or tally of answers, and needs no network, through a whole Lesson", () => {
+  it("never shows a score, percentage or tally of answers, and completes even offline, through a whole Lesson", async () => {
     const fetchMock = vi.fn(() => Promise.reject(new Error("offline")));
     vi.stubGlobal("fetch", fetchMock);
     const tally = /\d+\s*(of|out of|\/)\s*\d+|%|\bscore\b/i;
     renderApp(`/lessons/${activeListening.id}`);
 
     let pickRight = false;
-    activeListening.steps.forEach((step) => {
+    for (const step of activeListening.steps) {
       expect(document.body.textContent).not.toMatch(tally);
       if (isChoiceStep(step)) {
         pickRight = !pickRight;
@@ -458,10 +478,131 @@ describe("Lesson flow", () => {
         fireEvent.click(screen.getByRole("button", { name: "Check" }));
         expect(document.body.textContent).not.toMatch(tally);
       }
+      if (step.kind === "written-reply") {
+        await sendWrittenReply();
+        expect(document.body.textContent).not.toMatch(tally);
+      }
       if (step.kind !== "recap") fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    });
+    }
 
     expectOnStep(activeListening, activeListening.steps.length - 1);
-    expect(fetchMock).not.toHaveBeenCalled();
+    // Check and Reply Choice never touch the network; only the one Written Reply attempts it, and
+    // falls back so the Lesson still completes offline.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  describe("Written Reply", () => {
+    const { index, step } = firstStepOfKind(activeListening, "written-reply");
+
+    it("reuses Reply Choice's context sentence and persona message bubble for the other person's line", async () => {
+      const { container } = renderApp(`/lessons/${activeListening.id}`);
+      await advanceTo(activeListening, index);
+
+      expect(screen.getByText(step.context)).toBeInTheDocument();
+      const line = container.querySelector(".chat-message--assistant");
+      expect(line).toHaveTextContent(step.line);
+      expect(line?.querySelector(".chat-message__author")).not.toBeInTheDocument();
+      expect(container.querySelector(".lesson-flow")).toHaveClass("lesson-flow--your-move");
+    });
+
+    it("disables Send while the reply is empty, and shows a waiting state while the AI responds", async () => {
+      vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+      renderApp(`/lessons/${activeListening.id}`);
+      await advanceTo(activeListening, index);
+
+      expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+
+      fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: "  " } });
+      expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+
+      fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: "Something I'd say." } });
+      expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
+
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(await screen.findByRole("status", { name: "Waiting for a response" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+      expect(screen.getByText("Something I'd say.")).toBeInTheDocument();
+    });
+
+    it("shows a landed verdict and its reason, and Continue moves on", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockWrittenReplyVerdict("landed", "You named the worry directly.")));
+      renderApp(`/lessons/${activeListening.id}`);
+      await advanceTo(activeListening, index);
+
+      await sendWrittenReply();
+
+      const result = screen.getByRole("status");
+      expect(result).toHaveTextContent("That lands.");
+      expect(result).toHaveTextContent("You named the worry directly.");
+
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+      expectOnStep(activeListening, index + 1);
+    });
+
+    it("shows a not-yet verdict and its reason", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(mockWrittenReplyVerdict("not_yet", "You jumped to advice instead of reflecting first.")),
+      );
+      renderApp(`/lessons/${activeListening.id}`);
+      await advanceTo(activeListening, index);
+
+      await sendWrittenReply();
+
+      const result = screen.getByRole("status");
+      expect(result).toHaveTextContent("Not quite yet.");
+      expect(result).toHaveTextContent("You jumped to advice instead of reflecting first.");
+    });
+
+    it("falls back to the Lesson's example reply on a network failure, and a successful Try again replaces it with a verdict", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("offline"))
+        .mockResolvedValueOnce(mockWrittenReplyVerdict("landed", "That's a warm reflection."));
+      vi.stubGlobal("fetch", fetchMock);
+      renderApp(`/lessons/${activeListening.id}`);
+      await advanceTo(activeListening, index);
+
+      await sendWrittenReply();
+
+      expect(screen.getByText("You're offline, so here's one way to say it.")).toBeInTheDocument();
+      expect(screen.getByText(step.exampleReply)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+      expect(await screen.findByText("That lands.")).toBeInTheDocument();
+      expect(screen.getByText("That's a warm reflection.")).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("falls back with a generic message on an unreadable response, and offers Continue", async () => {
+      // A 200 whose content isn't parseable JSON: unreadable, not a network or server error.
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockReply("not valid json")));
+      renderApp(`/lessons/${activeListening.id}`);
+      await advanceTo(activeListening, index);
+
+      await sendWrittenReply();
+
+      expect(screen.getByText("Couldn't get feedback just now. Here's one way to say it.")).toBeInTheDocument();
+      expect(screen.getByText(step.exampleReply)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    });
+
+    it("saves nothing the user writes: a fresh Lesson start shows an empty composer again", async () => {
+      renderApp("/lessons");
+      const openLesson = () => fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+
+      openLesson();
+      await advanceTo(activeListening, index);
+      fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: "Something private." } });
+
+      fireEvent.click(screen.getByRole("link", { name: "← Lessons" }));
+      openLesson();
+      await advanceTo(activeListening, index);
+
+      expect(screen.getByLabelText("Your reply")).toHaveValue("");
+    });
   });
 });

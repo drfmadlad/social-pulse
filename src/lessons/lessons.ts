@@ -55,6 +55,18 @@ export interface ReplyChoiceStep {
   explanation: string;
 }
 
+export interface WrittenReplyStep {
+  kind: "written-reply";
+  /** Sets the scene and names the speaker, e.g. "A coworker, after the meeting, says:" */
+  context: string;
+  /** The line they say, shown like Conversation's persona message. */
+  line: string;
+  /** The move this step is practising, given to the AI so it can judge whether the reply lands. */
+  movePractised: string;
+  /** Shown instead of a verdict if the AI can't answer, so the Lesson still works offline. */
+  exampleReply: string;
+}
+
 export interface RecapStep {
   kind: "recap";
   /** Two or three short lines. */
@@ -63,7 +75,7 @@ export interface RecapStep {
   applyIt: string;
 }
 
-export type LessonStep = ExplainerStep | CheckStep | ReplyChoiceStep | RecapStep;
+export type LessonStep = ExplainerStep | CheckStep | ReplyChoiceStep | WrittenReplyStep | RecapStep;
 
 /** A Check and a Reply Choice share the same choose-commit-explain shape; only the setup differs. */
 export type ChoiceStep = CheckStep | ReplyChoiceStep;
@@ -189,6 +201,13 @@ export const lessons: Lesson[] = [
           "Reflecting the gist — that \"fine\" is covering something that stings — invites them to say more. Ruling on their manager or turning it into an investigation both move the focus off them.",
       },
       {
+        kind: "written-reply",
+        context: "A friend is describing a stressful week at work. They say:",
+        line: "Honestly it's just been one thing after another, I don't even know where to start.",
+        movePractised: "Reflecting the gist back before saying anything else",
+        exampleReply: "Sounds like it's been relentless — what's weighing on you the most right now?",
+      },
+      {
         kind: "recap",
         takeaways: ["Say back the gist in one sentence.", "Let them correct you.", "Hold your story and your advice."],
         applyIt:
@@ -298,6 +317,13 @@ export const lessons: Lesson[] = [
         correctOptionId: "b",
         explanation:
           "\"What's surprised you\" can't be answered with yes or no, so it hands them the floor. The other two invite a one-word answer and stall right there.",
+      },
+      {
+        kind: "written-reply",
+        context: "You ask a new coworker how their weekend was. They say:",
+        line: "It was good, thanks.",
+        movePractised: "Asking a follow-up question that starts with what or how",
+        exampleReply: "What was the best part of it?",
       },
       {
         kind: "recap",
@@ -410,6 +436,13 @@ export const lessons: Lesson[] = [
         correctOptionId: "b",
         explanation:
           "The topic's spent, so switching to something new is the move. Returning to the report pushes on a dead thread, and pressing on \"not a good week\" digs into the same one.",
+      },
+      {
+        kind: "written-reply",
+        context: "You've been telling a story for a bit and notice the group's energy has dropped. A friend gives a flat reply:",
+        line: "Cool.",
+        movePractised: "Landing the story quickly and handing the floor to someone else",
+        exampleReply: "Anyway, that's the gist of it — what's new with you lately?",
       },
       {
         kind: "recap",

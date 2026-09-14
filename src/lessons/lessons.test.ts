@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compositions } from "./artwork/compositions";
-import { isChoiceStep, lessons, type ExplainerArtwork, type ExplainerStep, type Lesson } from "./lessons";
+import { isChoiceStep, lessons, type ExplainerArtwork, type ExplainerStep, type Lesson, type LessonStep } from "./lessons";
 
 /** The Lesson's Explainers that carry artwork, in step order, whatever steps sit between them. */
 function explainersWithArtwork(lesson: Lesson) {
@@ -68,6 +68,25 @@ describe("lessons", () => {
 
     it("has at least one Reply Choice", () => {
       expect(lesson.steps.some((step) => step.kind === "reply-choice")).toBe(true);
+    });
+
+    it("has at least one Written Reply", () => {
+      expect(lesson.steps.some((step) => step.kind === "written-reply")).toBe(true);
+    });
+
+    it("gives every Written Reply an example reply and a move being practised", () => {
+      for (const step of lesson.steps) {
+        if (step.kind !== "written-reply") continue;
+        expect(step.exampleReply.trim()).not.toBe("");
+        expect(step.movePractised.trim()).not.toBe("");
+      }
+    });
+
+    it("uses every Lesson Step kind", () => {
+      const kinds: LessonStep["kind"][] = ["explainer", "check", "reply-choice", "written-reply", "recap"];
+      for (const kind of kinds) {
+        expect(lesson.steps.some((step) => step.kind === kind), `missing a ${kind} step`).toBe(true);
+      }
     });
   });
 });

@@ -21,3 +21,7 @@ export function mockFeedbackSummary(): Response {
     }),
   );
 }
+
+export function mockWrittenReplyVerdict(verdict: "landed" | "not_yet", reason: string): Response {
+  return mockReply(JSON.stringify({ verdict, reason }));
+}
