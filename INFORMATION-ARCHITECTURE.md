@@ -62,6 +62,9 @@ Contents, top to bottom:
 
 Five elements, down from fourteen. No lists, no 6-button grid, no PLACEHOLDER badges.
 
+Stepped Lessons leave Home unchanged. Today's idea still shows a Lesson's title and one-line
+summary, and opens that Lesson's flow. The Lessons row counts Lessons, never finished ones.
+
 **Moves off Home:** the lesson list, the category grid, the history list, the empty-state
 sentence, and all four inline detail views.
 
@@ -107,19 +110,69 @@ You finished something; you should land somewhere that reflects that. The entry 
 History automatically, as it does today.
 
 ### Lessons list
-**Responsible for:** browsing Lessons.
+**Responsible for:** browsing Lessons, showing which are finished, and where to pick up.
 
 **Moves here:** the three-row list. The draft-content badge comes with it — it belongs next to
 the lesson, not on the homepage.
 
-**Navigation:** from Home's Lessons row. Back → Home.
+- **Done marks.** A finished Lesson shows a quiet done mark at the end of its row.
+- **Up next.** The first unfinished Lesson in list order gets a highlighted row. Once every Lesson
+  is finished, no row is highlighted.
+- **No counts, percentages, path or locks.** Every Lesson opens at any time.
+- **Live.** A Lesson finished while the list sits below it in the stack shows its mark on return.
 
-### Lesson detail
-**Responsible for:** reading one Lesson and taking its quiz. Full width for the passage, quiz
-below.
+**Navigation:** from Home's Lessons row. A row → Lesson flow. Back → Home.
 
-**Navigation:** from Lessons list, or from Home's Today's-idea card. Back → wherever you came
-from.
+### Lesson flow
+**Responsible for:** taking the user through one Lesson a Lesson Step at a time, and marking it
+finished. It replaces Lesson detail on the same route, `/lessons/:lessonId`.
+
+Chrome-free and full viewport, like Conversation. A Lesson is 8–12 Lesson Steps: Explainers,
+Checks, Reply Choices and Written Replies, ending in exactly one Recap. DESIGN.md §3 (Lesson
+Steps) has the layout.
+
+- **Top:** segmented progress, one segment per step, and the leave action, which names its
+  destination.
+- **Bottom:** one pinned primary action whose label follows the step, and a quiet Back from step
+  2 onward.
+- **Check and Reply Choice:**
+  - The primary action stays disabled until an option is selected.
+  - Committing shows the result in place.
+  - There's no retry, and a wrong pick never blocks continuing.
+- **Written Reply:** Send is disabled while the reply is empty. Nothing the user types is saved.
+- **No score or tally of answers** appears anywhere in the flow: no "X of Y correct" and no
+  percentage. The progress bar counts steps, not answers.
+
+**Navigation:**
+- **Entry.** A Lesson opens from:
+  - a Lessons list row
+  - Home's Today's idea card
+  - **Next lesson** on another Lesson's Recap
+  - a direct link
+
+  It always starts at step 1. An unknown Lesson id redirects to the Lessons list.
+- **The leave action names its destination.** It reads "← Home" when the Lesson was opened from
+  Today's idea, and "← Lessons" otherwise. The opener travels with the navigation. With none, as
+  on a direct link, it's the Lessons list. A Lesson opened by Next lesson keeps the destination
+  of the Lesson before it, so leaving still returns you to where you started.
+- **Back moves one step** inside the Lesson and isn't browser history. The system back gesture
+  leaves the Lesson, the same as the leave action.
+- **Leaving restarts the Lesson.** Step position lives only inside the flow. Leaving by any means
+  (the leave action, system back, navigating elsewhere) discards it, and the next visit starts at
+  step 1. There's no confirmation: unlike a Practice Conversation, nothing is lost that can't be
+  redone in a minute.
+- **Finish leads to Next lesson / Done.** Finish on the Recap:
+  1. marks the Lesson finished on-device, next to History;
+  2. plays the celebration, the same every time;
+  3. turns the bottom row into **Next lesson** and **Done**.
+
+  Reaching the Recap without tapping Finish doesn't count. Finishing a Lesson again plays the same
+  celebration and leaves its done mark as it was.
+  - **Next lesson** opens the first Lesson in list order that isn't finished and isn't this one.
+    It replaces the finished Lesson in history, so system back from the new Lesson goes where you
+    started, not into a restarted copy of the one you just finished. When there's no such Lesson,
+    only Done is offered.
+  - **Done** goes to the leave action's destination.
 
 ### History list
 **Responsible for:** browsing finished conversations, newest first.
@@ -143,9 +196,14 @@ pushes onto it.
 ```
 Home
 ├── Practice picker → Conversation → Feedback Summary ──→ (Done) Home
-├── Lessons list ──→ Lesson detail
+├── Lessons list ──→ Lesson flow ──→ (Next lesson) Lesson flow
+│                        └──→ (Done or ← Lessons) Lessons list
+├── (Today's idea) Lesson flow ──→ (Next lesson) Lesson flow
+│                        └──→ (Done or ← Home) Home
 └── History list ──→ History entry detail
 ```
+
+Lesson Steps change inside the Lesson flow screen, not as pushes onto the stack (DESIGN.md §6).
 
 **Routing.** The app has no router today. Recommendation: `react-router-dom`. It gives a real
 URL per screen, so browser back and the Android system back gesture both work on the installed
@@ -175,3 +233,13 @@ Descriptive only — not a work order.
 No streaks, XP, scores, leaderboards or progress charts. Issue #1 user story 28 stands. The
 vocabulary app's streak calendar and ranking curve are visible in the reference screenshots and
 are deliberately not borrowed.
+
+Stepped Lessons add these exclusions:
+- **No locked Lessons.** Every Lesson opens at any time, and none waits on finishing another.
+  Locking turns a lesson list into a game board.
+- **No correctness-scaled celebration.** Finishing plays the same celebration every time, however
+  the answers went. No screen reports how a Lesson's answers went, and there's no extra reward
+  for a perfect run.
+- **No tracking of Apply It.** The app never asks whether you did it.
+
+`REFERENCE-NOTES.md` §1 lists the Gleam functions excluded for these reasons.

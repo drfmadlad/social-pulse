@@ -1,8 +1,10 @@
 # Reference Notes — Gleam
 
-**Status: for review, not authoritative.** Nothing here applies until it is folded into
-`DESIGN.md`, `INFORMATION-ARCHITECTURE.md`, `CONTEXT.md` and issue #1. Until then those documents
-win wherever they disagree with this one. §5 lists every change folding in would make.
+**Status: folded in (issue #17).** These decisions now live in `DESIGN.md`,
+`INFORMATION-ARCHITECTURE.md`, `CONTEXT.md`, `CLAUDE.md` and a comment on issue #1, and those
+documents win wherever they disagree with this one. This file stays as the record of what was
+borrowed from Gleam and why, especially §3's divergence reasoning. §4 and §5 describe the fold-in
+as proposed, before it was applied.
 
 **Source:** 22 App Store–style screenshots in `docs/design-references/gleam-app/`: the home path,
 library, practice tab, profile, and every screen of lesson 1.

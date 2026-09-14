@@ -13,8 +13,9 @@ both before changing any screen, and keep them current when a decision changes.
 Two standing constraints these encode, both easy to undo by accident:
 
 - **No gamification.** No streaks, XP, scores, leaderboards or progress charts (issue #1, user
-  story 28). The vocabulary app in `docs/design-references/` is built on streak mechanics; only
-  its palette discipline, card shapes and copy tone are borrowed.
+  story 28), and celebrations never scale with right answers. The vocabulary app in
+  `docs/design-references/` is built on streak mechanics; only its palette discipline, card
+  shapes and copy tone are borrowed.
 - **Home stays calm.** Five elements, hard ceiling. New features get their own screen rather
   than another homepage card.
 
