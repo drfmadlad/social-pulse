@@ -2,11 +2,14 @@ import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useScreenDirection } from "../ScreenTransition";
 import { screenTransitionClassName, type ScreenDirection } from "../screenDirection";
-import { Check, type CheckAnswer } from "./Check";
+import { Check } from "./Check";
+import type { ChoiceAnswerState } from "./ChoiceAnswer";
 import { Explainer } from "./Explainer";
 import { Recap } from "./Recap";
+import { ReplyChoice } from "./ReplyChoice";
+import { shuffleOptions } from "./shuffleOptions";
+import { isChoiceStep, type ChoiceOption, type Lesson } from "./lessons";
 import type { LeaveDestination } from "./leaveDestination";
-import type { Lesson } from "./lessons";
 
 interface LessonFlowProps {
   lesson: Lesson;
@@ -29,11 +32,20 @@ export function LessonFlow({ lesson, leaveTo }: LessonFlowProps) {
   const [stepIndex, setStepIndex] = useState(0);
   // Null until the first step change, so step 1's content doesn't animate on top of the screen push.
   const [stepDirection, setStepDirection] = useState<ScreenDirection | null>(null);
-  // Keyed by step index. Kept across Back so a committed Check stays committed: there is no retry.
-  const [checkAnswers, setCheckAnswers] = useState<Record<number, CheckAnswer>>({});
+  // Keyed by step index. Shared by Check and Reply Choice, kept across Back so a committed answer
+  // stays committed: there is no retry.
+  const [answers, setAnswers] = useState<Record<number, ChoiceAnswerState>>({});
+  // Computed once when the Lesson starts, so each Reply Choice's options keep one order for the run.
+  const [shuffledOptions] = useState<Record<number, ChoiceOption[]>>(() => {
+    const shuffled: Record<number, ChoiceOption[]> = {};
+    lesson.steps.forEach((lessonStep, index) => {
+      if (lessonStep.kind === "reply-choice") shuffled[index] = shuffleOptions(lessonStep.options);
+    });
+    return shuffled;
+  });
   const primaryRef = useRef<HTMLButtonElement>(null);
   const step = lesson.steps[stepIndex];
-  const isYourMove = step.kind === "check";
+  const isYourMove = isChoiceStep(step);
 
   function goForward() {
     setStepDirection("forward");
@@ -48,16 +60,16 @@ export function LessonFlow({ lesson, leaveTo }: LessonFlowProps) {
   }
 
   function selectOption(optionId: string) {
-    setCheckAnswers((current) => ({ ...current, [stepIndex]: { selectedOptionId: optionId, committed: false } }));
+    setAnswers((current) => ({ ...current, [stepIndex]: { selectedOptionId: optionId, committed: false } }));
   }
 
   function commitAnswer() {
-    setCheckAnswers((current) => ({ ...current, [stepIndex]: { ...current[stepIndex], committed: true } }));
+    setAnswers((current) => ({ ...current, [stepIndex]: { ...current[stepIndex], committed: true } }));
   }
 
   function primaryAction(): PrimaryAction {
-    if (step.kind === "check" && !checkAnswers[stepIndex]?.committed) {
-      return { label: "Check", disabled: !checkAnswers[stepIndex], onClick: commitAnswer };
+    if (isYourMove && !answers[stepIndex]?.committed) {
+      return { label: "Check", disabled: !answers[stepIndex], onClick: commitAnswer };
     }
     if (step.kind === "recap") {
       return { label: "Finish", onClick: () => navigate(leaveTo.path) };
@@ -103,7 +115,15 @@ export function LessonFlow({ lesson, leaveTo }: LessonFlowProps) {
       >
         <div className="lesson-flow__content">
           {step.kind === "explainer" && <Explainer step={step} />}
-          {step.kind === "check" && <Check step={step} answer={checkAnswers[stepIndex]} onSelect={selectOption} />}
+          {step.kind === "check" && <Check step={step} answer={answers[stepIndex]} onSelect={selectOption} />}
+          {step.kind === "reply-choice" && (
+            <ReplyChoice
+              step={step}
+              options={shuffledOptions[stepIndex]}
+              answer={answers[stepIndex]}
+              onSelect={selectOption}
+            />
+          )}
           {step.kind === "recap" && <Recap step={step} />}
         </div>
       </div>

@@ -3,7 +3,7 @@ import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppRoutes } from "../App";
 import { resetHistoryStoreForTests } from "../history/historyStore";
-import { lessons, type CheckStep, type Lesson, type LessonStep } from "./lessons";
+import { isChoiceStep, lessons, type ChoiceStep, type Lesson, type LessonStep } from "./lessons";
 import { pickTodaysLesson } from "./pickTodaysLesson";
 
 function LocationDisplay() {
@@ -44,6 +44,10 @@ function expectOnStep(lesson: Lesson, index: number) {
     case "check":
       expect(screen.getByRole("group", { name: step.prompt })).toBeInTheDocument();
       break;
+    case "reply-choice":
+      expect(screen.getByText(step.context)).toBeInTheDocument();
+      expect(screen.getByText(step.line)).toBeInTheDocument();
+      break;
     case "recap":
       expect(screen.getByRole("heading", { name: "Apply it in the real world" })).toBeInTheDocument();
       break;
@@ -56,15 +60,15 @@ function firstStepOfKind<Kind extends LessonStep["kind"]>(lesson: Lesson, kind: 
   return { index, step: lesson.steps[index] as Extract<LessonStep, { kind: Kind }> };
 }
 
-function optionText(step: CheckStep, which: "correct" | "wrong") {
+function optionText(step: ChoiceStep, which: "correct" | "wrong") {
   const option = step.options.find((candidate) => (candidate.id === step.correctOptionId) === (which === "correct"));
   return option!.text;
 }
 
-/** Steps through the Lesson from the step at `from` to the one at `index`, answering every Check correctly on the way. */
+/** Steps through the Lesson from the step at `from` to the one at `index`, answering every Check and Reply Choice correctly on the way. */
 function advanceTo(lesson: Lesson, index: number, from = 0) {
   for (const step of lesson.steps.slice(from, index)) {
-    if (step.kind === "check") {
+    if (isChoiceStep(step)) {
       fireEvent.click(screen.getByRole("radio", { name: optionText(step, "correct") }));
       fireEvent.click(screen.getByRole("button", { name: "Check" }));
     }
@@ -208,6 +212,92 @@ describe("Lesson flow", () => {
     expectOnStep(activeListening, index + 1);
   });
 
+  it("shows a Reply Choice's context sentence and the other person's line as a persona message with no avatar or speaker label, on the your-move ground", () => {
+    const { index, step } = firstStepOfKind(activeListening, "reply-choice");
+    const { container } = renderApp(`/lessons/${activeListening.id}`);
+    advanceTo(activeListening, index);
+
+    expect(screen.getByText(step.context)).toBeInTheDocument();
+    const line = container.querySelector(".chat-message--assistant");
+    expect(line).toHaveTextContent(step.line);
+    expect(line?.querySelector(".chat-message__author")).not.toBeInTheDocument();
+    expect(container.querySelector(".lesson-flow")).toHaveClass("lesson-flow--your-move");
+  });
+
+  it("keeps a Reply Choice's primary action disabled until an option is chosen, and explains a right pick once committed, exactly like a Check", () => {
+    const { index, step } = firstStepOfKind(activeListening, "reply-choice");
+    renderApp(`/lessons/${activeListening.id}`);
+    advanceTo(activeListening, index);
+    expectOnStep(activeListening, index);
+
+    expect(screen.getByRole("button", { name: "Check" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("radio", { name: optionText(step, "correct") }));
+    expect(screen.getByRole("radio", { name: optionText(step, "correct") })).toBeChecked();
+    expect(screen.queryByText(step.explanation)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Check" }));
+
+    const result = screen.getByRole("status");
+    expect(result).toHaveTextContent("That's it.");
+    expect(result).toHaveTextContent(step.explanation);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expectOnStep(activeListening, index + 1);
+  });
+
+  it("explains a wrong pick on a Reply Choice, points out the better option, and continues without a retry, exactly like a Check", () => {
+    const { index, step } = firstStepOfKind(activeListening, "reply-choice");
+    renderApp(`/lessons/${activeListening.id}`);
+    advanceTo(activeListening, index);
+
+    fireEvent.click(screen.getByRole("radio", { name: optionText(step, "wrong") }));
+    fireEvent.click(screen.getByRole("button", { name: "Check" }));
+
+    const result = screen.getByRole("status");
+    expect(result).toHaveTextContent("Not quite.");
+    expect(result).toHaveTextContent(step.explanation);
+    expect(screen.getByRole("radio", { name: optionText(step, "correct") })).toHaveAccessibleDescription(
+      "Better option",
+    );
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).toBeDisabled();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expectOnStep(activeListening, index + 1);
+  });
+
+  it("shuffles a Reply Choice's options once when the Lesson starts, keeps that order for the run, and reshuffles on a fresh start", () => {
+    const { index, step } = firstStepOfKind(activeListening, "reply-choice");
+    const displayedOptionTexts = () =>
+      screen.getAllByRole("radio").map((radio) => radio.closest("label")?.textContent);
+
+    renderApp("/lessons");
+    const openLesson = () => fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    openLesson();
+    vi.restoreAllMocks();
+    advanceTo(activeListening, index);
+    const firstOrder = displayedOptionTexts();
+    expect(firstOrder.slice().sort()).toEqual(step.options.map((option) => option.text).sort());
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(displayedOptionTexts()).toEqual(firstOrder);
+
+    fireEvent.click(screen.getByRole("link", { name: "← Lessons" }));
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    openLesson();
+    vi.restoreAllMocks();
+    advanceTo(activeListening, index);
+    const secondOrder = displayedOptionTexts();
+
+    expect(secondOrder).toEqual(step.options.map((option) => option.text));
+    expect(secondOrder).not.toEqual(firstOrder);
+  });
+
   it("ends with a Recap of takeaways and an Apply It, and Finish returns to the Lessons list it was opened from", () => {
     const { index, step } = firstStepOfKind(activeListening, "recap");
     renderApp("/lessons");
@@ -262,7 +352,7 @@ describe("Lesson flow", () => {
     let pickRight = false;
     activeListening.steps.forEach((step) => {
       expect(document.body.textContent).not.toMatch(tally);
-      if (step.kind === "check") {
+      if (isChoiceStep(step)) {
         pickRight = !pickRight;
         fireEvent.click(screen.getByRole("radio", { name: optionText(step, pickRight ? "correct" : "wrong") }));
         fireEvent.click(screen.getByRole("button", { name: "Check" }));

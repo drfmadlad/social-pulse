@@ -1015,6 +1015,30 @@ body {
   }
 }
 
+/* Floats and clears the same way as .check__prompt, above Reply Choice's shared options. */
+.reply-choice__setup {
+  float: left;
+  width: 100%;
+  margin: 0 0 var(--space-6);
+  padding: 0;
+}
+
+.reply-choice__context {
+  margin: 0 0 var(--space-4);
+  font: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.reply-choice__transcript {
+  margin: 0;
+}
+
+/* On the your-move ground, the persona bubble shifts to --surface so it doesn't disappear into
+   the --primary-soft it would otherwise share (DESIGN.md §3, "Your move" ground). */
+.reply-choice__transcript .chat-message {
+  background: var(--surface);
+}
+
 .recap {
   display: flex;
   flex-direction: column;

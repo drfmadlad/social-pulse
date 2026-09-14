@@ -30,6 +30,18 @@ export interface CheckStep {
   explanation: string;
 }
 
+export interface ReplyChoiceStep {
+  kind: "reply-choice";
+  /** Sets the scene and names the speaker, e.g. "A coworker, after the meeting, says:" */
+  context: string;
+  /** The line they say, shown like Conversation's persona message. */
+  line: string;
+  options: ChoiceOption[];
+  correctOptionId: string;
+  /** Shown once the answer is committed, whichever option was picked. */
+  explanation: string;
+}
+
 export interface RecapStep {
   kind: "recap";
   /** Two or three short lines. */
@@ -38,7 +50,14 @@ export interface RecapStep {
   applyIt: string;
 }
 
-export type LessonStep = ExplainerStep | CheckStep | RecapStep;
+export type LessonStep = ExplainerStep | CheckStep | ReplyChoiceStep | RecapStep;
+
+/** A Check and a Reply Choice share the same choose-commit-explain shape; only the setup differs. */
+export type ChoiceStep = CheckStep | ReplyChoiceStep;
+
+export function isChoiceStep(step: LessonStep): step is ChoiceStep {
+  return step.kind === "check" || step.kind === "reply-choice";
+}
 
 export interface Lesson {
   id: string;
@@ -140,6 +159,19 @@ export const lessons: Lesson[] = [
         ],
       },
       {
+        kind: "reply-choice",
+        context: "A friend just told you they didn't get the promotion. They say:",
+        line: "Yeah, I mean, it's fine. They picked someone else.",
+        options: [
+          { id: "a", text: "\"That's such garbage, they clearly don't see your worth.\"" },
+          { id: "b", text: "\"That's rough — sounds like it stings more than 'fine' lets on.\"" },
+          { id: "c", text: "\"What did they say the other person had that you didn't?\"" },
+        ],
+        correctOptionId: "b",
+        explanation:
+          "Reflecting the gist — that \"fine\" is covering something that stings — invites them to say more. Ruling on their manager or turning it into an investigation both move the focus off them.",
+      },
+      {
         kind: "recap",
         takeaways: ["Say back the gist in one sentence.", "Let them correct you.", "Hold your story and your advice."],
         applyIt:
@@ -232,6 +264,19 @@ export const lessons: Lesson[] = [
             { text: "." },
           ],
         ],
+      },
+      {
+        kind: "reply-choice",
+        context: "You've just met someone at a party. They mention they moved to the city recently. You say:",
+        line: "Yeah, I just moved here a few weeks ago.",
+        options: [
+          { id: "a", text: "\"Do you like it here so far?\"" },
+          { id: "b", text: "\"What's surprised you most about the city so far?\"" },
+          { id: "c", text: "\"Was the move stressful?\"" },
+        ],
+        correctOptionId: "b",
+        explanation:
+          "\"What's surprised you\" can't be answered with yes or no, so it hands them the floor. The other two invite a one-word answer and stall right there.",
       },
       {
         kind: "recap",
@@ -327,6 +372,19 @@ export const lessons: Lesson[] = [
           ],
           [{ text: "A smooth handoff fixes it without anyone noticing." }],
         ],
+      },
+      {
+        kind: "reply-choice",
+        context: "A coworker's answers have shrunk to a few words for the third question in a row. They say:",
+        line: "Yeah, it was fine, I guess.",
+        options: [
+          { id: "a", text: "\"So, back to the numbers from the report —\"" },
+          { id: "b", text: "\"Different question — have you tried the new place downtown?\"" },
+          { id: "c", text: "\"Was it not a good week, then?\"" },
+        ],
+        correctOptionId: "b",
+        explanation:
+          "The topic's spent, so switching to something new is the move. Returning to the report pushes on a dead thread, and pressing on \"not a good week\" digs into the same one.",
       },
       {
         kind: "recap",

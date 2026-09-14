@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lessons } from "./lessons";
+import { isChoiceStep, lessons } from "./lessons";
 
 describe("lessons", () => {
   describe.each(lessons.map((lesson) => [lesson.id, lesson] as const))("%s", (_id, lesson) => {
@@ -24,11 +24,15 @@ describe("lessons", () => {
       expect(recap.applyIt.trim()).not.toBe("");
     });
 
-    it("gives every Check a correct option that exists among its options", () => {
+    it("gives every Check and Reply Choice a correct option that exists among its options", () => {
       for (const step of lesson.steps) {
-        if (step.kind !== "check") continue;
+        if (!isChoiceStep(step)) continue;
         expect(step.options.map((option) => option.id)).toContain(step.correctOptionId);
       }
+    });
+
+    it("has at least one Reply Choice", () => {
+      expect(lesson.steps.some((step) => step.kind === "reply-choice")).toBe(true);
     });
   });
 });
