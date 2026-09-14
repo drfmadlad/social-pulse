@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { callAiProvider, type ChatMessage } from "./aiProvider";
+import { callAiProvider, type ChatMessage } from "./aiProvider.js";
 
 const originalEnv = { ...process.env };
 

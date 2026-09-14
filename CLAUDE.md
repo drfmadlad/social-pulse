@@ -21,6 +21,13 @@ Two standing constraints these encode, both easy to undo by accident:
 Implementation runs screen by screen, so a session may touch only one screen — the docs, not the
 neighbouring code, are what keep the rest consistent with it.
 
+## Coding standards
+
+`CODING_STANDARDS.md` at the repo root holds review-time rules earned by real incidents — the
+`api/` deploy gotchas, a spacing default that's undershot the density table more than once. The
+`code-review` skill's Standards axis reads it automatically; implementation doesn't need to
+carry it.
+
 ## Agent skills
 
 ### Issue tracker

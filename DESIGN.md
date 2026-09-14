@@ -179,6 +179,14 @@ global value, per §4 and the brief.
 Every one of these sits inside `@media (prefers-reduced-motion: reduce)` and degrades to
 opacity-only.
 
+**`position: fixed` screens apply the screen-push classes directly.** An ancestor element with
+an active `transform` becomes the containing block for any `position: fixed` descendant,
+breaking full-viewport layout for the animation's duration. A `position: fixed` screen
+(Conversation, chrome-free per INFORMATION-ARCHITECTURE.md) can't be wrapped in the shared
+`ScreenTransition` component for this reason — it applies `screenTransitionClassName()` to its
+own root instead. See `ScreenTransition.tsx` and `screenDirection.ts`. Any future fixed-position
+screen needs the same direct-application treatment, not the wrapper.
+
 ## 7. Copy tone
 
 Plain, short, second person — as the reference does it.
