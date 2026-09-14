@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useHistoryEntries } from "./history/useHistoryEntries";
+import { openedFromHome } from "./lessons/leaveDestination";
 import { lessons } from "./lessons/lessons";
 import { pickTodaysLesson } from "./lessons/pickTodaysLesson";
 
@@ -14,7 +15,7 @@ export function HomeScreen() {
         <h1>Social Pulse</h1>
       </header>
 
-      <Link className="todays-idea" to={`/lessons/${todaysLesson.id}`}>
+      <Link className="todays-idea" to={`/lessons/${todaysLesson.id}`} state={openedFromHome}>
         <span className="todays-idea__eyebrow">Today&rsquo;s idea</span>
         <span className="todays-idea__title">{todaysLesson.title}</span>
         <span className="todays-idea__summary">{todaysLesson.summary}</span>

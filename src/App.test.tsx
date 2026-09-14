@@ -114,10 +114,11 @@ describe("App", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/practice");
   });
 
-  it("deep-links directly to a Lesson detail screen", () => {
+  it("deep-links directly to a Lesson's flow, starting at step 1", () => {
     renderApp("/lessons/active-listening");
 
-    expect(screen.getByRole("heading", { name: /^Active Listening/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Active Listening" })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Lesson progress" })).toHaveAttribute("aria-valuenow", "1");
   });
 
   it("redirects to the Lessons list when the Lesson URL names an unknown Lesson", () => {

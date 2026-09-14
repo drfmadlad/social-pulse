@@ -3,7 +3,7 @@ import { HomeScreen } from "./HomeScreen";
 import { ConversationScreen } from "./practice/ConversationScreen";
 import { FeedbackSummaryRoute } from "./practice/FeedbackSummaryRoute";
 import { PracticePickerScreen } from "./practice/PracticePickerScreen";
-import { LessonDetailScreen } from "./lessons/LessonDetailScreen";
+import { LessonFlowScreen } from "./lessons/LessonFlowScreen";
 import { LessonsListScreen } from "./lessons/LessonsListScreen";
 import { HistoryEntryDetailScreen } from "./history/HistoryEntryDetailScreen";
 import { HistoryListScreen } from "./history/HistoryListScreen";
@@ -16,14 +16,14 @@ export function AppRoutes() {
         <Routes>
           <Route path="/" element={<ScreenTransition><HomeScreen /></ScreenTransition>} />
           <Route path="/practice" element={<ScreenTransition><PracticePickerScreen /></ScreenTransition>} />
-          {/* Conversation is position:fixed/full-viewport; it animates itself instead of via this wrapper. */}
+          {/* Conversation and the Lesson flow are position:fixed/full-viewport; they animate themselves instead of via this wrapper. */}
           <Route path="/practice/:categoryId" element={<ConversationScreen />} />
           <Route
             path="/practice/:categoryId/feedback"
             element={<ScreenTransition><FeedbackSummaryRoute /></ScreenTransition>}
           />
           <Route path="/lessons" element={<ScreenTransition><LessonsListScreen /></ScreenTransition>} />
-          <Route path="/lessons/:lessonId" element={<ScreenTransition><LessonDetailScreen /></ScreenTransition>} />
+          <Route path="/lessons/:lessonId" element={<LessonFlowScreen />} />
           <Route path="/history" element={<ScreenTransition><HistoryListScreen /></ScreenTransition>} />
           <Route
             path="/history/:entryId"

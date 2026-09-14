@@ -31,7 +31,7 @@ export function useScreenDirection(): ScreenDirection {
 
 /**
  * Wraps a screen's routed content to give it the DESIGN.md §6 screen-push entrance
- * animation. Not used for screens that are `position: fixed` (Conversation): a `transform`
+ * animation. Not used for screens that are `position: fixed` (Conversation, the Lesson flow): a `transform`
  * on this wrapper would make it the containing block for a fixed descendant, breaking its
  * full-viewport layout for the animation's duration. Those screens apply the same
  * `screen-transition` classes directly to their own root element instead.
