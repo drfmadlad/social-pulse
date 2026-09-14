@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { prefersReducedMotion } from "../prefersReducedMotion";
 
 const PIECE_COUNT = 120;
@@ -29,7 +29,6 @@ interface ConfettiPiece {
   id: number;
   color: string;
   isSquare: boolean;
-  leftPercent: number;
   delayMs: number;
   peakVh: number;
   driftPx: number;
@@ -42,7 +41,6 @@ function generatePieces(): ConfettiPiece[] {
     id,
     color: pickColor(),
     isSquare: Math.random() < 0.3, // 70% 6×12px rectangles, 30% 8px squares
-    leftPercent: randomBetween(15, 85),
     delayMs: randomBetween(0, 120), // spread over the first 120ms
     peakVh: randomBetween(45, 75), // rise to 45–75% of viewport height
     driftPx: randomSign() * randomBetween(60, 140), // drift 60–140px sideways
@@ -51,13 +49,30 @@ function generatePieces(): ConfettiPiece[] {
   }));
 }
 
+interface ConfettiProps {
+  /** The pinned pill: every piece launches from its on-screen position, so the burst reads as
+   * an explosion out of the button rather than pieces already scattered along the bottom. */
+  origin: RefObject<HTMLElement | null>;
+}
+
 /**
  * One confetti burst on Finish (DESIGN.md §6). Dependency-free DOM pieces, colored with the
  * `--confetti-*` tokens, removed once the burst ends. Renders nothing under reduced motion.
  */
-export function Confetti() {
+export function Confetti({ origin }: ConfettiProps) {
   const [pieces] = useState(() => (prefersReducedMotion() ? [] : generatePieces()));
   const [burstEnded, setBurstEnded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Runs before paint, so the burst never flashes at the fallback center-bottom position first.
+  useLayoutEffect(() => {
+    const button = origin.current;
+    const container = containerRef.current;
+    if (!button || !container) return;
+    const rect = button.getBoundingClientRect();
+    container.style.setProperty("--confetti-origin-x", `${rect.left + rect.width / 2}px`);
+    container.style.setProperty("--confetti-origin-y", `${rect.top + rect.height / 2}px`);
+  }, [origin]);
 
   useEffect(() => {
     if (pieces.length === 0) return;
@@ -68,14 +83,13 @@ export function Confetti() {
   if (pieces.length === 0 || burstEnded) return null;
 
   return (
-    <div className="confetti" aria-hidden="true">
+    <div ref={containerRef} className="confetti" aria-hidden="true">
       {pieces.map((piece) => (
         <span
           key={piece.id}
           className={`confetti-piece${piece.isSquare ? " confetti-piece--square" : ""}`}
           style={
             {
-              left: `${piece.leftPercent}%`,
               "--confetti-color": piece.color,
               "--confetti-delay": `${piece.delayMs}ms`,
               "--confetti-duration": `${piece.durationS}s`,

@@ -1306,8 +1306,12 @@ body {
   font: var(--text-body);
 }
 
-/* Finish confetti (DESIGN.md §6): one burst from the pinned pill, over the Recap. */
+/* Finish confetti (DESIGN.md §6): one burst exploding out of the pinned pill, over the Recap.
+   Confetti.tsx measures the pill and overrides these on the container inline; the fallback here
+   only covers the instant before that measurement lands. */
 .confetti {
+  --confetti-origin-x: 50%;
+  --confetti-origin-y: calc(100vh - env(safe-area-inset-bottom) - 88px);
   position: fixed;
   inset: 0;
   overflow: hidden;
@@ -1317,7 +1321,8 @@ body {
 
 .confetti-piece {
   position: absolute;
-  bottom: calc(env(safe-area-inset-bottom) + 88px);
+  top: var(--confetti-origin-y);
+  left: var(--confetti-origin-x);
   width: 6px;
   height: 12px;
   background: var(--confetti-color);
@@ -1330,8 +1335,9 @@ body {
   height: 8px;
 }
 
-/* Rise on --ease-out (set on 0%, so it governs the 0%→35% leg), then fall on the fixed
-   "gravity, not UI" curve from DESIGN.md §6 (set on 35%, governing 35%→100%). */
+/* Every piece starts at the same point (the pill) and explodes outward: rise on --ease-out (set
+   on 0%, so it governs the 0%→35% leg), then fall on the fixed "gravity, not UI" curve from
+   DESIGN.md §6 (set on 35%, governing 35%→100%), landing well past whatever's below the pill. */
 @keyframes confetti-fly {
   0% {
     opacity: 1;
@@ -1340,13 +1346,13 @@ body {
   }
   35% {
     opacity: 1;
-    transform: translateX(calc(var(--confetti-drift) * 0.3)) translateY(calc(var(--confetti-peak) * -1))
+    transform: translateX(var(--confetti-drift)) translateY(calc(var(--confetti-peak) * -1))
       rotateX(calc(var(--confetti-spin) * 0.35));
     animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
   }
   100% {
     opacity: 1;
-    transform: translateX(var(--confetti-drift)) translateY(calc(100vh - var(--confetti-peak) + 40px))
+    transform: translateX(calc(var(--confetti-drift) * 1.6)) translateY(calc(100vh - var(--confetti-origin-y) + 40px))
       rotateX(var(--confetti-spin));
   }
 }

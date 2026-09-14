@@ -246,7 +246,7 @@ export function LessonFlow({ lesson, leaveTo, openerState }: LessonFlowProps) {
         </button>
       </footer>
 
-      {finished && <Confetti />}
+      {finished && <Confetti origin={primaryRef} />}
     </div>
   );
 }
