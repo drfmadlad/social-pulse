@@ -588,12 +588,13 @@ body {
   gap: var(--space-4);
 }
 
-.lesson-list a {
+.lesson-list__row {
   width: 100%;
   min-height: 44px;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-4);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -602,6 +603,19 @@ body {
   text-decoration: none;
   cursor: pointer;
   text-align: left;
+}
+
+/* The next unfinished Lesson: a quiet background shift, no visible label. */
+.lesson-list__row--up-next {
+  background: var(--primary-soft);
+  border-color: transparent;
+}
+
+.lesson-list__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .lesson-list__title {
@@ -615,6 +629,18 @@ body {
 .lesson-list__summary {
   font: var(--text-sm);
   color: var(--ink-muted);
+}
+
+.lesson-list__done {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--positive);
+  font-size: 14px;
+  line-height: 1;
 }
 
 .draft-chip {

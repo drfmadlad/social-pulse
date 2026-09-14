@@ -1,3 +1,4 @@
+import { HISTORY_STORE as STORE_NAME, openDb, promisifyRequest, resetDbForTests } from "../db";
 import type { ChatMessage } from "../practice/aiProxyClient";
 import type { FeedbackSummary } from "../practice/feedbackSummary";
 import type { ScenarioCategory } from "../practice/scenarioCategories";
@@ -12,30 +13,12 @@ export interface HistoryEntry {
   endedAt: string;
 }
 
-const DB_NAME = "social-pulse";
-const DB_VERSION = 1;
-const STORE_NAME = "historyEntries";
 const CHANGE_EVENT = "social-pulse:history-changed";
 
 /** Notifies subscribers when a History entry is saved, so an already-mounted list can refresh live. */
 export function subscribeToHistoryChanges(callback: () => void): () => void {
   window.addEventListener(CHANGE_EVENT, callback);
   return () => window.removeEventListener(CHANGE_EVENT, callback);
-}
-
-function promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function openDb(): Promise<IDBDatabase> {
-  const request = indexedDB.open(DB_NAME, DB_VERSION);
-  request.onupgradeneeded = () => {
-    request.result.createObjectStore(STORE_NAME, { keyPath: "id" });
-  };
-  return promisifyRequest(request);
 }
 
 export async function saveHistoryEntry(entry: {
@@ -79,11 +62,5 @@ export async function getAllHistoryEntries(): Promise<HistoryEntry[]> {
   }
 }
 
-/** Test-only: clears the store between tests, awaiting deletion so it can't race the next test's open. */
-export function resetHistoryStoreForTests(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(DB_NAME);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
+/** Test-only: clears the whole database between tests, awaiting deletion so it can't race the next test's open. */
+export const resetHistoryStoreForTests = resetDbForTests;

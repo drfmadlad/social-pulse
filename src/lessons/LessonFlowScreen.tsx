@@ -13,5 +13,12 @@ export function LessonFlowScreen() {
   }
 
   // Keyed by Lesson so moving between Lessons on this route always starts the new one at step 1.
-  return <LessonFlow key={lesson.id} lesson={lesson} leaveTo={getLeaveDestination(location.state)} />;
+  return (
+    <LessonFlow
+      key={lesson.id}
+      lesson={lesson}
+      leaveTo={getLeaveDestination(location.state)}
+      openerState={location.state}
+    />
+  );
 }

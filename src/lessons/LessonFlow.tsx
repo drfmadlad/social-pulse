@@ -5,15 +5,20 @@ import { screenTransitionClassName, type ScreenDirection } from "../screenDirect
 import { Check } from "./Check";
 import type { ChoiceAnswerState } from "./ChoiceAnswer";
 import { Explainer } from "./Explainer";
+import { findNextUnfinishedLesson } from "./findNextUnfinishedLesson";
 import { Recap } from "./Recap";
 import { ReplyChoice } from "./ReplyChoice";
 import { shuffleOptions } from "./shuffleOptions";
-import { isChoiceStep, type ChoiceOption, type Lesson } from "./lessons";
+import { isChoiceStep, lessons, type ChoiceOption, type Lesson } from "./lessons";
+import { markLessonFinished } from "./lessonProgressStore";
+import { useFinishedLessonIds } from "./useFinishedLessonIds";
 import type { LeaveDestination } from "./leaveDestination";
 
 interface LessonFlowProps {
   lesson: Lesson;
   leaveTo: LeaveDestination;
+  /** The navigation state this Lesson was opened with, forwarded to Next lesson so it keeps the same leave destination. */
+  openerState?: unknown;
 }
 
 interface PrimaryAction {
@@ -26,10 +31,14 @@ interface PrimaryAction {
  * One run through a Lesson. Step position and answers live only here, never in the URL or
  * storage, so leaving the route by any means discards them and the next visit starts at step 1.
  */
-export function LessonFlow({ lesson, leaveTo }: LessonFlowProps) {
+export function LessonFlow({ lesson, leaveTo, openerState }: LessonFlowProps) {
   const direction = useScreenDirection();
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
+  // True once Finish has been tapped on the Recap; reaching the Recap without tapping it doesn't count.
+  const [finished, setFinished] = useState(false);
+  const finishedLessonIds = useFinishedLessonIds();
+  const nextLesson = findNextUnfinishedLesson(lessons, finishedLessonIds, lesson.id);
   // Null until the first step change, so step 1's content doesn't animate on top of the screen push.
   const [stepDirection, setStepDirection] = useState<ScreenDirection | null>(null);
   // Keyed by step index. Shared by Check and Reply Choice, kept across Back so a committed answer
@@ -67,12 +76,25 @@ export function LessonFlow({ lesson, leaveTo }: LessonFlowProps) {
     setAnswers((current) => ({ ...current, [stepIndex]: { ...current[stepIndex], committed: true } }));
   }
 
+  function finishLesson() {
+    void markLessonFinished(lesson.id);
+    setFinished(true);
+  }
+
+  function goToNextLesson() {
+    if (!nextLesson) return;
+    // Replaces this Lesson in history, so system back from the new one goes where this one started.
+    navigate(`/lessons/${nextLesson.id}`, { replace: true, state: openerState });
+  }
+
   function primaryAction(): PrimaryAction {
     if (isYourMove && !answers[stepIndex]?.committed) {
       return { label: "Check", disabled: !answers[stepIndex], onClick: commitAnswer };
     }
     if (step.kind === "recap") {
-      return { label: "Finish", onClick: () => navigate(leaveTo.path) };
+      if (!finished) return { label: "Finish", onClick: finishLesson };
+      if (nextLesson) return { label: "Next lesson", onClick: goToNextLesson };
+      return { label: "Done", onClick: () => navigate(leaveTo.path) };
     }
     return { label: "Continue", onClick: goForward };
   }
@@ -130,10 +152,18 @@ export function LessonFlow({ lesson, leaveTo }: LessonFlowProps) {
 
       <footer className="lesson-flow__bottom">
         <div className="lesson-flow__back-slot">
-          {stepIndex > 0 && (
-            <button type="button" className="lesson-flow__back" onClick={goBack}>
-              Back
-            </button>
+          {finished ? (
+            nextLesson && (
+              <Link className="lesson-flow__back" to={leaveTo.path}>
+                Done
+              </Link>
+            )
+          ) : (
+            stepIndex > 0 && (
+              <button type="button" className="lesson-flow__back" onClick={goBack}>
+                Back
+              </button>
+            )
           )}
         </div>
         <button
