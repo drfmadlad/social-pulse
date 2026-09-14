@@ -667,6 +667,7 @@ body {
 
 /* Lesson flow: chrome-free and full-viewport, like Conversation (DESIGN.md §3, Lesson Steps). */
 .lesson-flow {
+  --lesson-column-width: 640px;
   position: fixed;
   inset: 0;
   height: 100dvh;
@@ -686,7 +687,7 @@ body {
 .lesson-flow__content,
 .lesson-flow__bottom {
   width: 100%;
-  max-width: 640px;
+  max-width: var(--lesson-column-width);
   margin-inline: auto;
   padding-inline: var(--space-4);
 }
@@ -734,6 +735,8 @@ body {
 .lesson-flow__step {
   flex: 1;
   min-height: 0;
+  /* Hidden, not auto, so bleed-edge artwork crops at the screen edge instead of scrolling sideways. */
+  overflow-x: hidden;
   overflow-y: auto;
   scroll-behavior: smooth;
 }
@@ -875,6 +878,139 @@ body {
   color: inherit;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
+}
+
+/* Lesson artwork (DESIGN.md §8): unframed, straight on the step's ground. */
+.artwork {
+  display: block;
+  height: auto;
+  aspect-ratio: var(--artwork-ratio);
+}
+
+/* Full spans the content width, at most 180px tall. */
+.artwork--full {
+  width: min(100%, calc(180px * var(--artwork-ratio)));
+}
+
+/* Marginal fits a 64px square. */
+.artwork--marginal {
+  width: calc(64px * min(1, var(--artwork-ratio)));
+}
+
+.artwork--above-title {
+  align-self: flex-start;
+}
+
+/* Contains the floated artwork, so the key line wraps around it. */
+.explainer__key-line:has(.artwork) {
+  display: flow-root;
+}
+
+.artwork--beside-key-line {
+  float: inline-end;
+  margin-inline-start: var(--space-4);
+}
+
+/* Reaches past the column and its side padding to the screen edge, and clips there. */
+.explainer__bleed {
+  margin-inline: calc(-1 * (var(--space-4) + max(0px, (100vw - var(--lesson-column-width)) / 2)));
+  overflow: hidden;
+}
+
+/* A third of the artwork is pushed past the edge, inside DESIGN.md §8's 25–40%. */
+.artwork--bleed-left {
+  transform: translateX(-33%);
+}
+
+.artwork--bleed-right {
+  margin-inline-start: auto;
+  transform: translateX(33%);
+}
+
+/* DESIGN.md §6, Artwork entrance. Each piece pivots on its base, the origin of its own group. */
+.artwork-piece {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: screen-fade-in 200ms var(--ease-out) var(--artwork-delay) both;
+}
+
+@keyframes artwork-lean {
+  from {
+    transform: rotate(var(--artwork-turn-from));
+  }
+}
+
+@keyframes artwork-turn-away {
+  from {
+    transform: translateX(var(--artwork-drift-from)) rotate(var(--artwork-turn-from));
+  }
+}
+
+@keyframes artwork-rise {
+  from {
+    transform: translateY(16px);
+  }
+}
+
+@keyframes artwork-light-up {
+  from {
+    fill: var(--artwork-soft-fill);
+  }
+}
+
+/* A lean toward the left settles from 12° clockwise of its pose, and the reverse. */
+.artwork-piece--lean-left {
+  --artwork-turn-from: 12deg;
+}
+
+.artwork-piece--lean-right {
+  --artwork-turn-from: -12deg;
+}
+
+/* Turning away starts turned back toward the other shape and 16px closer to it. */
+.artwork-piece--turn-away-right {
+  --artwork-turn-from: -12deg;
+  --artwork-drift-from: -16px;
+}
+
+.artwork-piece--turn-away-left {
+  --artwork-turn-from: 12deg;
+  --artwork-drift-from: 16px;
+}
+
+.artwork-piece--lean-left,
+.artwork-piece--lean-right {
+  animation:
+    screen-fade-in 200ms var(--ease-out) var(--artwork-delay) both,
+    artwork-lean 520ms var(--ease-spring) var(--artwork-delay) both;
+}
+
+.artwork-piece--turn-away-left,
+.artwork-piece--turn-away-right {
+  animation:
+    screen-fade-in 200ms var(--ease-out) var(--artwork-delay) both,
+    artwork-turn-away 520ms var(--ease-spring) var(--artwork-delay) both;
+}
+
+.artwork-piece--rise {
+  animation:
+    screen-fade-in 200ms var(--ease-out) var(--artwork-delay) both,
+    artwork-rise 520ms var(--ease-spring) var(--artwork-delay) both;
+}
+
+/* No fade from nothing: the shape sits there in its soft tint, then lights up. */
+.artwork-piece--light-up {
+  animation: artwork-light-up 320ms var(--ease-out) var(--artwork-delay) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artwork {
+    animation: screen-fade-in 200ms var(--ease-out);
+  }
+
+  .artwork .artwork-piece {
+    animation: none;
+  }
 }
 
 .check {

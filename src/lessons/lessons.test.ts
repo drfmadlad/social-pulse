@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { isChoiceStep, lessons } from "./lessons";
+import { compositions } from "./artwork/compositions";
+import { isChoiceStep, lessons, type ExplainerArtwork, type ExplainerStep, type Lesson } from "./lessons";
+
+/** The Lesson's Explainers that carry artwork, in step order, whatever steps sit between them. */
+function explainersWithArtwork(lesson: Lesson) {
+  return lesson.steps.filter(
+    (step): step is ExplainerStep & { artwork: ExplainerArtwork } =>
+      step.kind === "explainer" && step.artwork !== undefined,
+  );
+}
 
 describe("lessons", () => {
   describe.each(lessons.map((lesson) => [lesson.id, lesson] as const))("%s", (_id, lesson) => {
@@ -28,6 +37,32 @@ describe("lessons", () => {
       for (const step of lesson.steps) {
         if (!isChoiceStep(step)) continue;
         expect(step.options.map((option) => option.id)).toContain(step.correctOptionId);
+      }
+    });
+
+    it("gives most of its Explainers artwork", () => {
+      const explainers = lesson.steps.filter((step) => step.kind === "explainer");
+
+      expect(explainersWithArtwork(lesson).length).toBeGreaterThan(explainers.length / 2);
+    });
+
+    it("points every artwork reference at a registered composition", () => {
+      for (const step of explainersWithArtwork(lesson)) {
+        expect(Object.keys(compositions)).toContain(step.artwork.composition);
+      }
+    });
+
+    it("never gives two consecutive Explainers with artwork the same placement", () => {
+      const placements = explainersWithArtwork(lesson).map((step) => step.artwork.placement);
+
+      placements.slice(1).forEach((placement, index) => {
+        expect(placement, `artwork ${index + 2} repeats the placement before it`).not.toBe(placements[index]);
+      });
+    });
+
+    it("only places artwork beside the key line on an Explainer that has one", () => {
+      for (const step of explainersWithArtwork(lesson)) {
+        if (step.artwork.placement === "beside-key-line") expect(step.keyLine).toBeTruthy();
       }
     });
 

@@ -1,3 +1,5 @@
+import type { CompositionName } from "./artwork/compositions";
+
 /** A stretch of paragraph text. Structured runs, never raw HTML, so content can't inject markup. */
 export interface TextRun {
   text: string;
@@ -5,6 +7,15 @@ export interface TextRun {
 }
 
 export type Paragraph = TextRun[];
+
+/** Where an Explainer's artwork sits and how big it is (DESIGN.md §8, Placement and scale). */
+export type ArtworkPlacement =
+  | { placement: "above-title"; scale: "full" | "marginal" }
+  /** Only on an Explainer with a key line. */
+  | { placement: "beside-key-line"; scale: "marginal" }
+  | { placement: "bleed-edge"; scale: "full"; edge: "left" | "right" };
+
+export type ExplainerArtwork = { composition: CompositionName } & ArtworkPlacement;
 
 export interface ExplainerStep {
   kind: "explainer";
@@ -14,6 +25,8 @@ export interface ExplainerStep {
   quote?: string;
   /** The one line to remember from this step, highlighted. */
   keyLine?: string;
+  /** Decorative. No two consecutive Explainers in a Lesson share a placement. */
+  artwork?: ExplainerArtwork;
 }
 
 export interface ChoiceOption {
@@ -87,6 +100,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Listening is proving you heard",
+        artwork: { composition: "leaning-in", placement: "above-title", scale: "full" },
         paragraphs: [
           [{ text: "Most of us spend the other person's turn " }, { text: "planning our own", emphasis: true }, { text: "." }],
           [{ text: "Active listening flips that. You spend their turn following what they mean, then show them you got it." }],
@@ -95,6 +109,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Reflect the gist back",
+        artwork: { composition: "echo", placement: "bleed-edge", scale: "full", edge: "right" },
         paragraphs: [
           [
             { text: "The simplest move is to say back the " },
@@ -120,6 +135,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Being corrected is the point",
+        artwork: { composition: "nudge", placement: "beside-key-line", scale: "marginal" },
         paragraphs: [
           [{ text: "Sometimes your summary will be " }, { text: "wrong", emphasis: true }, { text: ". That isn't a failure." }],
           [{ text: "They get to fix it, and now you share the same picture instead of finding out three exchanges later." }],
@@ -129,6 +145,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Hold your story for later",
+        artwork: { composition: "holding-back", placement: "above-title", scale: "marginal" },
         paragraphs: [
           [
             { text: "When someone shares something hard, it's tempting to match it with " },
@@ -188,6 +205,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Closed questions get closed answers",
+        artwork: { composition: "turning-away", placement: "bleed-edge", scale: "full", edge: "left" },
         paragraphs: [
           [{ text: "A closed question can be answered in one word, so " }, { text: "it usually is", emphasis: true }, { text: "." }],
           [{ text: "An open question asks for a description, an opinion or a story. It hands the other person the floor." }],
@@ -223,6 +241,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Room for what you didn't know to ask",
+        artwork: { composition: "open-door", placement: "beside-key-line", scale: "marginal" },
         paragraphs: [
           [{ text: "Early in a conversation, you don't know what's interesting about someone yet." }],
           [{ text: "Open questions let them " }, { text: "offer threads", emphasis: true }, { text: " you had no way of guessing at." }],
@@ -232,6 +251,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Follow the thread",
+        artwork: { composition: "following-the-thread", placement: "above-title", scale: "full" },
         paragraphs: [
           [
             { text: "An open question is only half the move. The other half is " },
@@ -256,6 +276,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Not an interrogation",
+        artwork: { composition: "across-the-table", placement: "bleed-edge", scale: "full", edge: "right" },
         paragraphs: [
           [{ text: "Open questions still need you in the conversation." }],
           [
@@ -298,6 +319,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Conversations give off signals",
+        artwork: { composition: "lighting-up", placement: "above-title", scale: "full" },
         paragraphs: [
           [
             { text: "Reading the room means tracking how a conversation is landing: its " },
@@ -310,6 +332,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Shrinking answers",
+        artwork: { composition: "drifting-apart", placement: "bleed-edge", scale: "full", edge: "left" },
         paragraphs: [
           [
             { text: "The clearest signal is length. Replies that drop from " },
@@ -334,6 +357,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Change course, don't push harder",
+        artwork: { composition: "changing-course", placement: "beside-key-line", scale: "marginal" },
         paragraphs: [
           [{ text: "When a topic runs out, pressing on with more detail " }, { text: "fights the room", emphasis: true }, { text: "." }],
           [{ text: "Switch to a new thread, or wind down." }],
@@ -364,6 +388,7 @@ export const lessons: Lesson[] = [
       {
         kind: "explainer",
         title: "Don't apologise the dip into existence",
+        artwork: { composition: "passing-the-floor", placement: "bleed-edge", scale: "full", edge: "right" },
         paragraphs: [
           [
             { text: "Stopping to say sorry for talking too much makes the dip " },

@@ -169,6 +169,25 @@ describe("Lesson flow", () => {
     });
   });
 
+  it("shows artwork, hidden from assistive technology, only on the Explainers that carry it", () => {
+    const explainers = activeListening.steps.flatMap((step) => (step.kind === "explainer" ? [step] : []));
+    expect(explainers.some((step) => step.artwork)).toBe(true);
+    expect(explainers.some((step) => !step.artwork)).toBe(true);
+    const { container } = renderApp(`/lessons/${activeListening.id}`);
+
+    activeListening.steps.forEach((step, index) => {
+      if (index > 0) advanceTo(activeListening, index, index - 1);
+      const artwork = container.querySelectorAll(".artwork");
+
+      if (step.kind === "explainer" && step.artwork) {
+        expect(artwork).toHaveLength(1);
+        expect(artwork[0]).toHaveAttribute("aria-hidden", "true");
+      } else {
+        expect(artwork).toHaveLength(0);
+      }
+    });
+  });
+
   it("keeps a Check's primary action disabled until an option is chosen, and explains a right pick once committed", () => {
     const { index, step } = firstStepOfKind(activeListening, "check");
     renderApp(`/lessons/${activeListening.id}`);
