@@ -23,6 +23,12 @@ const VERDICT_PHRASES: Record<WrittenReplyVerdict, string> = {
   not_yet: "Not quite yet.",
 };
 
+/** `movePractised` reads as a gerund phrase ("Reflecting the gist back…"), so lowercasing its
+ * first letter lets it drop into "How would you respond, {…}?" as a participial phrase. */
+function writtenReplyPrompt(movePractised: string): string {
+  return `How would you respond, ${movePractised.charAt(0).toLowerCase()}${movePractised.slice(1)}?`;
+}
+
 export function WrittenReply({ step, answer, onDraftChange, onRetry }: WrittenReplyProps) {
   const status = answer?.status ?? "composing";
   const draft = answer?.draft ?? "";
@@ -42,6 +48,7 @@ export function WrittenReply({ step, answer, onDraftChange, onRetry }: WrittenRe
       <div className="written-reply__body">
         {status === "composing" ? (
           <div className="written-reply__composer">
+            <p className="written-reply__prompt">{writtenReplyPrompt(step.movePractised)}</p>
             <label htmlFor="written-reply-draft">Your reply</label>
             <input
               id="written-reply-draft"

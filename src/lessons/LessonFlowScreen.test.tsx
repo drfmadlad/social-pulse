@@ -533,6 +533,14 @@ describe("Lesson flow", () => {
       expect(container.querySelector(".lesson-flow")).toHaveClass("lesson-flow--your-move");
     });
 
+    it("prompts the user with the move they're practising before they've sent a reply", async () => {
+      renderApp(`/lessons/${activeListening.id}`);
+      await advanceTo(activeListening, index);
+
+      const lowered = step.movePractised.charAt(0).toLowerCase() + step.movePractised.slice(1);
+      expect(screen.getByText(`How would you respond, ${lowered}?`)).toBeInTheDocument();
+    });
+
     it("disables Send while the reply is empty, and shows a waiting state while the AI responds", async () => {
       vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
       renderApp(`/lessons/${activeListening.id}`);
