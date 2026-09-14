@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { prefersReducedMotion } from "../prefersReducedMotion";
 
-const PIECE_COUNT = 80;
+const PIECE_COUNT = 120;
 /** All pieces are removed by 2.6s (DESIGN.md §6, Finish confetti): the longest possible
  * delay (120ms) plus the longest possible lifetime (2.6s) rounds up to this. */
 const BURST_LIFETIME_MS = 2720;
