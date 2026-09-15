@@ -1335,24 +1335,27 @@ body {
   height: 8px;
 }
 
-/* Every piece starts at the same point (the pill) and explodes outward: rise on --ease-out (set
-   on 0%, so it governs the 0%→35% leg), then fall on the fixed "gravity, not UI" curve from
-   DESIGN.md §6 (set on 35%, governing 35%→100%), landing well past whatever's below the pill. */
+/* Every piece starts at the same point (the pill) and explodes outward in its own direction:
+   the outward burst decelerates on --ease-out (set on 0%, governing the 0%→45% leg), then
+   gravity takes over on the fixed "gravity, not UI" curve from DESIGN.md §6 (set on 45%,
+   governing 45%→100%), continuing outward while it falls well past the pill. */
 @keyframes confetti-fly {
   0% {
     opacity: 1;
     transform: translateX(0) translateY(0) rotateX(0deg);
     animation-timing-function: var(--ease-out);
   }
-  35% {
+  45% {
     opacity: 1;
-    transform: translateX(var(--confetti-drift)) translateY(calc(var(--confetti-peak) * -1))
-      rotateX(calc(var(--confetti-spin) * 0.35));
+    transform: translateX(var(--confetti-peak-x)) translateY(var(--confetti-peak-y))
+      rotateX(calc(var(--confetti-spin) * 0.45));
     animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
   }
   100% {
     opacity: 1;
-    transform: translateX(calc(var(--confetti-drift) * 1.6)) translateY(calc(100vh - var(--confetti-origin-y) + 40px))
+    /* Timed to the piece's own duration, not a fixed offset, so every piece — however high or
+       wide its peak was — is still visibly falling right up to the moment it's removed. */
+    transform: translateX(var(--confetti-final-x)) translateY(calc(100vh - var(--confetti-origin-y) + 40px))
       rotateX(var(--confetti-spin));
   }
 }

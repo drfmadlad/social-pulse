@@ -30,23 +30,43 @@ interface ConfettiPiece {
   color: string;
   isSquare: boolean;
   delayMs: number;
-  peakVh: number;
-  driftPx: number;
+  peakXVw: number;
+  peakYVh: number;
+  finalXVw: number;
   spinDeg: number;
   durationS: number;
 }
 
+/** The pill sits at the screen's bottom edge, so a downward-launched piece has nowhere to go
+ * before it's clipped; every piece launches somewhere in the upward hemisphere instead (a wide
+ * fan, not just near-vertical), so all of them spend their spread filling visible screen. */
+const LAUNCH_ARC_RADIANS = Math.PI * 0.55;
+
+/**
+ * A true burst out of one point: each piece gets its own angle within the launch arc and its
+ * own reach, so the spread is continuous (no bimodal "two streams") and scales to the viewport
+ * (vw/vh) so it fills most of the screen on any device size, not just a fixed pixel band.
+ */
 function generatePieces(): ConfettiPiece[] {
-  return Array.from({ length: PIECE_COUNT }, (_, id) => ({
-    id,
-    color: pickColor(),
-    isSquare: Math.random() < 0.3, // 70% 6×12px rectangles, 30% 8px squares
-    delayMs: randomBetween(0, 120), // spread over the first 120ms
-    peakVh: randomBetween(45, 75), // rise to 45–75% of viewport height
-    driftPx: randomSign() * randomBetween(60, 140), // drift 60–140px sideways
-    spinDeg: randomSign() * randomBetween(360, 1080), // spin 360–1080°
-    durationS: randomBetween(1.8, 2.6), // each piece lives 1.8–2.6s
-  }));
+  return Array.from({ length: PIECE_COUNT }, (_, id) => {
+    const angle = randomBetween(-LAUNCH_ARC_RADIANS, LAUNCH_ARC_RADIANS);
+    const reachXVw = randomBetween(18, 42);
+    const reachYVh = randomBetween(18, 42);
+    const peakXVw = Math.sin(angle) * reachXVw;
+    const peakYVh = -Math.cos(angle) * reachYVh;
+
+    return {
+      id,
+      color: pickColor(),
+      isSquare: Math.random() < 0.3, // 70% 6×12px rectangles, 30% 8px squares
+      delayMs: randomBetween(0, 120), // spread over the first 120ms
+      peakXVw,
+      peakYVh,
+      finalXVw: peakXVw * 1.15, // keeps drifting outward through the fall
+      spinDeg: randomSign() * randomBetween(360, 1080), // spin 360–1080°
+      durationS: randomBetween(1.8, 2.6), // each piece lives 1.8–2.6s
+    };
+  });
 }
 
 interface ConfettiProps {
@@ -93,8 +113,9 @@ export function Confetti({ origin }: ConfettiProps) {
               "--confetti-color": piece.color,
               "--confetti-delay": `${piece.delayMs}ms`,
               "--confetti-duration": `${piece.durationS}s`,
-              "--confetti-peak": `${piece.peakVh}vh`,
-              "--confetti-drift": `${piece.driftPx}px`,
+              "--confetti-peak-x": `${piece.peakXVw}vw`,
+              "--confetti-peak-y": `${piece.peakYVh}vh`,
+              "--confetti-final-x": `${piece.finalXVw}vw`,
               "--confetti-spin": `${piece.spinDeg}deg`,
             } as CSSProperties
           }
