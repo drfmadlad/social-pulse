@@ -1319,44 +1319,65 @@ body {
   z-index: 10;
 }
 
+/* The outer element carries only the sideways throw, the inner only the rise and fall, so the
+   two axes run on their own curves the way a real cannon shot does — sideways speed decaying
+   against drag while gravity independently turns the climb around. One combined transform can
+   only hold one curve at a time, which is what made pieces flare back outward as they dropped. */
 .confetti-piece {
   position: absolute;
   top: var(--confetti-origin-y);
   left: var(--confetti-origin-x);
+  opacity: 0;
+  /* Nearly all of the sideways distance is spent in the first third, then drag all but stops it. */
+  animation: confetti-spread var(--confetti-duration) cubic-bezier(0.08, 0.7, 0.2, 1)
+    var(--confetti-delay) forwards;
+}
+
+.confetti-piece__flake {
+  display: block;
   width: 6px;
   height: 12px;
   background: var(--confetti-color);
-  opacity: 0;
-  animation: confetti-fly var(--confetti-duration) linear var(--confetti-delay) forwards;
+  animation: confetti-arc var(--confetti-duration) linear var(--confetti-delay) forwards;
 }
 
-.confetti-piece--square {
+.confetti-piece--square .confetti-piece__flake {
   width: 8px;
   height: 8px;
 }
 
-/* Every piece starts at the same point (the pill) and explodes outward in its own direction:
-   the outward burst decelerates on --ease-out (set on 0%, governing the 0%→45% leg), then
-   gravity takes over on the fixed "gravity, not UI" curve from DESIGN.md §6 (set on 45%,
-   governing 45%→100%), continuing outward while it falls well past the pill. */
-@keyframes confetti-fly {
+/* Opacity is held at both ends on purpose: the piece's base style is transparent so it stays
+   hidden through its delay, and without the closing stop the browser would fill the gap by
+   fading every piece back out to that base value over its whole flight. */
+@keyframes confetti-spread {
   0% {
     opacity: 1;
-    transform: translateX(0) translateY(0) rotateX(0deg);
-    animation-timing-function: var(--ease-out);
-  }
-  45% {
-    opacity: 1;
-    transform: translateX(var(--confetti-peak-x)) translateY(var(--confetti-peak-y))
-      rotateX(calc(var(--confetti-spin) * 0.45));
-    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+    transform: translateX(0);
   }
   100% {
     opacity: 1;
-    /* Timed to the piece's own duration, not a fixed offset, so every piece — however high or
-       wide its peak was — is still visibly falling right up to the moment it's removed. */
-    transform: translateX(var(--confetti-final-x)) translateY(calc(100vh - var(--confetti-origin-y) + 40px))
-      rotateX(var(--confetti-spin));
+    transform: translateX(var(--confetti-spread-x));
+  }
+}
+
+/* The shot itself. Muzzle velocity is near-instant and the climb is over by 28%, so the piece
+   is flung out hard, decelerates to a hang at its peak, and then spends the remaining ~70% of
+   its life coming down. The fall starts from a standstill and accelerates into a steady drift
+   rather than a plummet: gravity to terminal velocity, and gravity is the one place DESIGN.md §6
+   allows an ease-in. */
+@keyframes confetti-arc {
+  0% {
+    transform: translateY(0) rotateX(0deg);
+    animation-timing-function: cubic-bezier(0.05, 0.7, 0.25, 1);
+  }
+  28% {
+    transform: translateY(var(--confetti-peak-y)) rotateX(calc(var(--confetti-spin) * 0.28));
+    animation-timing-function: cubic-bezier(0.4, 0, 0.8, 0.8);
+  }
+  100% {
+    /* Timed to the piece's own duration, not a fixed offset, so every piece — however high its
+       peak was — is still visibly falling right up to the moment it's removed. */
+    transform: translateY(calc(100vh - var(--confetti-origin-y) + 40px)) rotateX(var(--confetti-spin));
   }
 }
 

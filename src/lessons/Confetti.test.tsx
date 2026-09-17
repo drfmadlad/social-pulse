@@ -54,6 +54,16 @@ describe("Confetti", () => {
     expect(burst.style.getPropertyValue("--confetti-origin-y")).toBe("0px");
   });
 
+  it("launches every piece upward, since the pill sits at the clipped bottom edge", () => {
+    stubPrefersReducedMotion(false);
+    const { container } = render(<ConfettiWithOriginButton />);
+
+    for (const piece of container.querySelectorAll(".confetti-piece")) {
+      const peakY = (piece as HTMLElement).style.getPropertyValue("--confetti-peak-y");
+      expect(Number.parseFloat(peakY)).toBeLessThan(0);
+    }
+  });
+
   it("renders no pieces under prefers-reduced-motion", () => {
     stubPrefersReducedMotion(true);
     const { container } = render(<ConfettiWithOriginButton />);

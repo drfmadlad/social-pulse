@@ -30,41 +30,48 @@ interface ConfettiPiece {
   color: string;
   isSquare: boolean;
   delayMs: number;
-  peakXVw: number;
+  /** Total sideways throw, spent almost entirely in the first third as drag kills it. */
+  spreadXVw: number;
+  /** Apex height above the pill, as a negative (upward) offset. */
   peakYVh: number;
-  finalXVw: number;
   spinDeg: number;
   durationS: number;
 }
 
 /** The pill sits at the screen's bottom edge, so a downward-launched piece has nowhere to go
- * before it's clipped; every piece launches somewhere in the upward hemisphere instead (a wide
- * fan, not just near-vertical), so all of them spend their spread filling visible screen. */
-const LAUNCH_ARC_RADIANS = Math.PI * 0.55;
+ * before it's clipped; the barrel points up and fans out to ±72°, wide enough to throw pieces
+ * at the side edges while still giving every one of them real height to climb. */
+const LAUNCH_ARC_RADIANS = Math.PI * 0.4;
+/** Reach along the launch angle. Vertical runs nearly the screen's height, so the burst tops out
+ * near the status bar rather than against a low ceiling partway up. */
+const MAX_RISE_VH = 92;
+const MIN_RISE_VH = 52;
+const PIECE_LIFETIME_RANGE_S = [1.8, 2.6] as const;
 
 /**
- * A true burst out of one point: each piece gets its own angle within the launch arc and its
- * own reach, so the spread is continuous (no bimodal "two streams") and scales to the viewport
+ * A cannon, not a fountain: each piece gets its own angle within the launch arc and its own
+ * reach, so the spread is continuous (no bimodal "two streams") and scales to the viewport
  * (vw/vh) so it fills most of the screen on any device size, not just a fixed pixel band.
  */
 function generatePieces(): ConfettiPiece[] {
+  const [minLifetimeS, maxLifetimeS] = PIECE_LIFETIME_RANGE_S;
+
   return Array.from({ length: PIECE_COUNT }, (_, id) => {
     const angle = randomBetween(-LAUNCH_ARC_RADIANS, LAUNCH_ARC_RADIANS);
-    const reachXVw = randomBetween(18, 42);
-    const reachYVh = randomBetween(18, 42);
-    const peakXVw = Math.sin(angle) * reachXVw;
-    const peakYVh = -Math.cos(angle) * reachYVh;
+    const riseVh = Math.cos(angle) * randomBetween(MIN_RISE_VH, MAX_RISE_VH);
 
     return {
       id,
       color: pickColor(),
       isSquare: Math.random() < 0.3, // 70% 6×12px rectangles, 30% 8px squares
       delayMs: randomBetween(0, 120), // spread over the first 120ms
-      peakXVw,
-      peakYVh,
-      finalXVw: peakXVw * 1.15, // keeps drifting outward through the fall
+      spreadXVw: Math.sin(angle) * randomBetween(30, 66),
+      peakYVh: -riseVh,
       spinDeg: randomSign() * randomBetween(360, 1080), // spin 360–1080°
-      durationS: randomBetween(1.8, 2.6), // each piece lives 1.8–2.6s
+      // Pieces thrown higher stay up proportionally longer, so everything comes down at about
+      // the same speed instead of the high fliers plummeting to cover their extra ground in the
+      // same time. The band itself is unchanged: every piece still lives 1.8–2.6s.
+      durationS: minLifetimeS + (riseVh / MAX_RISE_VH) * (maxLifetimeS - minLifetimeS),
     };
   });
 }
@@ -113,13 +120,16 @@ export function Confetti({ origin }: ConfettiProps) {
               "--confetti-color": piece.color,
               "--confetti-delay": `${piece.delayMs}ms`,
               "--confetti-duration": `${piece.durationS}s`,
-              "--confetti-peak-x": `${piece.peakXVw}vw`,
+              "--confetti-spread-x": `${piece.spreadXVw}vw`,
               "--confetti-peak-y": `${piece.peakYVh}vh`,
-              "--confetti-final-x": `${piece.finalXVw}vw`,
               "--confetti-spin": `${piece.spinDeg}deg`,
             } as CSSProperties
           }
-        />
+        >
+          {/* The sideways throw and the rise-and-fall run on separate elements so each can carry
+              its own curve: drag decays the spread while gravity acts on the climb. */}
+          <span className="confetti-piece__flake" />
+        </span>
       ))}
     </div>
   );
