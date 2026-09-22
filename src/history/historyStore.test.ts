@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ScenarioCategory } from "../practice/scenarioCategories";
-import { getAllHistoryEntries, resetHistoryStoreForTests, saveHistoryEntry } from "./historyStore";
+import {
+  attachFeedbackSummary,
+  getAllHistoryEntries,
+  resetHistoryStoreForTests,
+  saveEndedConversation,
+} from "./historyStore";
 
 const category: ScenarioCategory = {
   id: "dating",
@@ -25,19 +30,20 @@ afterEach(async () => {
 });
 
 describe("historyStore", () => {
-  it("persists a transcript and Feedback Summary together as one History entry", async () => {
-    const entry = await saveHistoryEntry({ category, transcript, summary });
+  it("saves an ended conversation before its Feedback Summary exists", async () => {
+    const entry = await saveEndedConversation({ id: "entry-1", category, transcript });
 
-    expect(entry.id).toBeTruthy();
+    expect(entry.id).toBe("entry-1");
     expect(entry.categoryId).toBe("dating");
     expect(entry.personaName).toBe("Jordan");
     expect(entry.transcript).toEqual(transcript);
-    expect(entry.summary).toEqual(summary);
+    expect(entry.summary).toBeNull();
     expect(entry.endedAt).toBeTruthy();
   });
 
-  it("survives being read back from a fresh database connection, as after a page reload", async () => {
-    await saveHistoryEntry({ category, transcript, summary });
+  it("attaches a Feedback Summary to a saved conversation, surviving a fresh database connection", async () => {
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await attachFeedbackSummary("entry-1", summary);
 
     const entries = await getAllHistoryEntries();
 
@@ -46,11 +52,29 @@ describe("historyStore", () => {
     expect(entries[0].summary).toEqual(summary);
   });
 
+  it("keeps the first save when the same conversation is saved again, so a re-save never wipes its summary", async () => {
+    const first = await saveEndedConversation({ id: "entry-1", category, transcript });
+    await attachFeedbackSummary("entry-1", summary);
+
+    const again = await saveEndedConversation({ id: "entry-1", category, transcript });
+
+    expect(again.summary).toEqual(summary);
+    expect(again.endedAt).toBe(first.endedAt);
+    expect(await getAllHistoryEntries()).toHaveLength(1);
+  });
+
+  it("does nothing when attaching a summary to a conversation that was never saved", async () => {
+    await attachFeedbackSummary("never-saved", summary);
+
+    expect(await getAllHistoryEntries()).toHaveLength(0);
+  });
+
   it("does not make any network call while persisting", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
 
-    await saveHistoryEntry({ category, transcript, summary });
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await attachFeedbackSummary("entry-1", summary);
     await getAllHistoryEntries();
 
     expect(fetchSpy).not.toHaveBeenCalled();

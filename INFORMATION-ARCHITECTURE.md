@@ -106,8 +106,13 @@ Two clearly-separated groups — what you did well, what you can do better — e
 its quote and, where present, its explanation.
 
 **Navigation:** from Conversation's end action. Done → **Home**, not back to the category grid.
-You finished something; you should land somewhere that reflects that. The entry saves to
-History automatically, as it does today.
+You finished something; you should land somewhere that reflects that.
+
+**Saving.** The conversation saves to History the moment it ends, before its feedback exists.
+The Feedback Summary is added to that same entry when it arrives. So a summary that fails, or
+that the user leaves before it lands, never loses the conversation. A summary still generating
+when the user taps Done is kept once it arrives. Coming back to this screen shows the saved
+summary without asking the AI again.
 
 ### Lessons list
 **Responsible for:** browsing Lessons, showing which are finished, and where to pick up.
@@ -185,6 +190,10 @@ screen.
 ### History entry detail
 **Responsible for:** one past conversation — transcript plus its saved Feedback Summary.
 Reuses the Feedback Summary screen's components.
+
+If the feedback never arrived, a quiet note says so and offers **Get feedback**. The summary is
+generated only on that tap, never just by opening the entry, and is saved to the entry once it
+arrives.
 
 **Navigation:** from History list. Back → History list.
 

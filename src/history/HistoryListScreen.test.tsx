@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 import { scenarioCategories } from "../practice/scenarioCategories";
-import { resetHistoryStoreForTests, saveHistoryEntry } from "./historyStore";
+import { attachFeedbackSummary, resetHistoryStoreForTests, saveEndedConversation } from "./historyStore";
 import { HistoryEntryDetailScreen } from "./HistoryEntryDetailScreen";
 import { HistoryListScreen } from "./HistoryListScreen";
 
@@ -43,16 +43,16 @@ describe("HistoryListScreen", () => {
   });
 
   it("lists persisted Practice Conversations most recent first, each linking to its own detail URL", async () => {
-    await saveHistoryEntry({
+    await saveEndedConversation({
+      id: "dating-entry",
       category: datingCategory,
       transcript: [{ role: "user", content: "Hi!" }],
-      summary,
     });
     await new Promise((resolve) => setTimeout(resolve, 5));
-    await saveHistoryEntry({
+    await saveEndedConversation({
+      id: "job-interview-entry",
       category: jobInterviewCategory,
       transcript: [{ role: "user", content: "Nice to meet you." }],
-      summary,
     });
 
     renderAt("/history");
@@ -64,14 +64,15 @@ describe("HistoryListScreen", () => {
   });
 
   it("shows the full saved transcript and Feedback Summary, read-only, when an entry is opened", async () => {
-    await saveHistoryEntry({
+    await saveEndedConversation({
+      id: "dating-entry",
       category: datingCategory,
       transcript: [
         { role: "assistant", content: "Hey! Thanks for coming out tonight." },
         { role: "user", content: "Hi, nice to meet you!" },
       ],
-      summary,
     });
+    await attachFeedbackSummary("dating-entry", summary);
 
     renderAt("/history");
 
@@ -94,10 +95,10 @@ describe("HistoryListScreen", () => {
 
     expect(await screen.findByText("Your finished conversations will show up here.")).toBeInTheDocument();
 
-    await saveHistoryEntry({
+    await saveEndedConversation({
+      id: "dating-entry",
       category: datingCategory,
       transcript: [{ role: "user", content: "Hi!" }],
-      summary,
     });
 
     expect(await screen.findByRole("link", { name: /Dating/ })).toBeInTheDocument();

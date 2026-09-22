@@ -139,6 +139,8 @@ describe("ConversationScreen", () => {
 
     const location = JSON.parse(screen.getByTestId("location").textContent!);
     expect(location.pathname).toBe("/practice/dating/feedback");
+    // The conversation's History id is minted as it ends, so the Feedback screen can save it before any feedback exists.
+    expect(location.state.entryId).toEqual(expect.any(String));
     expect(location.state.transcript).toEqual([
       { role: "assistant", content: "Hey! Good to see you." },
       { role: "user", content: "Hi, nice to meet you!" },

@@ -1,4 +1,5 @@
-import { FeedbackSummaryView } from "../practice/FeedbackSummaryView";
+import { SavedFeedbackSummary } from "../practice/SavedFeedbackSummary";
+import { scenarioCategories } from "../practice/scenarioCategories";
 import { TranscriptView } from "../practice/TranscriptView";
 import { formatEntryTimestamp } from "./formatEntryTimestamp";
 import type { HistoryEntry } from "./historyStore";
@@ -21,7 +22,12 @@ export function HistoryEntryDetail({ entry, onBack }: HistoryEntryDetailProps) {
         <time dateTime={entry.endedAt}>{formatEntryTimestamp(entry.endedAt)}</time>
       </p>
       <TranscriptView transcript={entry.transcript} personaName={entry.personaName} />
-      <FeedbackSummaryView summary={entry.summary} />
+      <SavedFeedbackSummary
+        entryId={entry.id}
+        category={scenarioCategories.find((category) => category.id === entry.categoryId)}
+        transcript={entry.transcript}
+        savedSummary={entry.summary}
+      />
     </div>
   );
 }

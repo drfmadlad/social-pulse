@@ -422,6 +422,10 @@ phrase:
 - **Fallback:** "You're offline, so here's one way to say it." or "Couldn't get feedback just
   now. Here's one way to say it." Then the Lesson's example reply, and "Try again".
 
+**Missing feedback.** A History entry whose Feedback Summary never arrived reads "Feedback didn't
+come through for this one." in `--ink-muted`, then a "Get feedback" pill. It's a note, not an
+error: the conversation itself was saved.
+
 **Apply It.** The label reads "Apply it in the real world", in sentence case and never as an
 uppercase caption.
 - **The suggestion** is one or two sentences that name a real situation and start with a verb or

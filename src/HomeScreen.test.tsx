@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
-import { resetHistoryStoreForTests, saveHistoryEntry } from "./history/historyStore";
+import { resetHistoryStoreForTests, saveEndedConversation } from "./history/historyStore";
 import { HomeScreen } from "./HomeScreen";
 import { lessons } from "./lessons/lessons";
 import { pickTodaysLesson } from "./lessons/pickTodaysLesson";
@@ -50,10 +50,10 @@ describe("HomeScreen", () => {
   });
 
   it("shows History as one row with a count", async () => {
-    await saveHistoryEntry({
+    await saveEndedConversation({
+      id: "entry-1",
       category: scenarioCategories[0],
       transcript: [{ role: "user", content: "Hi!" }],
-      summary: { didWell: [{ quote: "Hi!" }], canImprove: [{ quote: "Hi!" }] },
     });
 
     renderHome();
