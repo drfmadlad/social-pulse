@@ -6,13 +6,16 @@ import { HomeScreen } from "./HomeScreen";
 import { lessons } from "./lessons/lessons";
 import { pickTodaysLesson } from "./lessons/pickTodaysLesson";
 import { scenarioCategories } from "./practice/scenarioCategories";
+import { settleDeviceReads } from "./test/settleDeviceReads";
 
-function renderHome() {
-  return render(
+async function renderHome() {
+  const view = render(
     <MemoryRouter>
       <HomeScreen />
     </MemoryRouter>,
   );
+  await settleDeviceReads();
+  return view;
 }
 
 afterEach(async () => {
@@ -20,15 +23,15 @@ afterEach(async () => {
 });
 
 describe("HomeScreen", () => {
-  it("renders at most five elements: wordmark, Today's idea, Start practicing, Lessons row, History row", () => {
-    renderHome();
+  it("renders at most five elements: wordmark, Today's idea, Start practicing, Lessons row, History row", async () => {
+    await renderHome();
 
     expect(screen.getByRole("heading", { name: "Social Pulse" })).toBeInTheDocument();
     expect(screen.getAllByRole("link")).toHaveLength(4);
   });
 
-  it("surfaces one Lesson's idea in the Today's idea card, linking through to that Lesson", () => {
-    renderHome();
+  it("surfaces one Lesson's idea in the Today's idea card, linking through to that Lesson", async () => {
+    await renderHome();
 
     const todaysLesson = pickTodaysLesson(lessons);
     const link = screen.getByRole("link", { name: new RegExp(todaysLesson.title) });
@@ -36,14 +39,14 @@ describe("HomeScreen", () => {
     expect(link).toHaveTextContent(todaysLesson.summary);
   });
 
-  it("has a single primary action leading to the Practice picker", () => {
-    renderHome();
+  it("has a single primary action leading to the Practice picker", async () => {
+    await renderHome();
 
     expect(screen.getByRole("link", { name: "Start practicing" })).toHaveAttribute("href", "/practice");
   });
 
-  it("shows Lessons as one row with a count", () => {
-    renderHome();
+  it("shows Lessons as one row with a count", async () => {
+    await renderHome();
 
     const link = screen.getByRole("link", { name: new RegExp(`Lessons\\s*${lessons.length}`) });
     expect(link).toHaveAttribute("href", "/lessons");
@@ -56,20 +59,20 @@ describe("HomeScreen", () => {
       transcript: [{ role: "user", content: "Hi!" }],
     });
 
-    renderHome();
+    await renderHome();
 
     const link = await screen.findByRole("link", { name: /History\s*1/ });
     expect(link).toHaveAttribute("href", "/history");
   });
 
-  it("shows no draft-content badge", () => {
-    renderHome();
+  it("shows no draft-content badge", async () => {
+    await renderHome();
 
     expect(screen.queryByText("Draft")).not.toBeInTheDocument();
   });
 
-  it("shows no streak, XP, score, leaderboard, or progress indicator", () => {
-    renderHome();
+  it("shows no streak, XP, score, leaderboard, or progress indicator", async () => {
+    await renderHome();
 
     for (const forbidden of [/streak/i, /\bxp\b/i, /\bscore\b/i, /leaderboard/i, /day \d+/i]) {
       expect(screen.queryByText(forbidden)).not.toBeInTheDocument();

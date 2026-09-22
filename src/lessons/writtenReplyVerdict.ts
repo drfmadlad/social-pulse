@@ -1,4 +1,5 @@
 import { AiProxyError, requestAiReply, type ChatMessage } from "../practice/aiProxyClient";
+import { stripCodeFences } from "../practice/stripCodeFences";
 import type { WrittenReplyStep } from "./lessons";
 
 export type WrittenReplyVerdict = "landed" | "not_yet";
@@ -28,12 +29,6 @@ function isWrittenReplyResult(value: unknown): value is WrittenReplyResult {
   if (typeof value !== "object" || value === null) return false;
   const { verdict, reason } = value as Record<string, unknown>;
   return (verdict === "landed" || verdict === "not_yet") && typeof reason === "string" && reason.trim().length > 0;
-}
-
-function stripCodeFences(text: string): string {
-  const trimmed = text.trim();
-  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
-  return fenced ? fenced[1] : trimmed;
 }
 
 export async function requestWrittenReplyVerdict(step: WrittenReplyStep, reply: string): Promise<WrittenReplyResult> {

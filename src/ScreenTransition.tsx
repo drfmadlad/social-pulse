@@ -25,6 +25,12 @@ export function ScreenDirectionProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * The context's public API, kept beside the provider it reads: splitting it out would only move
+ * the same fast-refresh warning onto whichever file then held both. The cost is a full reload
+ * rather than a hot swap when this one file is edited.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useScreenDirection(): ScreenDirection {
   return useContext(ScreenDirectionContext);
 }

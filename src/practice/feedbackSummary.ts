@@ -1,5 +1,6 @@
 import { AiProxyError, requestAiReply, type ChatMessage } from "./aiProxyClient";
 import type { ScenarioCategory } from "./scenarioCategories";
+import { stripCodeFences } from "./stripCodeFences";
 
 export interface FeedbackPoint {
   quote: string;
@@ -46,12 +47,6 @@ function isFeedbackSummary(value: unknown): value is FeedbackSummary {
     canImprove.length > 0 &&
     canImprove.every(isFeedbackPoint)
   );
-}
-
-function stripCodeFences(text: string): string {
-  const trimmed = text.trim();
-  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
-  return fenced ? fenced[1] : trimmed;
 }
 
 /**

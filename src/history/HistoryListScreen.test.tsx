@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 import { scenarioCategories } from "../practice/scenarioCategories";
+import { settleDeviceReads } from "../test/settleDeviceReads";
 import { attachFeedbackSummary, resetHistoryStoreForTests, saveEndedConversation } from "./historyStore";
 import { HistoryEntryDetailScreen } from "./HistoryEntryDetailScreen";
 import { HistoryListScreen } from "./HistoryListScreen";
@@ -14,8 +15,8 @@ const summary = {
   canImprove: [{ quote: "Hi, nice to meet you!" }],
 };
 
-function renderAt(path: string) {
-  return render(
+async function renderAt(path: string) {
+  const view = render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/history" element={<HistoryListScreen />} />
@@ -23,6 +24,8 @@ function renderAt(path: string) {
       </Routes>
     </MemoryRouter>,
   );
+  await settleDeviceReads();
+  return view;
 }
 
 afterEach(async () => {
@@ -31,13 +34,13 @@ afterEach(async () => {
 
 describe("HistoryListScreen", () => {
   it("shows a placeholder when there is no History yet", async () => {
-    renderAt("/history");
+    await renderAt("/history");
 
     expect(await screen.findByText("Your finished conversations will show up here.")).toBeInTheDocument();
   });
 
-  it("names Home as the back destination", () => {
-    renderAt("/history");
+  it("names Home as the back destination", async () => {
+    await renderAt("/history");
 
     expect(screen.getByRole("link", { name: "← Home" })).toHaveAttribute("href", "/");
   });
@@ -55,7 +58,7 @@ describe("HistoryListScreen", () => {
       transcript: [{ role: "user", content: "Nice to meet you." }],
     });
 
-    renderAt("/history");
+    await renderAt("/history");
 
     const entryLinks = await screen.findAllByRole("link", { name: /Job Interview|Dating/ });
     expect(entryLinks).toHaveLength(2);
@@ -74,7 +77,7 @@ describe("HistoryListScreen", () => {
     });
     await attachFeedbackSummary("dating-entry", summary);
 
-    renderAt("/history");
+    await renderAt("/history");
 
     fireEvent.click(await screen.findByRole("link", { name: /Dating/ }));
 
@@ -91,7 +94,7 @@ describe("HistoryListScreen", () => {
   });
 
   it("refreshes live when a new History entry is saved elsewhere", async () => {
-    renderAt("/history");
+    await renderAt("/history");
 
     expect(await screen.findByText("Your finished conversations will show up here.")).toBeInTheDocument();
 

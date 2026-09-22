@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRoutes } from "../App";
 import { resetHistoryStoreForTests } from "../history/historyStore";
 import { mockReply, mockWrittenReplyVerdict } from "../test/apiMocks";
+import { clickToScreen, settleDeviceReads } from "../test/settleDeviceReads";
 import { isChoiceStep, lessons, type ChoiceStep, type Lesson, type LessonStep } from "./lessons";
 import { markLessonFinished } from "./lessonProgressStore";
 import { pickTodaysLesson } from "./pickTodaysLesson";
@@ -23,14 +24,16 @@ function SystemBack() {
   );
 }
 
-function renderApp(initialPath: string) {
-  return render(
+async function renderApp(initialPath: string) {
+  const view = render(
     <MemoryRouter initialEntries={[initialPath]}>
       <LocationDisplay />
       <SystemBack />
       <AppRoutes />
     </MemoryRouter>,
   );
+  await settleDeviceReads();
+  return view;
 }
 
 function expectOnStep(lesson: Lesson, index: number) {
@@ -105,10 +108,10 @@ afterEach(async () => {
 const activeListening = lessons.find((lesson) => lesson.id === "active-listening")!;
 
 describe("Lesson flow", () => {
-  it("opens a Lesson from the Lessons list as a full-screen flow at its first step", () => {
-    renderApp("/lessons");
+  it("opens a Lesson from the Lessons list as a full-screen flow at its first step", async () => {
+    await renderApp("/lessons");
 
-    fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+    await clickToScreen(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
 
     expect(screen.getByTestId("location")).toHaveTextContent(`/lessons/${activeListening.id}`);
     expectOnStep(activeListening, 0);
@@ -118,8 +121,8 @@ describe("Lesson flow", () => {
     expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
   });
 
-  it("moves forward one step with Continue, and back one step with Back from step 2 onward", () => {
-    renderApp(`/lessons/${activeListening.id}`);
+  it("moves forward one step with Continue, and back one step with Back from step 2 onward", async () => {
+    await renderApp(`/lessons/${activeListening.id}`);
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expectOnStep(activeListening, 1);
@@ -130,32 +133,32 @@ describe("Lesson flow", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(`/lessons/${activeListening.id}`);
   });
 
-  it("leaves to Home when the Lesson was opened from Today's idea", () => {
+  it("leaves to Home when the Lesson was opened from Today's idea", async () => {
     const todaysLesson = pickTodaysLesson(lessons);
-    renderApp("/");
+    await renderApp("/");
 
-    fireEvent.click(screen.getByRole("link", { name: /Today.s idea/ }));
+    await clickToScreen(screen.getByRole("link", { name: /Today.s idea/ }));
     expectOnStep(todaysLesson, 0);
-    fireEvent.click(screen.getByRole("link", { name: "← Home" }));
+    await clickToScreen(screen.getByRole("link", { name: "← Home" }));
 
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/);
     expect(screen.getByRole("link", { name: "Start practicing" })).toBeInTheDocument();
   });
 
-  it("leaves to the Lessons list when the Lesson was opened from the list", () => {
-    renderApp("/lessons");
+  it("leaves to the Lessons list when the Lesson was opened from the list", async () => {
+    await renderApp("/lessons");
 
-    fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
-    fireEvent.click(screen.getByRole("link", { name: "← Lessons" }));
+    await clickToScreen(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+    await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
 
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
     expect(screen.getByRole("heading", { name: "Lessons" })).toBeInTheDocument();
   });
 
-  it("leaves to the Lessons list when the Lesson was opened from a link", () => {
-    renderApp(`/lessons/${activeListening.id}`);
+  it("leaves to the Lessons list when the Lesson was opened from a link", async () => {
+    await renderApp(`/lessons/${activeListening.id}`);
 
-    fireEvent.click(screen.getByRole("link", { name: "← Lessons" }));
+    await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
 
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
   });
@@ -164,7 +167,7 @@ describe("Lesson flow", () => {
     const explainers = activeListening.steps.flatMap((step) => (step.kind === "explainer" ? [step] : []));
     expect(explainers.some((step) => step.quote)).toBe(true);
     expect(explainers.some((step) => step.keyLine)).toBe(true);
-    renderApp(`/lessons/${activeListening.id}`);
+    await renderApp(`/lessons/${activeListening.id}`);
 
     for (const [index, step] of activeListening.steps.entries()) {
       if (index > 0) await advanceTo(activeListening, index, index - 1);
@@ -193,7 +196,7 @@ describe("Lesson flow", () => {
     const explainers = activeListening.steps.flatMap((step) => (step.kind === "explainer" ? [step] : []));
     expect(explainers.some((step) => step.artwork)).toBe(true);
     expect(explainers.some((step) => !step.artwork)).toBe(true);
-    const { container } = renderApp(`/lessons/${activeListening.id}`);
+    const { container } = await renderApp(`/lessons/${activeListening.id}`);
 
     for (const [index, step] of activeListening.steps.entries()) {
       if (index > 0) await advanceTo(activeListening, index, index - 1);
@@ -210,7 +213,7 @@ describe("Lesson flow", () => {
 
   it("keeps a Check's primary action disabled until an option is chosen, and explains a right pick once committed", async () => {
     const { index, step } = firstStepOfKind(activeListening, "check");
-    renderApp(`/lessons/${activeListening.id}`);
+    await renderApp(`/lessons/${activeListening.id}`);
     await advanceTo(activeListening, index);
     expectOnStep(activeListening, index);
 
@@ -232,7 +235,7 @@ describe("Lesson flow", () => {
 
   it("explains a wrong pick, points out the better option, and continues without a retry", async () => {
     const { index, step } = firstStepOfKind(activeListening, "check");
-    renderApp(`/lessons/${activeListening.id}`);
+    await renderApp(`/lessons/${activeListening.id}`);
     await advanceTo(activeListening, index);
 
     fireEvent.click(screen.getByRole("radio", { name: optionText(step, "wrong") }));
@@ -254,7 +257,7 @@ describe("Lesson flow", () => {
 
   it("shows a Reply Choice's context sentence and the other person's line as a persona message with no avatar or speaker label, on the your-move ground", async () => {
     const { index, step } = firstStepOfKind(activeListening, "reply-choice");
-    const { container } = renderApp(`/lessons/${activeListening.id}`);
+    const { container } = await renderApp(`/lessons/${activeListening.id}`);
     await advanceTo(activeListening, index);
 
     expect(screen.getByText(step.context)).toBeInTheDocument();
@@ -266,7 +269,7 @@ describe("Lesson flow", () => {
 
   it("keeps a Reply Choice's primary action disabled until an option is chosen, and explains a right pick once committed, exactly like a Check", async () => {
     const { index, step } = firstStepOfKind(activeListening, "reply-choice");
-    renderApp(`/lessons/${activeListening.id}`);
+    await renderApp(`/lessons/${activeListening.id}`);
     await advanceTo(activeListening, index);
     expectOnStep(activeListening, index);
 
@@ -288,7 +291,7 @@ describe("Lesson flow", () => {
 
   it("explains a wrong pick on a Reply Choice, points out the better option, and continues without a retry, exactly like a Check", async () => {
     const { index, step } = firstStepOfKind(activeListening, "reply-choice");
-    renderApp(`/lessons/${activeListening.id}`);
+    await renderApp(`/lessons/${activeListening.id}`);
     await advanceTo(activeListening, index);
 
     fireEvent.click(screen.getByRole("radio", { name: optionText(step, "wrong") }));
@@ -313,11 +316,11 @@ describe("Lesson flow", () => {
     const displayedOptionTexts = () =>
       screen.getAllByRole("radio").map((radio) => radio.closest("label")?.textContent);
 
-    renderApp("/lessons");
-    const openLesson = () => fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+    await renderApp("/lessons");
+    const openLesson = () => clickToScreen(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
 
     vi.spyOn(Math, "random").mockReturnValue(0);
-    openLesson();
+    await openLesson();
     vi.restoreAllMocks();
     await advanceTo(activeListening, index);
     const firstOrder = displayedOptionTexts();
@@ -327,9 +330,9 @@ describe("Lesson flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(displayedOptionTexts()).toEqual(firstOrder);
 
-    fireEvent.click(screen.getByRole("link", { name: "← Lessons" }));
+    await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
     vi.spyOn(Math, "random").mockReturnValue(0.999);
-    openLesson();
+    await openLesson();
     vi.restoreAllMocks();
     await advanceTo(activeListening, index);
     const secondOrder = displayedOptionTexts();
@@ -340,8 +343,8 @@ describe("Lesson flow", () => {
 
   it("ends with a Recap of takeaways and an Apply It, and Finish marks it done and offers Next lesson and Done", async () => {
     const { index, step } = firstStepOfKind(activeListening, "recap");
-    renderApp("/lessons");
-    fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+    await renderApp("/lessons");
+    await clickToScreen(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
     await advanceTo(activeListening, index);
 
     for (const takeaway of step.takeaways) {
@@ -356,14 +359,14 @@ describe("Lesson flow", () => {
     expect(screen.getByRole("link", { name: "Done" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Finish" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("link", { name: "Done" }));
+    await clickToScreen(screen.getByRole("link", { name: "Done" }));
 
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
   });
 
   it("plays one confetti burst on Finish, hidden from assistive technology", async () => {
     const { index } = firstStepOfKind(activeListening, "recap");
-    const { container } = renderApp(`/lessons/${activeListening.id}`);
+    const { container } = await renderApp(`/lessons/${activeListening.id}`);
     await advanceTo(activeListening, index);
 
     expect(container.querySelectorAll(".confetti-piece")).toHaveLength(0);
@@ -374,12 +377,16 @@ describe("Lesson flow", () => {
     const burst = container.querySelector(".confetti");
     expect(burst).toHaveAttribute("aria-hidden", "true");
     expect(container.querySelectorAll(".confetti-piece").length).toBeGreaterThan(0);
+
+    // Finish also marks the Lesson done on-device, which the flow reads back; that belongs to
+    // this test, not to whichever one runs next.
+    await settleDeviceReads();
   });
 
   it("shows no confetti under reduced motion, and the Lesson can still be finished", async () => {
     vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true } as MediaQueryList));
     const { index } = firstStepOfKind(activeListening, "recap");
-    const { container } = renderApp(`/lessons/${activeListening.id}`);
+    const { container } = await renderApp(`/lessons/${activeListening.id}`);
     await advanceTo(activeListening, index);
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
@@ -387,27 +394,31 @@ describe("Lesson flow", () => {
     expect(await screen.findByRole("button", { name: "Next lesson" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Done" })).toBeInTheDocument();
     expect(container.querySelectorAll(".confetti-piece")).toHaveLength(0);
+
+    // Finish also marks the Lesson done on-device, which the flow reads back; that belongs to
+    // this test, not to whichever one runs next.
+    await settleDeviceReads();
   });
 
   it("returns Home via Done when the Lesson was opened from Today's idea", async () => {
     const todaysLesson = pickTodaysLesson(lessons);
-    renderApp("/");
-    fireEvent.click(screen.getByRole("link", { name: /Today.s idea/ }));
+    await renderApp("/");
+    await clickToScreen(screen.getByRole("link", { name: /Today.s idea/ }));
     await advanceTo(todaysLesson, todaysLesson.steps.length - 1);
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
-    fireEvent.click(await screen.findByRole("link", { name: "Done" }));
+    await clickToScreen(await screen.findByRole("link", { name: "Done" }));
 
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/);
   });
 
   it("does not mark a Lesson done just by reaching the Recap without tapping Finish", async () => {
     const { index } = firstStepOfKind(activeListening, "recap");
-    renderApp("/lessons");
-    fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+    await renderApp("/lessons");
+    await clickToScreen(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
     await advanceTo(activeListening, index);
 
-    fireEvent.click(screen.getByRole("link", { name: "← Lessons" }));
+    await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
 
     const row = await screen.findByRole("link", { name: new RegExp(activeListening.title) });
     expect(within(row).queryByText("Done")).not.toBeInTheDocument();
@@ -416,13 +427,13 @@ describe("Lesson flow", () => {
   it("finishing an already-done Lesson leaves it done, with no visible change", async () => {
     await markLessonFinished(activeListening.id);
     const { index } = firstStepOfKind(activeListening, "recap");
-    renderApp(`/lessons/${activeListening.id}`);
+    await renderApp(`/lessons/${activeListening.id}`);
     await advanceTo(activeListening, index);
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
 
     expect(await screen.findByRole("button", { name: "Next lesson" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("link", { name: "← Lessons" }));
+    await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
 
     const row = await screen.findByRole("link", { name: new RegExp(activeListening.title) });
     expect(await within(row).findByText("Done")).toBeInTheDocument();
@@ -431,8 +442,8 @@ describe("Lesson flow", () => {
 
   it("Next lesson opens the first unfinished Lesson in list order, skipping the current one, and replaces it in history", async () => {
     const openQuestions = lessons.find((lesson) => lesson.id === "open-questions")!;
-    renderApp("/lessons");
-    fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+    await renderApp("/lessons");
+    await clickToScreen(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
     await advanceTo(activeListening, activeListening.steps.length - 1);
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
@@ -441,18 +452,18 @@ describe("Lesson flow", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(`/lessons/${openQuestions.id}`);
     expectOnStep(openQuestions, 0);
 
-    fireEvent.click(screen.getByRole("button", { name: "System back" }));
+    await clickToScreen(screen.getByRole("button", { name: "System back" }));
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
   });
 
   it("keeps the Lesson before it as the leave destination when Next lesson is used", async () => {
     const todaysLesson = pickTodaysLesson(lessons);
-    renderApp("/");
-    fireEvent.click(screen.getByRole("link", { name: /Today.s idea/ }));
+    await renderApp("/");
+    await clickToScreen(screen.getByRole("link", { name: /Today.s idea/ }));
     await advanceTo(todaysLesson, todaysLesson.steps.length - 1);
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
 
-    fireEvent.click(await screen.findByRole("button", { name: "Next lesson" }));
+    await clickToScreen(await screen.findByRole("button", { name: "Next lesson" }));
 
     expect(screen.getByRole("link", { name: "← Home" })).toBeInTheDocument();
   });
@@ -461,7 +472,7 @@ describe("Lesson flow", () => {
     const readingTheRoom = lessons.find((lesson) => lesson.id === "reading-the-room")!;
     await markLessonFinished("active-listening");
     await markLessonFinished("open-questions");
-    renderApp(`/lessons/${readingTheRoom.id}`);
+    await renderApp(`/lessons/${readingTheRoom.id}`);
     await advanceTo(readingTheRoom, readingTheRoom.steps.length - 1);
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
@@ -470,24 +481,24 @@ describe("Lesson flow", () => {
     expect(screen.queryByRole("button", { name: "Next lesson" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Done" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    await clickToScreen(screen.getByRole("button", { name: "Done" }));
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
   });
 
   it("starts the Lesson from step 1 again after leaving mid-Lesson, by the leave action or by system back", async () => {
-    renderApp("/lessons");
-    const openLesson = () => fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+    await renderApp("/lessons");
+    const openLesson = () => clickToScreen(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
 
-    openLesson();
+    await openLesson();
     await advanceTo(activeListening, 3);
-    fireEvent.click(screen.getByRole("link", { name: "← Lessons" }));
-    openLesson();
+    await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+    await openLesson();
     expectOnStep(activeListening, 0);
 
     await advanceTo(activeListening, 3);
-    fireEvent.click(screen.getByRole("button", { name: "System back" }));
+    await clickToScreen(screen.getByRole("button", { name: "System back" }));
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
-    openLesson();
+    await openLesson();
     expectOnStep(activeListening, 0);
   });
 
@@ -495,7 +506,7 @@ describe("Lesson flow", () => {
     const fetchMock = vi.fn(() => Promise.reject(new Error("offline")));
     vi.stubGlobal("fetch", fetchMock);
     const tally = /\d+\s*(of|out of|\/)\s*\d+|%|\bscore\b/i;
-    renderApp(`/lessons/${activeListening.id}`);
+    await renderApp(`/lessons/${activeListening.id}`);
 
     let pickRight = false;
     for (const step of activeListening.steps) {
@@ -523,7 +534,7 @@ describe("Lesson flow", () => {
     const { index, step } = firstStepOfKind(activeListening, "written-reply");
 
     it("reuses Reply Choice's context sentence and persona message bubble for the other person's line", async () => {
-      const { container } = renderApp(`/lessons/${activeListening.id}`);
+      const { container } = await renderApp(`/lessons/${activeListening.id}`);
       await advanceTo(activeListening, index);
 
       expect(screen.getByText(step.context)).toBeInTheDocument();
@@ -534,7 +545,7 @@ describe("Lesson flow", () => {
     });
 
     it("prompts the user with the move they're practising before they've sent a reply", async () => {
-      renderApp(`/lessons/${activeListening.id}`);
+      await renderApp(`/lessons/${activeListening.id}`);
       await advanceTo(activeListening, index);
 
       const lowered = step.movePractised.charAt(0).toLowerCase() + step.movePractised.slice(1);
@@ -543,7 +554,7 @@ describe("Lesson flow", () => {
 
     it("disables Send while the reply is empty, and shows a waiting state while the AI responds", async () => {
       vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
-      renderApp(`/lessons/${activeListening.id}`);
+      await renderApp(`/lessons/${activeListening.id}`);
       await advanceTo(activeListening, index);
 
       expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
@@ -563,7 +574,7 @@ describe("Lesson flow", () => {
 
     it("shows a landed verdict and its reason, and Continue moves on", async () => {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockWrittenReplyVerdict("landed", "You named the worry directly.")));
-      renderApp(`/lessons/${activeListening.id}`);
+      await renderApp(`/lessons/${activeListening.id}`);
       await advanceTo(activeListening, index);
 
       await sendWrittenReply();
@@ -581,7 +592,7 @@ describe("Lesson flow", () => {
         "fetch",
         vi.fn().mockResolvedValue(mockWrittenReplyVerdict("not_yet", "You jumped to advice instead of reflecting first.")),
       );
-      renderApp(`/lessons/${activeListening.id}`);
+      await renderApp(`/lessons/${activeListening.id}`);
       await advanceTo(activeListening, index);
 
       await sendWrittenReply();
@@ -597,7 +608,7 @@ describe("Lesson flow", () => {
         .mockRejectedValueOnce(new Error("offline"))
         .mockResolvedValueOnce(mockWrittenReplyVerdict("landed", "That's a warm reflection."));
       vi.stubGlobal("fetch", fetchMock);
-      renderApp(`/lessons/${activeListening.id}`);
+      await renderApp(`/lessons/${activeListening.id}`);
       await advanceTo(activeListening, index);
 
       await sendWrittenReply();
@@ -616,7 +627,7 @@ describe("Lesson flow", () => {
     it("falls back with a generic message on an unreadable response, and offers Continue", async () => {
       // A 200 whose content isn't parseable JSON: unreadable, not a network or server error.
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockReply("not valid json")));
-      renderApp(`/lessons/${activeListening.id}`);
+      await renderApp(`/lessons/${activeListening.id}`);
       await advanceTo(activeListening, index);
 
       await sendWrittenReply();
@@ -627,15 +638,15 @@ describe("Lesson flow", () => {
     });
 
     it("saves nothing the user writes: a fresh Lesson start shows an empty composer again", async () => {
-      renderApp("/lessons");
-      const openLesson = () => fireEvent.click(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+      await renderApp("/lessons");
+      const openLesson = () => clickToScreen(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
 
-      openLesson();
+      await openLesson();
       await advanceTo(activeListening, index);
       fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: "Something private." } });
 
-      fireEvent.click(screen.getByRole("link", { name: "← Lessons" }));
-      openLesson();
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openLesson();
       await advanceTo(activeListening, index);
 
       expect(screen.getByLabelText("Your reply")).toHaveValue("");

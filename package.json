@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -18,6 +19,7 @@
     "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
     "@types/node": "^22.20.2",
@@ -25,9 +27,14 @@
     "@types/react-dom": "^18.3.1",
     "@vercel/node": "^12.0.3",
     "@vitejs/plugin-react": "^4.3.3",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.26",
     "fake-indexeddb": "^6.2.5",
+    "globals": "^15.15.0",
     "jsdom": "^25.0.1",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.70.1",
     "vite": "^5.4.10",
     "vite-plugin-pwa": "^0.20.5",
     "vitest": "^2.1.4"
