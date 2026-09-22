@@ -42,5 +42,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    // Parallel agent worktrees live under .claude/worktrees, on disk inside this project
+    // directory; each has its own node_modules, so scanning them alongside the real source
+    // duplicates React and causes cross-worktree test failures that have nothing to do with
+    // the code being tested here.
+    exclude: ["**/node_modules/**", "**/.claude/worktrees/**"],
   },
 });
