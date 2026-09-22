@@ -16,6 +16,10 @@ function createMockReq(overrides: Partial<VercelRequest>): VercelRequest {
   return { method: "POST", body: {}, ...overrides } as VercelRequest;
 }
 
+function chatMessage(content = "hi"): { role: "user"; content: string } {
+  return { role: "user", content };
+}
+
 function createMockRes() {
   const res = {
     statusCode: 200,
@@ -77,6 +81,54 @@ describe("POST /api/conversation", () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.body).toMatchObject({ error: { code: "invalid_request" } });
+  });
+
+  it("rejects a request over the max message count", async () => {
+    const messages = Array.from({ length: 41 }, () => chatMessage());
+    const req = createMockReq({ body: { messages } });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toMatchObject({ error: { code: "invalid_request" } });
+    expect(callAiProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts a request at the max message count", async () => {
+    callAiProviderMock.mockResolvedValue({ content: "ok" });
+    const messages = Array.from({ length: 40 }, () => chatMessage());
+    const req = createMockReq({ body: { messages } });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(callAiProviderMock).toHaveBeenCalledWith(messages);
+  });
+
+  it("rejects a message over the max content length", async () => {
+    const messages = [chatMessage("a".repeat(2001))];
+    const req = createMockReq({ body: { messages } });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toMatchObject({ error: { code: "invalid_request" } });
+    expect(callAiProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts a message at the max content length", async () => {
+    callAiProviderMock.mockResolvedValue({ content: "ok" });
+    const messages = [chatMessage("a".repeat(2000))];
+    const req = createMockReq({ body: { messages } });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(callAiProviderMock).toHaveBeenCalledWith(messages);
   });
 
   it("forwards valid messages to the AI provider and returns its reply", async () => {
