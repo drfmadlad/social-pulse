@@ -5,7 +5,7 @@ export interface ChatMessage {
   content: string;
 }
 
-export type AiProxyErrorKind = "rate_limited" | "provider_error" | "network_error";
+export type AiProxyErrorKind = "rate_limited" | "invalid_request" | "provider_error" | "network_error";
 
 export class AiProxyError extends Error {
   readonly kind: AiProxyErrorKind;
@@ -35,7 +35,9 @@ export async function requestAiReply(messages: ChatMessage[]): Promise<ChatMessa
   } | null;
 
   if (!response.ok) {
-    const kind: AiProxyErrorKind = data?.error?.code === "rate_limited" ? "rate_limited" : "provider_error";
+    const code = data?.error?.code;
+    const kind: AiProxyErrorKind =
+      code === "rate_limited" ? "rate_limited" : code === "invalid_request" ? "invalid_request" : "provider_error";
     throw new AiProxyError(data?.error?.message ?? "The AI service failed to respond.", kind);
   }
 

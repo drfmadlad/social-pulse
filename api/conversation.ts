@@ -1,13 +1,17 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { AiProviderError, callAiProvider, type ChatMessage } from "./_lib/aiProvider.js";
 
+const MAX_MESSAGES = 40;
+const MAX_MESSAGE_LENGTH = 2000;
+
 function isValidMessage(value: unknown): value is ChatMessage {
   if (typeof value !== "object" || value === null) return false;
   const { role, content } = value as Record<string, unknown>;
   return (
     (role === "system" || role === "user" || role === "assistant") &&
     typeof content === "string" &&
-    content.length > 0
+    content.length > 0 &&
+    content.length <= MAX_MESSAGE_LENGTH
   );
 }
 
@@ -20,11 +24,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const messages: unknown = req.body?.messages;
-  if (!Array.isArray(messages) || messages.length === 0 || !messages.every(isValidMessage)) {
+  if (
+    !Array.isArray(messages) ||
+    messages.length === 0 ||
+    messages.length > MAX_MESSAGES ||
+    !messages.every(isValidMessage)
+  ) {
     res.status(400).json({
       error: {
         code: "invalid_request",
-        message: "Request body must include a non-empty `messages` array of { role, content }.",
+        message:
+          `Request body must include a non-empty \`messages\` array of { role, content }, ` +
+          `with at most ${MAX_MESSAGES} messages and ${MAX_MESSAGE_LENGTH} characters per message.`,
       },
     });
     return;
