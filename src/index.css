@@ -359,6 +359,70 @@ body {
   background: var(--canvas);
 }
 
+/* The in-app replacement for `window.confirm` when leaving a Practice Conversation (issue #33). */
+.leave-dialog__scrim {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(35, 48, 47, 0.4);
+  animation: screen-fade-in 200ms var(--ease-out);
+}
+
+@keyframes leave-dialog-in {
+  from {
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.leave-dialog {
+  width: 100%;
+  max-width: 320px;
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  animation:
+    leave-dialog-in 240ms var(--ease-spring),
+    screen-fade-in 160ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leave-dialog {
+    animation: screen-fade-in 160ms var(--ease-out);
+  }
+}
+
+.leave-dialog__message {
+  margin: 0 0 var(--space-4);
+  color: var(--ink);
+  font: var(--text-body);
+  font-weight: 600;
+}
+
+.leave-dialog__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+}
+
+.leave-dialog__cancel {
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  border: none;
+  background: none;
+  color: var(--ink-muted);
+  font: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .chat-screen__messages {
   list-style: none;
   margin: 0 0 var(--space-3);
