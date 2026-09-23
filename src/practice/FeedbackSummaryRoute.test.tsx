@@ -38,6 +38,7 @@ const endedConversation = { transcript };
 
 afterEach(async () => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   await resetHistoryStoreForTests();
 });
 
@@ -89,6 +90,22 @@ describe("FeedbackSummaryRoute", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0].transcript).toEqual(transcript);
     expect(entries[0].summary).toBeNull();
+  });
+
+  it("tells the user their conversation couldn't be saved when the IndexedDB write throws, without losing the feedback on screen", async () => {
+    vi.spyOn(IDBObjectStore.prototype, "add").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+    const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/practice/dating/feedback/entry-1", endedConversation);
+
+    expect(await screen.findByText("What you did well")).toBeInTheDocument();
+    expect(screen.getByText(/couldn't be saved/i)).toBeInTheDocument();
+    expect(screen.getByText(/won't show up in History/i)).toBeInTheDocument();
+
+    expect(await getAllHistoryEntries()).toHaveLength(0);
   });
 
   it("still attaches the summary to History when the user leaves while it's generating", async () => {
