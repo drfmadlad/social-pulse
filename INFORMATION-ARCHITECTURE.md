@@ -260,6 +260,27 @@ A heading's level is semantics only. Its size and weight come from the type scal
 because the screen is chrome-free and has no room for a title. `src/headingStructure.test.tsx`
 renders every screen, and every kind of Lesson step, and fails if any breaks these rules.
 
+### Update offer (app-wide, not a screen)
+
+**Responsible for:** telling the user a new version of the app is waiting and letting them take it,
+without interrupting what they're doing. It lives in the app shell, so it overlays whichever screen
+is showing rather than being a screen or a Home card: Home's five elements are unchanged. Visuals
+are in DESIGN.md §7 (Update offer).
+
+- The service worker registers in `prompt` mode. A new version installs in the background and waits;
+  it takes over only when the user taps **Reload**. **Not now** dismisses the note for the session.
+- **Noticing an update.** A long-lived or resumed app isn't navigated, so the browser wouldn't look
+  for a new version. The app checks when it becomes visible again and once an hour while open.
+- **The app never reloads itself.** Neither the note nor the service worker reloads the page unasked,
+  and that includes other tabs: the generated register script would reload every open tab when one
+  of them took an update, so registration is the app's own (`src/useAppUpdate.ts`) and a tab reloads
+  only after its own user tapped Reload.
+- **Held back on the Conversation and the Lesson flow.** A reload there loses a Practice Conversation
+  or a Lesson's step position, so the note doesn't show on those screens and appears on the next
+  screen the user reaches. The Feedback Summary shows it: that conversation is already saved.
+- It adds no heading and no navigation, so it doesn't touch the heading structure above or the
+  navigation model below.
+
 ## 3. Navigation model
 
 No tab bar, consistent with issue #1. Navigation is a stack: Home is the root, everything else
