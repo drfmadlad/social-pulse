@@ -156,6 +156,14 @@ body {
   font: var(--text-sm);
 }
 
+.route-error__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: var(--space-6);
+  text-decoration: none;
+}
+
 .home-nav {
   list-style: none;
   margin: var(--space-8) 0 0;
