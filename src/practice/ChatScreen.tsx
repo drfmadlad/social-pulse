@@ -31,10 +31,13 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
 
   // Guards every way out of the screen (issue #33) — the on-screen back button below and the
   // system back gesture both attempt navigation through this same router, so one blocker catches
-  // both. Ending the conversation navigates to its Feedback Summary, which isn't leaving, so that
-  // path is exempted rather than asked about.
-  const feedbackPath = `/practice/${category.id}/feedback`;
-  const blocker = useBlocker(({ nextLocation }) => hasSaidSomething && nextLocation.pathname !== feedbackPath);
+  // both. Ending the conversation navigates to its Feedback Summary (issue #35 put the History
+  // entry id on the end of that URL), which isn't leaving, so that path is exempted rather than
+  // asked about.
+  const feedbackPathPrefix = `/practice/${category.id}/feedback/`;
+  const blocker = useBlocker(
+    ({ nextLocation }) => hasSaidSomething && !nextLocation.pathname.startsWith(feedbackPathPrefix),
+  );
 
   async function sendTurns(nextTurns: ChatMessage[]) {
     const requestId = start();
