@@ -162,6 +162,58 @@ describe("ConversationScreen", () => {
     ]);
   });
 
+  it("disables End & get feedback until the user has sent a message", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+
+    expect(screen.getByRole("button", { name: "End & get feedback" })).toBeDisabled();
+  });
+
+  it("enables End & get feedback once the user has sent a message", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+      .mockResolvedValueOnce(mockReply("Likewise!"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText("Likewise!");
+
+    expect(screen.getByRole("button", { name: "End & get feedback" })).toBeEnabled();
+  });
+
+  it("keeps End & get feedback disabled when the opening line itself fails, since the user still hasn't said anything", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(mockError(500, "provider_error", "Something broke."));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/practice/dating");
+
+    expect(await screen.findByText("Something broke.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "End & get feedback" })).toBeDisabled();
+  });
+
+  it("keeps End & get feedback available when a later request fails, since the user already said something", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+      .mockResolvedValueOnce(mockError(500, "provider_error", "Something broke."));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByText("Something broke.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "End & get feedback" })).toBeEnabled();
+  });
+
   it("shows a visible error with a retry action when the AI call fails, and recovers on retry", async () => {
     const fetchMock = vi
       .fn()
