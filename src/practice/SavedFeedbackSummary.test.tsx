@@ -1,7 +1,6 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { hangingFetch, mockFeedbackSummary } from "../test/apiMocks";
-import { AI_REPLY_TIMEOUT_MS } from "./aiProxyClient";
+import { advancePastAiRequestTimeout, hangingFetch, mockFeedbackSummary } from "../test/apiMocks";
 import { SavedFeedbackSummary } from "./SavedFeedbackSummary";
 import { scenarioCategories } from "./scenarioCategories";
 
@@ -31,17 +30,11 @@ describe("SavedFeedbackSummary", () => {
         generateOnMount
       />,
     );
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(AI_REPLY_TIMEOUT_MS);
-    });
+    await advancePastAiRequestTimeout();
 
     expect(screen.getByText("The request timed out. Please try again.")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
 
-    // Real timers from here: the retry resolves without another fake-timer advance, and RTL's
-    // findBy* polling needs real timers to ever re-check.
-    vi.useRealTimers();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     expect(await screen.findByText("What you did well")).toBeInTheDocument();

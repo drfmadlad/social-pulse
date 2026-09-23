@@ -1,10 +1,9 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRoutes } from "../App";
 import { resetHistoryStoreForTests } from "../history/historyStore";
-import { AI_REPLY_TIMEOUT_MS } from "../practice/aiProxyClient";
-import { hangingFetch, mockReply, mockWrittenReplyVerdict } from "../test/apiMocks";
+import { advancePastAiRequestTimeout, hangingFetch, mockReply, mockWrittenReplyVerdict } from "../test/apiMocks";
 import { clickToScreen, settleDeviceReads } from "../test/settleDeviceReads";
 import { isChoiceStep, lessons, type ChoiceStep, type Lesson, type LessonStep } from "./lessons";
 import { markLessonFinished } from "./lessonProgressStore";
@@ -638,12 +637,7 @@ describe("Lesson flow", () => {
       vi.useFakeTimers();
       fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: "Something I'd say." } });
       fireEvent.click(screen.getByRole("button", { name: "Send" }));
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(AI_REPLY_TIMEOUT_MS);
-      });
-      // Real timers from here: the retry resolves without another fake-timer advance, and RTL's
-      // findBy* polling needs real timers to ever re-check.
-      vi.useRealTimers();
+      await advancePastAiRequestTimeout();
 
       // Not the offline copy: a timeout isn't a network_error, so it takes the generic fallback.
       expect(screen.getByText("Couldn't get feedback just now. Here's one way to say it.")).toBeInTheDocument();
