@@ -87,7 +87,7 @@ describe("a render error", () => {
 
     expect(container).not.toHaveTextContent("boom");
     expect(container).not.toHaveTextContent("secret stack detail");
-    expect(consoleError.mock.calls.some((args) => args.includes(crash.error))).toBe(true);
+    expect(consoleError.mock.calls.some((args: unknown[]) => args.includes(crash.error))).toBe(true);
   });
 
   it("is caught on the position:fixed Conversation screen too", async () => {

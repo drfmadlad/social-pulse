@@ -42,7 +42,7 @@ describe("AppErrorBoundary", () => {
     expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
     expect(container).not.toHaveTextContent("boom");
     expectSaneHeadingHierarchy(container);
-    expect(consoleError.mock.calls.some((args) => args.includes(thrown))).toBe(true);
+    expect(consoleError.mock.calls.some((args: unknown[]) => args.includes(thrown))).toBe(true);
   });
 
   it("reloads the page from the Reload button", () => {
