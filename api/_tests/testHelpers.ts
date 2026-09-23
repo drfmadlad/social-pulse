@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "../_lib/vercelTypes.js";
 
 export const APP_HOST = "social-pulse-ruby.vercel.app";
 export const APP_ORIGIN = `https://${APP_HOST}`;

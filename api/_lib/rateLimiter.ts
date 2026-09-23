@@ -1,4 +1,4 @@
-import type { VercelRequest } from "@vercel/node";
+import type { VercelRequest } from "./vercelTypes.js";
 
 // Soft, per-instance limit — see docs/adr/0001-in-memory-rate-limiting-for-ai-proxy.md for why
 // this doesn't span serverless instances, and why that's an acceptable trade-off here.
