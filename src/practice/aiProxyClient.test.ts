@@ -15,6 +15,33 @@ describe("requestAiReply", () => {
     expect(reply).toEqual({ role: "assistant", content: "Hi there!" });
   });
 
+  it("sends the existing request shape, with no categoryId key at all, when called without one", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockReply("Hi there!"));
+    vi.stubGlobal("fetch", fetchMock);
+    const messages = [
+      { role: "system" as const, content: "You are a coach." },
+      { role: "user" as const, content: "Hello" },
+    ];
+
+    await requestAiReply(messages);
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ messages });
+    expect(body).not.toHaveProperty("categoryId");
+  });
+
+  it("includes categoryId in the request body when given one", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockReply("Hi there!"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await requestAiReply([{ role: "user", content: "Hello" }], "dating");
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ messages: [{ role: "user", content: "Hello" }], categoryId: "dating" });
+  });
+
   it("maps a rate_limited error to a rate_limited kind", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockError(429, "rate_limited", "slow down")));
 
