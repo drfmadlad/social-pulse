@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useBlocker } from "react-router-dom";
 import { AiProxyError, requestAiReply, type ChatMessage } from "./aiProxyClient";
+import { LeaveConversationDialog } from "./LeaveConversationDialog";
 import { useScreenDirection } from "../ScreenTransition";
 import { screenTransitionClassName } from "../screenDirection";
 import type { ScenarioCategory } from "./scenarioCategories";
@@ -25,6 +27,14 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
   const isBusy = phase === "loading-opening" || phase === "sending";
   const canSend = !isBusy && draft.trim().length > 0;
   const canEnd = phase === "chatting" || phase === "error";
+  const hasSaidSomething = turns.some((turn) => turn.role === "user");
+
+  // Guards every way out of the screen (issue #33) — the on-screen back button below and the
+  // system back gesture both attempt navigation through this same router, so one blocker catches
+  // both. Ending the conversation navigates to its Feedback Summary, which isn't leaving, so that
+  // path is exempted rather than asked about.
+  const feedbackPath = `/practice/${category.id}/feedback`;
+  const blocker = useBlocker(({ nextLocation }) => hasSaidSomething && nextLocation.pathname !== feedbackPath);
 
   async function sendTurns(nextTurns: ChatMessage[]) {
     const requestId = start();
@@ -62,18 +72,10 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
     void sendTurns(turns);
   }
 
-  function handleBack() {
-    const hasSaidSomething = turns.some((turn) => turn.role === "user");
-    if (hasSaidSomething && !window.confirm("Leave this conversation? It won't be saved.")) {
-      return;
-    }
-    onBack();
-  }
-
   return (
     <div className={`conversation-screen ${screenTransitionClassName(direction)}`}>
       <header className="conversation-screen__header">
-        <button type="button" className="back-button" onClick={handleBack}>
+        <button type="button" className="back-button" onClick={onBack}>
           ← Practice
         </button>
         <h3>{category.personaName}</h3>
@@ -111,6 +113,10 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
           Send
         </button>
       </form>
+
+      {blocker.state === "blocked" && (
+        <LeaveConversationDialog onCancel={() => blocker.reset()} onLeave={() => blocker.proceed()} />
+      )}
     </div>
   );
 }

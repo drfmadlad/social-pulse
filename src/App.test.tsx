@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { createMemoryRouter, Outlet, RouterProvider, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import App, { AppRoutes } from "./App";
+import App, { createAppRouteObjects } from "./App";
 import { resetHistoryStoreForTests } from "./history/historyStore";
 import { mockFeedbackSummary, mockReply } from "./test/apiMocks";
 import { clickToScreen, settleDeviceReads } from "./test/settleDeviceReads";
@@ -12,12 +12,25 @@ function LocationDisplay() {
 }
 
 async function renderApp(initialPath = "/") {
-  const view = render(
-    <MemoryRouter initialEntries={[initialPath]}>
-      <LocationDisplay />
-      <AppRoutes />
-    </MemoryRouter>,
+  const router = createMemoryRouter(
+    [
+      {
+        // `createAppRouteObjects()` assigns each route an id relative to its own top level, so
+        // this wrapper needs an id that won't collide with those rather than the "0" it would get
+        // by position.
+        id: "app-test-root",
+        element: (
+          <>
+            <LocationDisplay />
+            <Outlet />
+          </>
+        ),
+        children: createAppRouteObjects(),
+      },
+    ],
+    { initialEntries: [initialPath] },
   );
+  const view = render(<RouterProvider router={router} />);
   await settleDeviceReads();
   return view;
 }

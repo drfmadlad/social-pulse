@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { createMemoryRouter, Outlet, RouterProvider, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { advancePastAiRequestTimeout, hangingFetch, mockError, mockReply } from "../test/apiMocks";
 import { ConversationScreen } from "./ConversationScreen";
@@ -9,17 +9,38 @@ function LocationDisplay() {
   return <div data-testid="location">{JSON.stringify({ pathname: location.pathname, state: location.state })}</div>;
 }
 
+// A real data router, not `<MemoryRouter>`: ChatScreen's leave confirmation (issue #33) uses
+// `useBlocker`, which only reports blocked navigation against a data router. The extra "/practice"
+// entry before `path` gives the system-back tests somewhere to go back to, the way a real user
+// always reaches a Practice Conversation via the Practice picker.
 function renderAt(path: string) {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <LocationDisplay />
-      <Routes>
-        <Route path="/practice" element={<div>Practice picker</div>} />
-        <Route path="/practice/:categoryId" element={<ConversationScreen />} />
-        <Route path="/practice/:categoryId/feedback" element={<div>Feedback Summary stub</div>} />
-      </Routes>
-    </MemoryRouter>,
+  const router = createMemoryRouter(
+    [
+      {
+        element: (
+          <>
+            <LocationDisplay />
+            <Outlet />
+          </>
+        ),
+        children: [
+          { path: "/practice", element: <div>Practice picker</div> },
+          { path: "/practice/:categoryId", element: <ConversationScreen /> },
+          { path: "/practice/:categoryId/feedback", element: <div>Feedback Summary stub</div> },
+        ],
+      },
+    ],
+    { initialEntries: ["/practice", path], initialIndex: 1 },
   );
+  const view = render(<RouterProvider router={router} />);
+  return { ...view, router };
+}
+
+/** Simulates the system back gesture / browser back, which react-router surfaces as a POP navigation. */
+async function pressSystemBack(router: ReturnType<typeof createMemoryRouter>) {
+  await act(async () => {
+    await router.navigate(-1);
+  });
 }
 
 afterEach(() => {
@@ -69,39 +90,50 @@ describe("ConversationScreen", () => {
     expect(indicator).toHaveAccessibleName(/is typing/i);
   });
 
-  it("does not ask for confirmation when backing out before any reply has arrived", () => {
+  it("does not ask before leaving via the back button when no reply has arrived yet", () => {
     const fetchMock = vi.fn(() => new Promise(() => {}));
     vi.stubGlobal("fetch", fetchMock);
-    const confirmSpy = vi.spyOn(window, "confirm");
 
     renderAt("/practice/dating");
     fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
 
-    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(screen.getByText("Practice picker")).toBeInTheDocument();
   });
 
-  it("does not ask for confirmation when backing out before the user has said anything", async () => {
+  it("does not ask before leaving via the back button when the user hasn't said anything", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
     vi.stubGlobal("fetch", fetchMock);
-    const confirmSpy = vi.spyOn(window, "confirm");
 
     renderAt("/practice/dating");
     await screen.findByText("Hey! Good to see you.");
 
     fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
 
-    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(screen.getByText("Practice picker")).toBeInTheDocument();
   });
 
-  it("asks for confirmation before leaving a conversation the user has actually taken part in, and stays if declined", async () => {
+  it("does not ask before leaving via the system back gesture when the user hasn't said anything", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { router } = renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+
+    await pressSystemBack(router);
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByText("Practice picker")).toBeInTheDocument();
+  });
+
+  it("asks before leaving via the back button once the user has spoken, and stays put if declined", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
       .mockResolvedValueOnce(mockReply("Likewise!"));
     vi.stubGlobal("fetch", fetchMock);
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const confirmSpy = vi.spyOn(window, "confirm");
 
     renderAt("/practice/dating");
     await screen.findByText("Hey! Good to see you.");
@@ -110,19 +142,86 @@ describe("ConversationScreen", () => {
     await screen.findByText("Likewise!");
 
     fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent(/leave this conversation/i);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(confirmSpy).toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.queryByText("Practice picker")).not.toBeInTheDocument();
+    expect(screen.getByText("Likewise!")).toBeInTheDocument();
+    // The confirmation is the app's own component, never the browser's native dialog.
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it("leaves for the Practice picker when the back button's confirmation is accepted", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+      .mockResolvedValueOnce(mockReply("Likewise!"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText("Likewise!");
+
+    fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
+    fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+
+    expect(screen.getByText("Practice picker")).toBeInTheDocument();
+  });
+
+  it("asks before leaving via the system back gesture once the user has spoken, through the same dialog, and stays put if declined", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+      .mockResolvedValueOnce(mockReply("Likewise!"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { router } = renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText("Likewise!");
+
+    await pressSystemBack(router);
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent(/leave this conversation/i);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(screen.queryByText("Practice picker")).not.toBeInTheDocument();
     expect(screen.getByText("Likewise!")).toBeInTheDocument();
   });
 
-  it("navigates back to the Practice picker when leaving a conversation in progress and confirmed", async () => {
+  it("leaves for the Practice picker when the system back gesture's confirmation is accepted", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
       .mockResolvedValueOnce(mockReply("Likewise!"));
     vi.stubGlobal("fetch", fetchMock);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const { router } = renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText("Likewise!");
+
+    await pressSystemBack(router);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+    });
+
+    expect(screen.getByText("Practice picker")).toBeInTheDocument();
+  });
+
+  it("does not ask when ending the conversation, even though the user has spoken", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+      .mockResolvedValueOnce(mockReply("Likewise!"));
+    vi.stubGlobal("fetch", fetchMock);
 
     renderAt("/practice/dating");
     await screen.findByText("Hey! Good to see you.");
@@ -130,9 +229,10 @@ describe("ConversationScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await screen.findByText("Likewise!");
 
-    fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
+    fireEvent.click(screen.getByRole("button", { name: "End & get feedback" }));
 
-    expect(screen.getByText("Practice picker")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByText("Feedback Summary stub")).toBeInTheDocument();
   });
 
   it("navigates to the category's Feedback Summary URL with the transcript when the conversation ends", async () => {
