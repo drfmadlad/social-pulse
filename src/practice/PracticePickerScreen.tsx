@@ -6,7 +6,9 @@ export function PracticePickerScreen() {
   return (
     <section aria-labelledby="practice-heading" className="home-section">
       <HomeLink />
-      <h2 id="practice-heading">Practice</h2>
+      <h1 id="practice-heading" className="home-section__heading">
+        Practice
+      </h1>
       <ul className="scenario-list">
         {scenarioCategories.map((category) => (
           <li key={category.id}>

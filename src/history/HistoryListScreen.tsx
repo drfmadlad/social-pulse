@@ -8,7 +8,9 @@ export function HistoryListScreen() {
   return (
     <section aria-labelledby="history-heading" className="home-section">
       <HomeLink />
-      <h2 id="history-heading">History</h2>
+      <h1 id="history-heading" className="home-section__heading">
+        History
+      </h1>
       {entries.length === 0 ? (
         <p className="home-section__placeholder">Your finished conversations will show up here.</p>
       ) : (
