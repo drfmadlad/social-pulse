@@ -189,4 +189,59 @@ describe("ConversationScreen", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("explains a safety-blocked reply in plain language with a way forward, and keeps the conversation usable", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+      .mockResolvedValueOnce(
+        mockError(422, "blocked", "The AI can't respond to that message. Try rephrasing it, or end the conversation to see your feedback so far."),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Something that trips the filter" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/can't respond to that message/i);
+    expect(alert).toHaveTextContent(/rephrasing/i);
+    expect(alert.textContent).not.toMatch(/safety|blockreason|gemini|422/i);
+
+    // Nothing is lost: the user's turn is still in the transcript, and ending the conversation
+    // still works from this state.
+    expect(screen.getByText("Something that trips the filter")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "End & get feedback" }));
+    const location = JSON.parse(screen.getByTestId("location").textContent!);
+    expect(location.pathname).toBe("/practice/dating/feedback");
+  });
+
+  it("explains an empty AI reply in plain language rather than showing a blank bubble", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+      .mockResolvedValueOnce(
+        mockError(
+          502,
+          "provider_error",
+          "The AI didn't send back a reply that time. Try again, or end the conversation to see your feedback so far.",
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi again" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/didn't send back a reply/i);
+    expect(alert).toHaveTextContent(/try again/i);
+
+    const bubbles = screen.getAllByRole("listitem");
+    expect(bubbles.every((bubble) => bubble.textContent && bubble.textContent.trim().length > 0)).toBe(true);
+  });
 });

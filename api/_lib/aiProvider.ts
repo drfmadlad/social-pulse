@@ -5,7 +5,7 @@ export interface ChatMessage {
   content: string;
 }
 
-export type AiProviderErrorKind = "rate_limited" | "provider_error";
+export type AiProviderErrorKind = "rate_limited" | "blocked" | "provider_error";
 
 export class AiProviderError extends Error {
   readonly kind: AiProviderErrorKind;
@@ -73,12 +73,29 @@ async function callGemini(messages: ChatMessage[]): Promise<{ content: string }>
   }
 
   const data = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>;
+    promptFeedback?: { blockReason?: string };
   };
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-  if (typeof text !== "string") {
-    throw new AiProviderError("The AI provider returned an unexpected response shape.", "provider_error");
+  // Gemini can answer with HTTP 200 and still have nothing usable: its own safety filter can
+  // block the whole prompt (promptFeedback.blockReason) or just the reply (finishReason
+  // "SAFETY"), and either way there's no content to read. That's a different situation for the
+  // user than a malformed or empty reply, so it gets its own error kind and message.
+  const isBlocked =
+    data.promptFeedback?.blockReason !== undefined || data.candidates?.[0]?.finishReason === "SAFETY";
+  if (isBlocked) {
+    throw new AiProviderError(
+      "The AI can't respond to that message. Try rephrasing it, or end the conversation to see your feedback so far.",
+      "blocked",
+    );
+  }
+
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof text !== "string" || text.trim().length === 0) {
+    throw new AiProviderError(
+      "The AI didn't send back a reply that time. Try again, or end the conversation to see your feedback so far.",
+      "provider_error",
+    );
   }
 
   return { content: text };

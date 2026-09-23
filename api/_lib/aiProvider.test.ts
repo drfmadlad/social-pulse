@@ -166,4 +166,69 @@ describe("callAiProvider", () => {
       kind: "provider_error",
     });
   });
+
+  it("throws a blocked error when the whole prompt is blocked by the safety filter", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, { promptFeedback: { blockReason: "SAFETY" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(callAiProvider(messages)).rejects.toMatchObject({
+      kind: "blocked",
+    });
+  });
+
+  it("throws a blocked error when a candidate's reply is blocked by the safety filter", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, { candidates: [{ finishReason: "SAFETY" }] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(callAiProvider(messages)).rejects.toMatchObject({
+      kind: "blocked",
+    });
+  });
+
+  it("gives a blocked error plain, actionable wording with no provider jargon", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, { promptFeedback: { blockReason: "SAFETY" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(callAiProvider(messages)).rejects.toSatisfy((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      return (
+        !message.includes("SAFETY") &&
+        !message.includes("blockReason") &&
+        !/\bgemini\b/i.test(message) &&
+        message.toLowerCase().includes("rephras")
+      );
+    });
+  });
+
+  it("throws a provider_error with a clear, actionable message when the reply text is empty", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, { candidates: [{ content: { parts: [{ text: "" }] } }] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(callAiProvider(messages)).rejects.toMatchObject({
+      kind: "provider_error",
+    });
+    await expect(callAiProvider(messages)).rejects.toSatisfy((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      return !message.toLowerCase().includes("unexpected response shape");
+    });
+  });
+
+  it("throws a provider_error when the reply text is only whitespace", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, { candidates: [{ content: { parts: [{ text: "   " }] } }] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(callAiProvider(messages)).rejects.toMatchObject({
+      kind: "provider_error",
+    });
+  });
 });

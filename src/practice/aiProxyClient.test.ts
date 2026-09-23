@@ -58,6 +58,17 @@ describe("requestAiReply", () => {
     });
   });
 
+  it("maps a blocked error to a blocked kind, distinguishable from a provider error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(mockError(422, "blocked", "The AI can't respond to that message.")),
+    );
+
+    await expect(requestAiReply([{ role: "user", content: "Hi" }])).rejects.toMatchObject({
+      kind: "blocked",
+    });
+  });
+
   it("maps an unrecognised error code to a provider_error kind", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockError(502, "provider_error", "boom")));
 

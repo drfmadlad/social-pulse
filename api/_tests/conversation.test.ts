@@ -181,6 +181,17 @@ describe("POST /api/conversation", () => {
     expect(res.body).toMatchObject({ error: { code: "provider_error" } });
   });
 
+  it("propagates a safety-blocked response as a distinguishable 422 response", async () => {
+    callAiProviderMock.mockRejectedValue(new AiProviderError("The AI can't respond to that message.", "blocked"));
+    const req = createMockReq({ body: { messages: [{ role: "user", content: "hi" }] } });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(422);
+    expect(res.body).toMatchObject({ error: { code: "blocked" } });
+  });
+
   it("never includes any API key or env var value in the response body", async () => {
     process.env.GEMINI_API_KEY = "super-secret-value";
     callAiProviderMock.mockResolvedValue({ content: "hello" });
