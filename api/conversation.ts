@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { AiProviderError, callAiProvider, type ChatMessage } from "./_lib/aiProvider.js";
+import { isAllowedOrigin } from "./_lib/originCheck.js";
+import { checkRateLimit, getClientKey } from "./_lib/rateLimiter.js";
 
 function isValidMessage(value: unknown): value is ChatMessage {
   if (typeof value !== "object" || value === null) return false;
@@ -15,6 +17,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.status(405).json({
       error: { code: "method_not_allowed", message: "Only POST is supported." },
+    });
+    return;
+  }
+
+  if (!isAllowedOrigin(req)) {
+    res.status(403).json({
+      error: { code: "forbidden_origin", message: "This endpoint only accepts requests from the app." },
+    });
+    return;
+  }
+
+  const rateLimit = checkRateLimit(getClientKey(req));
+  if (!rateLimit.allowed) {
+    res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+    res.status(429).json({
+      error: { code: "rate_limited", message: "Too many requests. Try again shortly." },
     });
     return;
   }

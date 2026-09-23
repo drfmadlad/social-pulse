@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiProviderError } from "../_lib/aiProvider.js";
+import { RATE_LIMIT_MAX_REQUESTS, _resetRateLimiterForTests } from "../_lib/rateLimiter.js";
 
 vi.mock("../_lib/aiProvider.js", async () => {
   const actual = await vi.importActual<typeof import("../_lib/aiProvider.js")>("../_lib/aiProvider.js");
@@ -12,14 +13,23 @@ import handler from "../conversation.js";
 
 const callAiProviderMock = vi.mocked(callAiProvider);
 
+const APP_HOST = "social-pulse-ruby.vercel.app";
+const APP_ORIGIN = `https://${APP_HOST}`;
+
 function createMockReq(overrides: Partial<VercelRequest>): VercelRequest {
-  return { method: "POST", body: {}, ...overrides } as VercelRequest;
+  return {
+    method: "POST",
+    headers: { origin: APP_ORIGIN, host: APP_HOST },
+    body: {},
+    ...overrides,
+  } as VercelRequest;
 }
 
 function createMockRes() {
   const res = {
     statusCode: 200,
     body: undefined as unknown,
+    headers: {} as Record<string, string>,
     status(code: number) {
       res.statusCode = code;
       return res;
@@ -28,12 +38,17 @@ function createMockRes() {
       res.body = body;
       return res;
     },
+    setHeader(name: string, value: string) {
+      res.headers[name] = value;
+      return res;
+    },
   };
-  return res as unknown as VercelResponse & { statusCode: number; body: unknown };
+  return res as unknown as VercelResponse & { statusCode: number; body: unknown; headers: Record<string, string> };
 }
 
 beforeEach(() => {
   callAiProviderMock.mockReset();
+  _resetRateLimiterForTests();
 });
 
 describe("POST /api/conversation", () => {
@@ -124,5 +139,98 @@ describe("POST /api/conversation", () => {
 
     expect(JSON.stringify(res.body)).not.toContain("super-secret-value");
     delete process.env.GEMINI_API_KEY;
+  });
+
+  it("rejects a request from a cross-origin caller", async () => {
+    callAiProviderMock.mockResolvedValue({ content: "hi" });
+    const req = createMockReq({
+      headers: { origin: "https://evil.example.com", host: APP_HOST },
+      body: { messages: [{ role: "user", content: "hi" }] },
+    });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({ error: { code: "forbidden_origin" } });
+    expect(callAiProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a request whose Referer doesn't match the app's origin", async () => {
+    const req = createMockReq({
+      headers: { referer: "https://evil.example.com/attack", host: APP_HOST },
+      body: { messages: [{ role: "user", content: "hi" }] },
+    });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({ error: { code: "forbidden_origin" } });
+  });
+
+  it("rejects a request with no Origin or Referer header at all", async () => {
+    const req = createMockReq({
+      headers: { host: APP_HOST },
+      body: { messages: [{ role: "user", content: "hi" }] },
+    });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({ error: { code: "forbidden_origin" } });
+  });
+
+  it("allows a localhost origin for local dev regardless of the request host", async () => {
+    callAiProviderMock.mockResolvedValue({ content: "hi" });
+    const req = createMockReq({
+      headers: { origin: "http://localhost:5173", host: "localhost:3000" },
+      body: { messages: [{ role: "user", content: "hi" }] },
+    });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("rate-limits a caller past the per-window request threshold", async () => {
+    callAiProviderMock.mockResolvedValue({ content: "hi" });
+    const body = { messages: [{ role: "user", content: "hi" }] };
+
+    for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i++) {
+      const req = createMockReq({ headers: { origin: APP_ORIGIN, host: APP_HOST, "x-forwarded-for": "1.2.3.4" }, body });
+      const res = createMockRes();
+      await handler(req, res);
+      expect(res.statusCode).toBe(200);
+    }
+
+    const req = createMockReq({ headers: { origin: APP_ORIGIN, host: APP_HOST, "x-forwarded-for": "1.2.3.4" }, body });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(429);
+    expect(res.body).toMatchObject({ error: { code: "rate_limited" } });
+    expect(res.headers["Retry-After"]).toBeDefined();
+    expect(Number(res.headers["Retry-After"])).toBeGreaterThan(0);
+  });
+
+  it("tracks rate limits separately per caller", async () => {
+    callAiProviderMock.mockResolvedValue({ content: "hi" });
+    const body = { messages: [{ role: "user", content: "hi" }] };
+
+    for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i++) {
+      const req = createMockReq({ headers: { origin: APP_ORIGIN, host: APP_HOST, "x-forwarded-for": "1.1.1.1" }, body });
+      await handler(req, createMockRes());
+    }
+
+    const req = createMockReq({ headers: { origin: APP_ORIGIN, host: APP_HOST, "x-forwarded-for": "2.2.2.2" }, body });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
   });
 });
