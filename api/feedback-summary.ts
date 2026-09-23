@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "./_lib/vercelTypes.js";
 import { rejectDisallowedRequest, sendAiProviderReply } from "./_lib/aiProxyHandler.js";
 import type { ChatMessage } from "./_lib/aiProvider.js";
 import { buildFeedbackSummaryPrompt, FEEDBACK_SUMMARY_CLOSING_MESSAGE } from "./_lib/feedbackSummaryPrompt.js";

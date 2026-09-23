@@ -1,4 +1,4 @@
-import type { VercelRequest } from "@vercel/node";
+import type { VercelRequest } from "./vercelTypes.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { isAllowedOrigin } from "./originCheck.js";
 

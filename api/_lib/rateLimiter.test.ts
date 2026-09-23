@@ -1,4 +1,4 @@
-import type { VercelRequest } from "@vercel/node";
+import type { VercelRequest } from "./vercelTypes.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   RATE_LIMIT_MAX_REQUESTS,

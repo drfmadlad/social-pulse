@@ -1,4 +1,4 @@
-import type { VercelRequest } from "@vercel/node";
+import type { VercelRequest } from "./vercelTypes.js";
 
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 

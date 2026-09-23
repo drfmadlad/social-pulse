@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "./vercelTypes.js";
 import { AiProviderError, callAiProvider, type ChatMessage } from "./aiProvider.js";
 import { isAllowedOrigin } from "./originCheck.js";
 import { checkRateLimit, getClientKey } from "./rateLimiter.js";
