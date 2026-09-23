@@ -1,10 +1,11 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router-dom";
-import { afterEach, describe, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppRouteObjects } from "./App";
 import { attachFeedbackSummary, resetHistoryStoreForTests, saveEndedConversation } from "./history/historyStore";
+import { isChoiceStep, lessons } from "./lessons/lessons";
 import { scenarioCategories } from "./practice/scenarioCategories";
-import { mockReply } from "./test/apiMocks";
+import { mockReply, mockWrittenReplyVerdict } from "./test/apiMocks";
 import { expectSaneHeadingHierarchy } from "./test/headingStructure";
 import { settleDeviceReads } from "./test/settleDeviceReads";
 
@@ -64,9 +65,29 @@ describe("heading structure", () => {
     expectSaneHeadingHierarchy(container);
   });
 
-  it("Lesson flow has exactly one h1 and no skipped levels", async () => {
-    const { container } = await renderScreen("/lessons/active-listening");
-    expectSaneHeadingHierarchy(container);
+  it("Lesson flow has exactly one h1 and no skipped levels on every kind of step", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockWrittenReplyVerdict("landed", "Nicely put.")));
+    const lesson = lessons.find((candidate) => candidate.id === "active-listening")!;
+    const kinds = new Set(lesson.steps.map((step) => step.kind));
+    expect(kinds).toEqual(new Set(["explainer", "check", "reply-choice", "written-reply", "recap"]));
+    const { container } = await renderScreen(`/lessons/${lesson.id}`);
+
+    for (const step of lesson.steps) {
+      expectSaneHeadingHierarchy(container);
+      if (step.kind === "recap") break;
+      if (isChoiceStep(step)) {
+        fireEvent.click(screen.getAllByRole("radio")[0]);
+        fireEvent.click(screen.getByRole("button", { name: "Check" }));
+        expectSaneHeadingHierarchy(container);
+      }
+      if (step.kind === "written-reply") {
+        fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: "Something I'd say." } });
+        fireEvent.click(screen.getByRole("button", { name: "Send" }));
+        await screen.findByText("Nicely put.");
+        expectSaneHeadingHierarchy(container);
+      }
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    }
   });
 
   it("History list has exactly one h1 and no skipped levels", async () => {

@@ -204,6 +204,28 @@ arrives.
 
 **Navigation:** from History list. Back → History list.
 
+### Heading structure
+
+Every screen has exactly one `h1`, naming it, and it opens the screen's outline. Headings below it
+descend a level at a time, never skipping. A screen reader user navigating by headings gets an
+outline that matches what's on screen and a landmark for where they are.
+
+| Screen | `h1` | Below it |
+|---|---|---|
+| Home | Social Pulse | none |
+| Practice picker | Practice | none |
+| Conversation | the persona's name | none |
+| Feedback Summary | Feedback on your conversation with the persona | `h2` for each of the two groups |
+| Lessons list | Lessons | none |
+| Lesson flow | the Lesson's title, **visually hidden** | `h2` for the step's title or prompt; on the Recap a visually hidden `h2` "Recap" with `h3` for Apply it |
+| History list | History | none |
+| History entry detail | the category with the persona | `h2` for each Feedback Summary group |
+
+A heading's level is semantics only. Its size and weight come from the type scale in DESIGN.md
+(Type), so changing a level never changes how it looks. The Lesson flow's `h1` is visually hidden
+because the screen is chrome-free and has no room for a title. `src/headingStructure.test.tsx`
+renders every screen, and every kind of Lesson step, and fails if any breaks these rules.
+
 ## 3. Navigation model
 
 No tab bar, consistent with issue #1. Navigation is a stack: Home is the root, everything else

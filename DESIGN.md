@@ -188,6 +188,11 @@ Six steps, each doing distinct work — replacing today's six near-identical siz
 variant is weight 600 on `--text-body` or `--text-sm` for emphasis in the UI face, as list-row
 titles already use.
 
+Type tokens are independent of heading level. Each screen has exactly one `h1` and headings below
+it descend without skipping, but a screen's `h1` may render at `--text-heading` (Practice picker,
+Lessons list, History list) or be visually hidden (Lesson flow). The rule and the per-screen list
+are in INFORMATION-ARCHITECTURE.md (Heading structure).
+
 ### Spacing
 
 4px base; a restrained subset so values can't drift.
