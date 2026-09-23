@@ -80,8 +80,9 @@ export async function requestAiProxy(endpoint: string, body: unknown): Promise<C
 
 /**
  * `categoryId` names the Practice Conversation's Scenario Category instead of carrying its
- * prompt: the prompt itself lives only in the serverless function, keyed by that id.
+ * prompt: the prompt itself lives only in the serverless function, keyed by that id. The server
+ * requires it on every request, so it's never optional here either.
  */
-export async function requestAiReply(messages: ChatMessage[], categoryId?: string): Promise<ChatMessage> {
-  return requestAiProxy("/api/conversation", categoryId ? { messages, categoryId } : { messages });
+export async function requestAiReply(messages: ChatMessage[], categoryId: string): Promise<ChatMessage> {
+  return requestAiProxy("/api/conversation", { messages, categoryId });
 }

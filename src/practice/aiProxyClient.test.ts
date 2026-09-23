@@ -11,28 +11,12 @@ describe("requestAiReply", () => {
   it("resolves the assistant's reply on success", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockReply("Hi there!")));
 
-    const reply = await requestAiReply([{ role: "user", content: "Hello" }]);
+    const reply = await requestAiReply([{ role: "user", content: "Hello" }], "dating");
 
     expect(reply).toEqual({ role: "assistant", content: "Hi there!" });
   });
 
-  it("sends the existing request shape, with no categoryId key at all, when called without one", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(mockReply("Hi there!"));
-    vi.stubGlobal("fetch", fetchMock);
-    const messages = [
-      { role: "system" as const, content: "You are a coach." },
-      { role: "user" as const, content: "Hello" },
-    ];
-
-    await requestAiReply(messages);
-
-    const [, init] = fetchMock.mock.calls[0];
-    const body = JSON.parse(init.body as string);
-    expect(body).toEqual({ messages });
-    expect(body).not.toHaveProperty("categoryId");
-  });
-
-  it("includes categoryId in the request body when given one", async () => {
+  it("always includes categoryId in the request body", async () => {
     const fetchMock = vi.fn().mockResolvedValue(mockReply("Hi there!"));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -46,7 +30,7 @@ describe("requestAiReply", () => {
   it("maps a rate_limited error to a rate_limited kind", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockError(429, "rate_limited", "slow down")));
 
-    await expect(requestAiReply([{ role: "user", content: "Hi" }])).rejects.toMatchObject({
+    await expect(requestAiReply([{ role: "user", content: "Hi" }], "dating")).rejects.toMatchObject({
       kind: "rate_limited",
     });
   });
@@ -54,7 +38,7 @@ describe("requestAiReply", () => {
   it("maps an invalid_request error to an invalid_request kind, distinguishable from a provider error", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockError(400, "invalid_request", "too many messages")));
 
-    await expect(requestAiReply([{ role: "user", content: "Hi" }])).rejects.toMatchObject({
+    await expect(requestAiReply([{ role: "user", content: "Hi" }], "dating")).rejects.toMatchObject({
       kind: "invalid_request",
     });
   });
@@ -65,7 +49,7 @@ describe("requestAiReply", () => {
       vi.fn().mockResolvedValue(mockError(422, "blocked", "The AI can't respond to that message.")),
     );
 
-    await expect(requestAiReply([{ role: "user", content: "Hi" }])).rejects.toMatchObject({
+    await expect(requestAiReply([{ role: "user", content: "Hi" }], "dating")).rejects.toMatchObject({
       kind: "blocked",
     });
   });
@@ -73,7 +57,7 @@ describe("requestAiReply", () => {
   it("maps an unrecognised error code to a provider_error kind", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockError(502, "provider_error", "boom")));
 
-    await expect(requestAiReply([{ role: "user", content: "Hi" }])).rejects.toMatchObject({
+    await expect(requestAiReply([{ role: "user", content: "Hi" }], "dating")).rejects.toMatchObject({
       kind: "provider_error",
     });
   });
@@ -84,8 +68,8 @@ describe("requestAiReply", () => {
       vi.fn().mockRejectedValue(new Error("offline")),
     );
 
-    await expect(requestAiReply([{ role: "user", content: "Hi" }])).rejects.toBeInstanceOf(AiProxyError);
-    await expect(requestAiReply([{ role: "user", content: "Hi" }])).rejects.toMatchObject({
+    await expect(requestAiReply([{ role: "user", content: "Hi" }], "dating")).rejects.toBeInstanceOf(AiProxyError);
+    await expect(requestAiReply([{ role: "user", content: "Hi" }], "dating")).rejects.toMatchObject({
       kind: "network_error",
     });
   });
@@ -94,7 +78,7 @@ describe("requestAiReply", () => {
     vi.useFakeTimers();
     vi.stubGlobal("fetch", vi.fn(hangingFetch()));
 
-    const pending = requestAiReply([{ role: "user", content: "Hi" }]);
+    const pending = requestAiReply([{ role: "user", content: "Hi" }], "dating");
     const assertion = expect(pending).rejects.toMatchObject({
       kind: "timeout",
       message: "The request timed out. Please try again.",
@@ -113,7 +97,7 @@ describe("requestAiReply", () => {
     const fetchMock = vi.fn().mockResolvedValue(mockReply("Hi there!"));
     vi.stubGlobal("fetch", fetchMock);
 
-    const reply = await requestAiReply([{ role: "user", content: "Hello" }]);
+    const reply = await requestAiReply([{ role: "user", content: "Hello" }], "dating");
     await vi.advanceTimersByTimeAsync(AI_REPLY_TIMEOUT_MS);
 
     expect(reply).toEqual({ role: "assistant", content: "Hi there!" });
