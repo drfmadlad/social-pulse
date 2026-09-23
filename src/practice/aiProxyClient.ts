@@ -5,7 +5,7 @@ export interface ChatMessage {
   content: string;
 }
 
-export type AiProxyErrorKind = "rate_limited" | "invalid_request" | "provider_error" | "network_error";
+export type AiProxyErrorKind = "rate_limited" | "invalid_request" | "provider_error" | "network_error" | "timeout";
 
 export class AiProxyError extends Error {
   readonly kind: AiProxyErrorKind;
@@ -17,20 +17,33 @@ export class AiProxyError extends Error {
   }
 }
 
+// Comfortably under the serverless function's own 30s ceiling (vercel.json), so the browser gives
+// up before that response could still land, rather than exceeding it silently.
+export const AI_REPLY_TIMEOUT_MS = 20_000;
+
 /**
  * `categoryId` names the Practice Conversation's Scenario Category instead of carrying its
  * prompt: the prompt itself lives only in the serverless function, keyed by that id.
  */
 export async function requestAiReply(messages: ChatMessage[], categoryId?: string): Promise<ChatMessage> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AI_REPLY_TIMEOUT_MS);
+
   let response: Response;
   try {
     response = await fetch("/api/conversation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(categoryId ? { messages, categoryId } : { messages }),
+      signal: controller.signal,
     });
   } catch {
+    if (controller.signal.aborted) {
+      throw new AiProxyError("The request timed out. Please try again.", "timeout");
+    }
     throw new AiProxyError("Could not reach the server. Check your connection and try again.", "network_error");
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const data = (await response.json().catch(() => null)) as {

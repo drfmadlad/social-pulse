@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRoutes } from "../App";
 import { resetHistoryStoreForTests } from "../history/historyStore";
-import { mockReply, mockWrittenReplyVerdict } from "../test/apiMocks";
+import { AI_REPLY_TIMEOUT_MS } from "../practice/aiProxyClient";
+import { hangingFetch, mockReply, mockWrittenReplyVerdict } from "../test/apiMocks";
 import { clickToScreen, settleDeviceReads } from "../test/settleDeviceReads";
 import { isChoiceStep, lessons, type ChoiceStep, type Lesson, type LessonStep } from "./lessons";
 import { markLessonFinished } from "./lessonProgressStore";
@@ -102,6 +103,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
   await resetHistoryStoreForTests();
 });
 
@@ -614,6 +616,37 @@ describe("Lesson flow", () => {
       await sendWrittenReply();
 
       expect(screen.getByText("You're offline, so here's one way to say it.")).toBeInTheDocument();
+      expect(screen.getByText(step.exampleReply)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+      expect(await screen.findByText("That lands.")).toBeInTheDocument();
+      expect(screen.getByText("That's a warm reflection.")).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("falls back to the Lesson's example reply when the request times out, and Try again can succeed", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(hangingFetch())
+        .mockResolvedValueOnce(mockWrittenReplyVerdict("landed", "That's a warm reflection."));
+      vi.stubGlobal("fetch", fetchMock);
+      await renderApp(`/lessons/${activeListening.id}`);
+      await advanceTo(activeListening, index);
+
+      vi.useFakeTimers();
+      fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: "Something I'd say." } });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AI_REPLY_TIMEOUT_MS);
+      });
+      // Real timers from here: the retry resolves without another fake-timer advance, and RTL's
+      // findBy* polling needs real timers to ever re-check.
+      vi.useRealTimers();
+
+      // Not the offline copy: a timeout isn't a network_error, so it takes the generic fallback.
+      expect(screen.getByText("Couldn't get feedback just now. Here's one way to say it.")).toBeInTheDocument();
       expect(screen.getByText(step.exampleReply)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
 

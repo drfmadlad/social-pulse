@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mockError, mockReply } from "../test/apiMocks";
-import { AiProxyError, requestAiReply } from "./aiProxyClient";
+import { hangingFetch, mockError, mockReply } from "../test/apiMocks";
+import { AI_REPLY_TIMEOUT_MS, AiProxyError, requestAiReply } from "./aiProxyClient";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("requestAiReply", () => {
@@ -49,5 +50,36 @@ describe("requestAiReply", () => {
     await expect(requestAiReply([{ role: "user", content: "Hi" }])).rejects.toMatchObject({
       kind: "network_error",
     });
+  });
+
+  it("aborts and rejects with a timeout kind when the request never resolves", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(hangingFetch()));
+
+    const pending = requestAiReply([{ role: "user", content: "Hi" }]);
+    const assertion = expect(pending).rejects.toMatchObject({
+      kind: "timeout",
+      message: "The request timed out. Please try again.",
+    });
+
+    await vi.advanceTimersByTimeAsync(AI_REPLY_TIMEOUT_MS);
+    await assertion;
+  });
+
+  it("keeps the client's timeout comfortably under the serverless function's own 30s ceiling", () => {
+    expect(AI_REPLY_TIMEOUT_MS).toBeLessThan(30_000);
+  });
+
+  it("does not abort a request that resolves before the timeout", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(mockReply("Hi there!"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const reply = await requestAiReply([{ role: "user", content: "Hello" }]);
+    await vi.advanceTimersByTimeAsync(AI_REPLY_TIMEOUT_MS);
+
+    expect(reply).toEqual({ role: "assistant", content: "Hi there!" });
+    const signal = fetchMock.mock.calls[0][1].signal as AbortSignal;
+    expect(signal.aborted).toBe(false);
   });
 });

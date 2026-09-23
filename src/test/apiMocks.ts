@@ -25,3 +25,17 @@ export function mockFeedbackSummary(): Response {
 export function mockWrittenReplyVerdict(verdict: "landed" | "not_yet", reason: string): Response {
   return mockReply(JSON.stringify({ verdict, reason }));
 }
+
+/**
+ * A `fetch` implementation that never settles on its own, but rejects the way a real aborted
+ * `fetch` does once the request's `AbortSignal` fires — for testing a client-side timeout without
+ * a real server that hangs.
+ */
+export function hangingFetch(): (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> {
+  return (_input, init) =>
+    new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => {
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+      });
+    });
+}

@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mockError, mockReply } from "../test/apiMocks";
+import { hangingFetch, mockError, mockReply } from "../test/apiMocks";
+import { AI_REPLY_TIMEOUT_MS } from "./aiProxyClient";
 import { ConversationScreen } from "./ConversationScreen";
 
 function LocationDisplay() {
@@ -24,6 +25,7 @@ function renderAt(path: string) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("ConversationScreen", () => {
@@ -173,6 +175,32 @@ describe("ConversationScreen", () => {
     expect(await screen.findByText("Slow down and try again shortly.")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByText("Hey! Good to see you.")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows a visible timeout error with a retry action when the AI never responds, and recovers on retry", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(hangingFetch())
+      .mockResolvedValueOnce(mockReply("Hey! Good to see you."));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/practice/job-interview");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AI_REPLY_TIMEOUT_MS);
+    });
+
+    expect(screen.getByText("The request timed out. Please try again.")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    // Real timers from here: the retry itself resolves without needing another fake-timer
+    // advance, and RTL's findBy* polling needs real timers to ever re-check.
+    vi.useRealTimers();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     expect(await screen.findByText("Hey! Good to see you.")).toBeInTheDocument();
