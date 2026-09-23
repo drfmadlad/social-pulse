@@ -674,6 +674,26 @@ body {
   font: var(--text-sm);
 }
 
+.history-entry-detail__delete-error {
+  margin: var(--space-4) 0 0;
+}
+
+.history-entry-detail__delete-error p {
+  margin: 0;
+}
+
+.history-entry-detail__delete-button {
+  min-height: 44px;
+  margin-top: var(--space-6);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ink-muted);
+  font: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* A saved conversation whose Feedback Summary never arrived: a quiet note with a way to get it,
    not an error — nothing's wrong now, the transcript is right there above it. */
 .saved-feedback__missing {

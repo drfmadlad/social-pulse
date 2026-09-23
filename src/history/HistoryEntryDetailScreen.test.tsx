@@ -1,15 +1,22 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { scenarioCategories } from "../practice/scenarioCategories";
 import { mockError, mockFeedbackSummary } from "../test/apiMocks";
 import {
   attachFeedbackSummary,
+  deleteHistoryEntry,
   getAllHistoryEntries,
+  getHistoryEntry,
   resetHistoryStoreForTests,
   saveEndedConversation,
 } from "./historyStore";
 import { HistoryEntryDetailScreen } from "./HistoryEntryDetailScreen";
+
+vi.mock("./historyStore", async (importOriginal) => {
+  const original = await importOriginal<typeof import("./historyStore")>();
+  return { ...original, deleteHistoryEntry: vi.fn(original.deleteHistoryEntry) };
+});
 
 function renderAt(path: string) {
   return render(
@@ -30,6 +37,7 @@ const transcript = [
 ];
 
 afterEach(async () => {
+  vi.mocked(deleteHistoryEntry).mockClear();
   vi.unstubAllGlobals();
   await resetHistoryStoreForTests();
 });
@@ -76,6 +84,64 @@ describe("HistoryEntryDetailScreen", () => {
       const [entry] = await getAllHistoryEntries();
       expect(entry.summary).not.toBeNull();
     });
+  });
+
+  it("asks before deleting, and leaves the entry alone when cancelled", async () => {
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+
+    renderAt("/history/entry-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+
+    expect(screen.getByText("Delete this conversation? It can't be recovered.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByText("Delete this conversation? It can't be recovered.")).not.toBeInTheDocument();
+    expect(await getHistoryEntry("entry-1")).toBeDefined();
+  });
+
+  it("deletes the entry and returns to the History list once confirmed", async () => {
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+
+    renderAt("/history/entry-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+    expect(await screen.findByText("History list")).toBeInTheDocument();
+    expect(await getHistoryEntry("entry-1")).toBeUndefined();
+  });
+
+  it("says so plainly when the entry couldn't be deleted, leaves it in History, and lets the user try again", async () => {
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+    vi.mocked(deleteHistoryEntry).mockRejectedValueOnce(new Error("disk full"));
+
+    renderAt("/history/entry-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't delete this conversation. It's still in History.");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.queryByText("History list")).not.toBeInTheDocument();
+    expect(await getHistoryEntry("entry-1")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+    expect(await screen.findByText("History list")).toBeInTheDocument();
+    expect(await getHistoryEntry("entry-1")).toBeUndefined();
+  });
+
+  it("deletes once however many times the confirm button is tapped", async () => {
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+
+    renderAt("/history/entry-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    const confirm = within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    expect(await screen.findByText("History list")).toBeInTheDocument();
+    expect(deleteHistoryEntry).toHaveBeenCalledTimes(1);
   });
 
   it("shows an error with Try again when getting feedback from History fails", async () => {

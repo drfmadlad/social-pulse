@@ -90,6 +90,18 @@ export async function attachFeedbackSummary(id: string, summary: FeedbackSummary
   if (attached) window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
+/** Deletes a saved conversation, its transcript and its Feedback Summary together. Does nothing if there's no such entry. */
+export async function deleteHistoryEntry(id: string): Promise<void> {
+  const deleted = await withHistoryWrite(async (store) => {
+    const existing = (await promisifyRequest(store.get(id))) as HistoryEntry | undefined;
+    if (!existing) return false;
+    store.delete(id);
+    return true;
+  });
+
+  if (deleted) window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
 /** Reads one History entry by id, for a screen addressed by id rather than handed its content. */
 export async function getHistoryEntry(id: string): Promise<HistoryEntry | undefined> {
   const db = await openDb();
