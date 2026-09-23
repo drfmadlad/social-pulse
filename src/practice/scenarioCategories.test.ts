@@ -3,15 +3,6 @@ import { scenarioCategories } from "./scenarioCategories";
 
 const avoidedTerms = ["roleplay", "simulation", "scenario type", "conversation mode"];
 
-const expectedSystemPromptKeywords: Record<string, string> = {
-  dating: "coffee shop",
-  "job-interview": "role",
-  "small-talk": "break room",
-  networking: "networking event",
-  "public-speaking": "talk",
-  "conflict-resolution": "chores",
-};
-
 describe("scenarioCategories", () => {
   it("gives every Scenario Category a user-facing persona name and blurb", () => {
     for (const category of scenarioCategories) {
@@ -26,11 +17,9 @@ describe("scenarioCategories", () => {
     }
   });
 
-  it("keeps blurbs consistent with the setting each persona's system prompt establishes", () => {
+  it("carries no system prompt text — that lives server-side only", () => {
     for (const category of scenarioCategories) {
-      const keyword = expectedSystemPromptKeywords[category.id];
-      expect(keyword, `add an expected setting keyword for "${category.id}"`).toBeDefined();
-      expect(category.systemPrompt.toLowerCase()).toEqual(expect.stringContaining(keyword));
+      expect(category).not.toHaveProperty("systemPrompt");
     }
   });
 

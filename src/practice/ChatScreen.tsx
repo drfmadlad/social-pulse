@@ -34,8 +34,7 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
     setErrorMessage(null);
 
     try {
-      const systemMessage: ChatMessage = { role: "system", content: category.systemPrompt };
-      const reply = await requestAiReply([systemMessage, ...nextTurns]);
+      const reply = await requestAiReply(nextTurns, category.id);
       if (isStale(requestId)) return;
       setTurns([...nextTurns, reply]);
       setPhase("chatting");
