@@ -7,6 +7,7 @@ import {
   RouterProvider,
   useRoutes,
 } from "react-router-dom";
+import { AppUpdateOffer } from "./AppUpdateOffer";
 import { HomeScreen } from "./HomeScreen";
 import { ConversationScreen } from "./practice/ConversationScreen";
 import { FeedbackSummaryRoute } from "./practice/FeedbackSummaryRoute";
@@ -23,6 +24,7 @@ function AppShell() {
       <ScreenDirectionProvider>
         <Outlet />
       </ScreenDirectionProvider>
+      <AppUpdateOffer />
     </div>
   );
 }

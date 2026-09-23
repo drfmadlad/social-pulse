@@ -365,6 +365,7 @@ moment they appear, subject only to their own enabled state.
 | **Chat bubble in** | 240ms. `transform` from 8px Y and scale 0.96 on `--ease-spring`, with the origin at the bubble's bottom corner on its speaker's side. Opacity over 160ms `--ease-out`. It also brings in the other person's line on Reply Choice and Written Reply. | 160ms fade |
 | **Typing indicator** | Three 6px dots on a 1.2s loop, `--ease-in-out`, 150ms apart. Each rises 4px and goes from 0.4 to full opacity at its peak. It's the only perpetual animation in the app, and it's also Written Reply's waiting state. | Dots hold still at 0.7 opacity |
 | **Feedback Summary points** | Each point takes 280ms: `transform` from 12px Y and scale 0.98 on `--ease-spring`, opacity over 200ms `--ease-out`. 70ms stagger, capped at six; later points enter with the first. Each group staggers from its own start. | 160ms fades, same stagger |
+| **Update offer** | 240ms. `transform` from 8px Y on `--ease-out`, with no spring: it's a status note arriving unasked, and calm is the point. Opacity 0→1 over 200ms `--ease-out`. It has no exit animation: Reload and Not now remove it at once. | 160ms fade |
 | **Option select** | The chosen option fills over 160ms `--ease-out` while it springs: scale 0.97→1 over 240ms `--ease-spring`. Choosing a different option moves the fill with the same values. | Fill color change only |
 | **Result reveal, in place** | On commit, the result block unfolds under the chosen option: `grid-template-rows` 0fr→1fr over 280ms `--ease-out`. Its content starts 80ms in, fading over 200ms `--ease-out` and rising 8px on `--ease-spring`. Unchosen options recede over 200ms `--ease-out`, and the better option's edge fades in with the block. The pill's label crossfades over 120ms. Written Reply's verdict and fallback use the same reveal under the sent reply. | The block appears at full height and fades in over 200ms; the recede and label change are fades |
 | **Artwork entrance** | Starts 120ms after the step begins entering. Each gesture shape plays its gesture once, pivoting from its base, over 520ms on `--ease-spring`, 80ms apart: a **lean** (rotate in from up to 12°), a **turn away** (rotate up to 12° while drifting up to 16px apart), a **rise** (from 16px Y). A shape **lighting up** crossfades its fill from soft tint to full over 320ms `--ease-out`. At most three shapes move, and everything settles within 900ms. Flat objects don't move; they fade in over 200ms `--ease-out`. It plays each time the step enters, forward or back, and never loops. Longer than UI motion because it's decorative, and it never holds up the pill. | The composition fades in over 200ms; nothing moves |
@@ -440,6 +441,24 @@ was lost, never promises what isn't guaranteed yet, and never blocks the feedbac
   History." It makes no claim about the feedback, which may still be generating or may itself fail.
 - **Feedback not saved:** "This feedback couldn't be saved, so it won't be here if you come back to
   this conversation later. The conversation itself is still in History."
+
+**Update offer.** When a new version of the app is waiting, an `AppUpdateOffer` says so in a quiet
+note pinned to the bottom of the screen: `--surface` with a `--line` edge, `--radius-lg`,
+`--shadow-card` and `--space-4` padding, at most as wide as the content column, above the bottom
+safe area. It's a polite status region, never a modal, so nothing dims and nothing is trapped.
+- **Copy:** "A new version is ready." in `--text-body` 600 `--ink`, with a quiet **Not now** text
+  action (`--text-sm` 600 `--ink-muted`, 44px tap target) and a **Reload** `--primary` pill. Never
+  "Update required", never a version number, never anything urgent.
+- **Reload** applies the update and reloads the page, in that tab only. Nothing else ever does: the
+  app never reloads itself, and taking the update in one tab never reloads another. **Not now**
+  hides the note until the app is next opened or another update lands, and the app stays fully
+  usable either way.
+- **Room for it:** while the note is showing, the page keeps `--space-16` × 2 of extra space under
+  its content, so the note never covers a last row or a primary action.
+- **Where it doesn't appear:** the Conversation and the Lesson flow. A Practice Conversation lives
+  only in memory and a Lesson's step position isn't kept, so a reload there loses something. The
+  note waits and shows on the next screen the user reaches. It also stays off Home's five elements:
+  it's an overlay on any screen, not a card in one.
 
 **Apply It.** The label reads "Apply it in the real world", in sentence case and never as an
 uppercase caption.

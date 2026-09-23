@@ -7,7 +7,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      // Not "autoUpdate": that reloads the page the moment a new worker activates, which would
+      // discard a Practice Conversation held only in memory. Registration is our own
+      // (src/useAppUpdate.ts) rather than the generated register script, whose prompt mode
+      // reloads every open tab when any one of them takes an update.
+      registerType: "prompt",
+      injectRegister: false,
       includeAssets: ["icons/icon-192.png", "icons/icon-512.png"],
       manifest: {
         name: "Social Pulse",
