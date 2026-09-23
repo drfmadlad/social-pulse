@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ScenarioCategory } from "../practice/scenarioCategories";
 import {
   attachFeedbackSummary,
+  deleteHistoryEntry,
   getAllHistoryEntries,
   getHistoryEntry,
   resetHistoryStoreForTests,
   saveEndedConversation,
+  subscribeToHistoryChanges,
 } from "./historyStore";
 
 const category: ScenarioCategory = {
@@ -81,6 +83,49 @@ describe("historyStore", () => {
     await attachFeedbackSummary("never-saved", summary);
 
     expect(await getAllHistoryEntries()).toHaveLength(0);
+  });
+
+  it("deletes a saved entry", async () => {
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+
+    await deleteHistoryEntry("entry-1");
+
+    expect(await getHistoryEntry("entry-1")).toBeUndefined();
+    expect(await getAllHistoryEntries()).toHaveLength(0);
+  });
+
+  it("leaves other entries alone when deleting one", async () => {
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-2", category, transcript });
+
+    await deleteHistoryEntry("entry-1");
+
+    expect(await getHistoryEntry("entry-2")).toBeDefined();
+  });
+
+  it("does nothing when deleting an id that was never saved", async () => {
+    await expect(deleteHistoryEntry("never-saved")).resolves.toBeUndefined();
+  });
+
+  it("notifies subscribers when an entry is deleted", async () => {
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+    const callback = vi.fn();
+    const unsubscribe = subscribeToHistoryChanges(callback);
+
+    await deleteHistoryEntry("entry-1");
+
+    expect(callback).toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  it("does not notify subscribers when deleting an id that was never saved", async () => {
+    const callback = vi.fn();
+    const unsubscribe = subscribeToHistoryChanges(callback);
+
+    await deleteHistoryEntry("never-saved");
+
+    expect(callback).not.toHaveBeenCalled();
+    unsubscribe();
   });
 
   it("does not make any network call while persisting", async () => {

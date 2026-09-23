@@ -202,6 +202,11 @@ If the feedback never arrived, a quiet note says so and offers **Get feedback**.
 generated only on that tap, never just by opening the entry, and is saved to the entry once it
 arrives.
 
+**Deleting.** A quiet **Delete** action at the bottom of the entry removes the conversation, its
+transcript and its Feedback Summary together. It asks first and says the entry can't be recovered,
+then returns to the History list with the entry gone — or to the empty state if it was the last.
+If the delete fails, the entry stays and a calm note says so.
+
 **Navigation:** from History list. Back → History list.
 
 ## 3. Navigation model

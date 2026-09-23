@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 import { scenarioCategories } from "../practice/scenarioCategories";
@@ -91,6 +91,21 @@ describe("HistoryListScreen", () => {
 
     expect(await screen.findByRole("link", { name: /Dating/ })).toBeInTheDocument();
     expect(screen.queryByText("What you did well")).not.toBeInTheDocument();
+  });
+
+  it("removes a deleted entry from the list live, leaving the empty state when it was the last one", async () => {
+    await saveEndedConversation({
+      id: "dating-entry",
+      category: datingCategory,
+      transcript: [{ role: "user", content: "Hi!" }],
+    });
+
+    await renderAt("/history");
+    fireEvent.click(await screen.findByRole("link", { name: /Dating/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+    expect(await screen.findByText("Your finished conversations will show up here.")).toBeInTheDocument();
   });
 
   it("refreshes live when a new History entry is saved elsewhere", async () => {
