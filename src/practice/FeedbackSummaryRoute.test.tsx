@@ -23,7 +23,7 @@ function renderAt(path: string, state?: unknown) {
       <Routes>
         <Route path="/" element={<div>Home</div>} />
         <Route path="/practice" element={<div>Practice picker</div>} />
-        <Route path="/practice/:categoryId/feedback" element={<FeedbackSummaryRoute />} />
+        <Route path="/practice/:categoryId/feedback/:entryId" element={<FeedbackSummaryRoute />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -34,7 +34,7 @@ const transcript = [
   { role: "user" as const, content: "Hi, nice to meet you!" },
 ];
 
-const endedConversation = { transcript, entryId: "entry-1" };
+const endedConversation = { transcript };
 
 afterEach(async () => {
   vi.unstubAllGlobals();
@@ -43,22 +43,22 @@ afterEach(async () => {
 
 describe("FeedbackSummaryRoute", () => {
   it("redirects to the Practice picker when the URL names an unknown category", () => {
-    renderAt("/practice/not-a-real-category/feedback", endedConversation);
+    renderAt("/practice/not-a-real-category/feedback/entry-1", endedConversation);
 
     expect(screen.getByText("Practice picker")).toBeInTheDocument();
   });
 
-  it("redirects to the Practice picker when there is no conversation state", () => {
-    renderAt("/practice/dating/feedback");
+  it("redirects to the Practice picker when there is no conversation state and the id doesn't resolve to a saved entry", async () => {
+    renderAt("/practice/dating/feedback/entry-1");
 
-    expect(screen.getByText("Practice picker")).toBeInTheDocument();
+    expect(await screen.findByText("Practice picker")).toBeInTheDocument();
   });
 
   it("shows the Feedback Summary and saves it to History, and Done navigates to Home", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating/feedback", endedConversation);
+    renderAt("/practice/dating/feedback/entry-1", endedConversation);
 
     expect(await screen.findByText("What you did well")).toBeInTheDocument();
     expect(screen.getByText("What you can do better")).toBeInTheDocument();
@@ -80,7 +80,7 @@ describe("FeedbackSummaryRoute", () => {
       vi.fn().mockResolvedValueOnce(mockError(500, "provider_error", "Could not generate feedback right now.")),
     );
 
-    renderAt("/practice/dating/feedback", endedConversation);
+    renderAt("/practice/dating/feedback/entry-1", endedConversation);
     expect(await screen.findByRole("alert")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
@@ -96,7 +96,7 @@ describe("FeedbackSummaryRoute", () => {
     const fetchMock = vi.fn().mockReturnValueOnce(new Promise<Response>((resolve) => (respond = resolve)));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating/feedback", endedConversation);
+    renderAt("/practice/dating/feedback/entry-1", endedConversation);
     // Waiting on the request itself, not on the waiting copy: that same copy also covers the
     // moment before it, while the conversation is still being saved.
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -123,7 +123,7 @@ describe("FeedbackSummaryRoute", () => {
       canImprove: [{ quote: "Hi, nice to meet you!" }],
     });
 
-    renderAt("/practice/dating/feedback", endedConversation);
+    renderAt("/practice/dating/feedback/entry-1", endedConversation);
 
     expect(await screen.findByText("What you did well")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -137,7 +137,7 @@ describe("FeedbackSummaryRoute", () => {
       .mockResolvedValueOnce(mockFeedbackSummary());
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/networking/feedback", endedConversation);
+    renderAt("/practice/networking/feedback/entry-1", endedConversation);
 
     expect(await screen.findByText("Could not generate feedback right now.")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
@@ -154,9 +154,59 @@ describe("FeedbackSummaryRoute", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/public-speaking/feedback", endedConversation);
+    renderAt("/practice/public-speaking/feedback/entry-1", endedConversation);
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.queryByText("What you did well")).not.toBeInTheDocument();
+  });
+
+  describe("reloading the screen (no router state)", () => {
+    it("shows the same conversation's already-saved feedback without asking the AI again", async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
+      await saveEndedConversation({ id: "entry-1", category, transcript });
+      await attachFeedbackSummary("entry-1", {
+        didWell: [{ quote: "Hi, nice to meet you!" }],
+        canImprove: [{ quote: "Hi, nice to meet you!" }],
+      });
+
+      renderAt("/practice/dating/feedback/entry-1");
+
+      expect(await screen.findByText("What you did well")).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("generates the feedback when the saved entry has none yet", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+      const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
+      await saveEndedConversation({ id: "entry-1", category, transcript });
+
+      renderAt("/practice/dating/feedback/entry-1");
+
+      expect(await screen.findByText("What you did well")).toBeInTheDocument();
+      const entries = await getAllHistoryEntries();
+      expect(entries[0].summary).not.toBeNull();
+    });
+
+    it("still goes Home on Done, leaving the entry in History", async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
+      await saveEndedConversation({ id: "entry-1", category, transcript });
+      await attachFeedbackSummary("entry-1", {
+        didWell: [{ quote: "Hi, nice to meet you!" }],
+        canImprove: [{ quote: "Hi, nice to meet you!" }],
+      });
+
+      renderAt("/practice/dating/feedback/entry-1");
+      await screen.findByText("What you did well");
+
+      fireEvent.click(screen.getByRole("button", { name: "Done" }));
+
+      expect(screen.getByTestId("location")).toHaveTextContent("/");
+      expect(await getAllHistoryEntries()).toHaveLength(1);
+    });
   });
 });

@@ -13,9 +13,10 @@ export function ConversationScreen() {
   }
 
   function handleEnd(transcript: ChatMessage[]) {
-    // The History id is minted here, as the conversation ends, so the Feedback screen can save the
-    // conversation before any feedback exists and find that same entry again if it's revisited.
-    navigate(`/practice/${category!.id}/feedback`, { state: { transcript, entryId: crypto.randomUUID() } });
+    // The History id is minted here, as the conversation ends, and travels in the URL itself (not
+    // just router state) so the Feedback screen can still find this entry after a reload.
+    const entryId = crypto.randomUUID();
+    navigate(`/practice/${category!.id}/feedback/${entryId}`, { state: { transcript } });
   }
 
   return <ChatScreen category={category} onBack={() => navigate("/practice")} onEnd={handleEnd} />;

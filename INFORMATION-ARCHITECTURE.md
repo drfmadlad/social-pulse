@@ -105,14 +105,21 @@ one place richer density is wanted.
 Two clearly-separated groups — what you did well, what you can do better — each point showing
 its quote and, where present, its explanation.
 
-**Navigation:** from Conversation's end action. Done → **Home**, not back to the category grid.
-You finished something; you should land somewhere that reflects that.
+**Navigation:** from Conversation's end action, at `/practice/:categoryId/feedback/:entryId`. Done
+→ **Home**, not back to the category grid. You finished something; you should land somewhere that
+reflects that.
 
 **Saving.** The conversation saves to History the moment it ends, before its feedback exists.
 The Feedback Summary is added to that same entry when it arrives. So a summary that fails, or
 that the user leaves before it lands, never loses the conversation. A summary still generating
 when the user taps Done is kept once it arrives. Coming back to this screen shows the saved
 summary without asking the AI again.
+
+**Reload.** The entry id lives in the URL, not just router state, so a reload — or a bookmarked
+or shared link — re-reads the saved entry from History instead of bouncing to the Practice picker.
+It shows that entry's transcript and generates or shows its Feedback Summary as appropriate, the
+same as a fresh Done from Conversation. An id that doesn't resolve to a saved entry redirects to
+the Practice picker rather than erroring.
 
 ### Lessons list
 **Responsible for:** browsing Lessons, showing which are finished, and where to pick up.

@@ -90,6 +90,18 @@ export async function attachFeedbackSummary(id: string, summary: FeedbackSummary
   if (attached) window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
+/** Reads one History entry by id, for a screen addressed by id rather than handed its content. */
+export async function getHistoryEntry(id: string): Promise<HistoryEntry | undefined> {
+  const db = await openDb();
+  try {
+    return (await promisifyRequest(
+      db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(id),
+    )) as HistoryEntry | undefined;
+  } finally {
+    db.close();
+  }
+}
+
 export async function getAllHistoryEntries(): Promise<HistoryEntry[]> {
   const db = await openDb();
   try {

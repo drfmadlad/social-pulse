@@ -26,7 +26,7 @@ function renderAt(path: string) {
         children: [
           { path: "/practice", element: <div>Practice picker</div> },
           { path: "/practice/:categoryId", element: <ConversationScreen /> },
-          { path: "/practice/:categoryId/feedback", element: <div>Feedback Summary stub</div> },
+          { path: "/practice/:categoryId/feedback/:entryId", element: <div>Feedback Summary stub</div> },
         ],
       },
     ],
@@ -252,9 +252,9 @@ describe("ConversationScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "End & get feedback" }));
 
     const location = JSON.parse(screen.getByTestId("location").textContent!);
-    expect(location.pathname).toBe("/practice/dating/feedback");
-    // The conversation's History id is minted as it ends, so the Feedback screen can save it before any feedback exists.
-    expect(location.state.entryId).toEqual(expect.any(String));
+    // The conversation's History id is minted as it ends, and travels in the URL itself so it
+    // survives a reload of the Feedback screen, not just as router state.
+    expect(location.pathname).toMatch(/^\/practice\/dating\/feedback\/[^/]+$/);
     expect(location.state.transcript).toEqual([
       { role: "assistant", content: "Hey! Good to see you." },
       { role: "user", content: "Hi, nice to meet you!" },
@@ -388,7 +388,7 @@ describe("ConversationScreen", () => {
     expect(screen.getByText("Something that trips the filter")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "End & get feedback" }));
     const location = JSON.parse(screen.getByTestId("location").textContent!);
-    expect(location.pathname).toBe("/practice/dating/feedback");
+    expect(location.pathname).toMatch(/^\/practice\/dating\/feedback\/[^/]+$/);
   });
 
   it("explains an empty AI reply in plain language rather than showing a blank bubble", async () => {
