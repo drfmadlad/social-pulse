@@ -115,6 +115,12 @@ that the user leaves before it lands, never loses the conversation. A summary st
 when the user taps Done is kept once it arrives. Coming back to this screen shows the saved
 summary without asking the AI again.
 
+**When saving fails.** A save can fail (a private window, blocked site data, a full disk), whether
+of the conversation or of its summary. The screen says so in a quiet notice (DESIGN.md §7, Save
+failures) and carries on: the Feedback Summary still generates and shows, and Done still goes Home.
+If the conversation itself couldn't be saved, that one notice covers its summary too, since
+neither will reach History.
+
 **Reload.** The entry id lives in the URL, not just router state, so a reload — or a bookmarked
 or shared link — re-reads the saved entry from History instead of bouncing to the Practice picker.
 It shows that entry's transcript and generates or shows its Feedback Summary as appropriate, the

@@ -426,6 +426,16 @@ phrase:
 come through for this one." in `--ink-muted`, then a "Get feedback" pill. It's a note, not an
 error: the conversation itself was saved.
 
+**Save failures.** When a save to History fails, the screen says so in a `HistorySaveNotice`: a
+`--text-sm` note on `--surface` with a `--line` edge and `--ink` text, announced politely
+(`role="status"`, not an alert), with no retry action. It's neutral on purpose: `--positive` and
+`--growth` mark verdicts on the Feedback Summary screen, and a failed save isn't one. It says what
+was lost, never promises what isn't guaranteed yet, and never blocks the feedback itself:
+- **Conversation not saved:** "This conversation couldn't be saved, so it won't show up in
+  History." It makes no claim about the feedback, which may still be generating or may itself fail.
+- **Feedback not saved:** "This feedback couldn't be saved, so it won't be here if you come back to
+  this conversation later. The conversation itself is still in History."
+
 **Apply It.** The label reads "Apply it in the real world", in sentence case and never as an
 uppercase caption.
 - **The suggestion** is one or two sentences that name a real situation and start with a verb or

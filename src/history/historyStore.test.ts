@@ -28,6 +28,7 @@ const summary = {
 };
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await resetHistoryStoreForTests();
 });
 
@@ -126,6 +127,25 @@ describe("historyStore", () => {
 
     expect(callback).not.toHaveBeenCalled();
     unsubscribe();
+  });
+
+  it("rejects instead of swallowing the failure when the underlying IndexedDB write throws (e.g. quota exceeded)", async () => {
+    vi.spyOn(IDBObjectStore.prototype, "add").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+
+    await expect(saveEndedConversation({ id: "entry-1", category, transcript })).rejects.toThrow();
+    expect(await getAllHistoryEntries()).toHaveLength(0);
+  });
+
+  it("rejects instead of swallowing the failure when attaching a summary throws", async () => {
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+    vi.spyOn(IDBObjectStore.prototype, "put").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+
+    await expect(attachFeedbackSummary("entry-1", summary)).rejects.toThrow();
+    expect((await getHistoryEntry("entry-1"))?.summary).toBeNull();
   });
 
   it("does not make any network call while persisting", async () => {
