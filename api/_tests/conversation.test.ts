@@ -1,7 +1,7 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiProviderError } from "../_lib/aiProvider.js";
 import { RATE_LIMIT_MAX_REQUESTS, _resetRateLimiterForTests } from "../_lib/rateLimiter.js";
+import { APP_HOST, APP_ORIGIN, createMockReq, createMockRes } from "./testHelpers.js";
 
 vi.mock("../_lib/aiProvider.js", async () => {
   const actual = await vi.importActual<typeof import("../_lib/aiProvider.js")>("../_lib/aiProvider.js");
@@ -13,41 +13,8 @@ import handler from "../conversation.js";
 
 const callAiProviderMock = vi.mocked(callAiProvider);
 
-const APP_HOST = "social-pulse-ruby.vercel.app";
-const APP_ORIGIN = `https://${APP_HOST}`;
-
-function createMockReq(overrides: Partial<VercelRequest>): VercelRequest {
-  return {
-    method: "POST",
-    headers: { origin: APP_ORIGIN, host: APP_HOST },
-    body: {},
-    ...overrides,
-  } as VercelRequest;
-}
-
 function chatMessage(content = "hi"): { role: "user"; content: string } {
   return { role: "user", content };
-}
-
-function createMockRes() {
-  const res = {
-    statusCode: 200,
-    body: undefined as unknown,
-    headers: {} as Record<string, string>,
-    status(code: number) {
-      res.statusCode = code;
-      return res;
-    },
-    json(body: unknown) {
-      res.body = body;
-      return res;
-    },
-    setHeader(name: string, value: string) {
-      res.headers[name] = value;
-      return res;
-    },
-  };
-  return res as unknown as VercelResponse & { statusCode: number; body: unknown; headers: Record<string, string> };
 }
 
 beforeEach(() => {
