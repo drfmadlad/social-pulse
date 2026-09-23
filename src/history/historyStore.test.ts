@@ -3,6 +3,7 @@ import type { ScenarioCategory } from "../practice/scenarioCategories";
 import {
   attachFeedbackSummary,
   getAllHistoryEntries,
+  getHistoryEntry,
   resetHistoryStoreForTests,
   saveEndedConversation,
 } from "./historyStore";
@@ -60,6 +61,20 @@ describe("historyStore", () => {
     expect(again.summary).toEqual(summary);
     expect(again.endedAt).toBe(first.endedAt);
     expect(await getAllHistoryEntries()).toHaveLength(1);
+  });
+
+  it("reads a single entry by id", async () => {
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await attachFeedbackSummary("entry-1", summary);
+
+    const entry = await getHistoryEntry("entry-1");
+
+    expect(entry?.transcript).toEqual(transcript);
+    expect(entry?.summary).toEqual(summary);
+  });
+
+  it("resolves with undefined when no entry has that id", async () => {
+    expect(await getHistoryEntry("never-saved")).toBeUndefined();
   });
 
   it("does nothing when attaching a summary to a conversation that was never saved", async () => {

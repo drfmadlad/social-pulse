@@ -2,7 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App, { AppRoutes } from "./App";
-import { resetHistoryStoreForTests } from "./history/historyStore";
+import { attachFeedbackSummary, resetHistoryStoreForTests, saveEndedConversation } from "./history/historyStore";
+import { scenarioCategories } from "./practice/scenarioCategories";
 import { mockFeedbackSummary, mockReply } from "./test/apiMocks";
 import { clickToScreen, settleDeviceReads } from "./test/settleDeviceReads";
 
@@ -113,10 +114,32 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Practice" })).toBeInTheDocument();
   });
 
-  it("redirects to the Practice picker when the Feedback Summary URL has no conversation state", async () => {
-    await renderApp("/practice/dating/feedback");
+  it("redirects to the Practice picker when the Feedback Summary URL has no conversation state and the id doesn't resolve", async () => {
+    await renderApp("/practice/dating/feedback/not-a-real-entry");
 
     expect(screen.getByTestId("location")).toHaveTextContent("/practice");
+  });
+
+  it("recovers a Feedback Summary from History after a reload, since the entry id lives in the URL", async () => {
+    const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
+    const transcript = [
+      { role: "assistant" as const, content: "Hey! Thanks for coming out tonight." },
+      { role: "user" as const, content: "Hi, nice to meet you!" },
+    ];
+    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await attachFeedbackSummary("entry-1", {
+      didWell: [{ quote: "Hi, nice to meet you!" }],
+      canImprove: [{ quote: "Hi, nice to meet you!" }],
+    });
+
+    // A hard reload lands here with no router state, the same as a bookmarked or shared link.
+    await renderApp("/practice/dating/feedback/entry-1");
+
+    expect(await screen.findByText("What you did well")).toBeInTheDocument();
+    expect(screen.getByText("What you can do better")).toBeInTheDocument();
+
+    await clickToScreen(screen.getByRole("button", { name: "Done" }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/");
   });
 
   it("deep-links directly to a Lesson's flow, starting at step 1", async () => {

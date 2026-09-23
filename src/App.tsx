@@ -19,7 +19,7 @@ export function AppRoutes() {
           {/* Conversation and the Lesson flow are position:fixed/full-viewport; they animate themselves instead of via this wrapper. */}
           <Route path="/practice/:categoryId" element={<ConversationScreen />} />
           <Route
-            path="/practice/:categoryId/feedback"
+            path="/practice/:categoryId/feedback/:entryId"
             element={<ScreenTransition><FeedbackSummaryRoute /></ScreenTransition>}
           />
           <Route path="/lessons" element={<ScreenTransition><LessonsListScreen /></ScreenTransition>} />
