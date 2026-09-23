@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json({ message: { role: "assistant", content: result.content } });
   } catch (error) {
     if (error instanceof AiProviderError) {
-      const status = error.kind === "rate_limited" ? 429 : 502;
+      const status = error.kind === "rate_limited" ? 429 : error.kind === "blocked" ? 422 : 502;
       res.status(status).json({ error: { code: error.kind, message: error.message } });
       return;
     }
