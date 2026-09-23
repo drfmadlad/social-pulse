@@ -99,7 +99,7 @@ export function SavedFeedbackSummary({
         <>
           {status.attachFailed && (
             <HistorySaveNotice>
-              This feedback couldn't be saved, so it won't be here if you come back to this conversation later.
+              This feedback couldn't be saved, so it won't be here if you come back to this conversation later. The conversation itself is still in History.
             </HistorySaveNotice>
           )}
           <FeedbackSummaryView summary={status.summary} />

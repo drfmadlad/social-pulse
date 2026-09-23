@@ -3,11 +3,10 @@ interface HistorySaveNoticeProps {
 }
 
 /**
- * A visible, calm note that something didn't save to History — used both for a conversation that
- * never made it there and for a Feedback Summary that generated but didn't attach. Neutral
- * styling: DESIGN.md reserves --positive/--growth for feedback verdicts on this same screen, so
- * this borrows the inline-error treatment instead, without the alert role or a retry action,
- * since neither failure is something a tap can fix.
+ * A visible, calm note that something didn't save to History: a conversation that never made it
+ * there, or a Feedback Summary that generated but didn't attach. Neutral --ink/--surface/--line,
+ * because DESIGN.md reserves --positive/--growth for feedback verdicts on this same screen. No
+ * retry action: neither failure is something a tap can fix.
  */
 export function HistorySaveNotice({ children }: HistorySaveNoticeProps) {
   return (

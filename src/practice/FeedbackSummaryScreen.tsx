@@ -47,7 +47,7 @@ export function FeedbackSummaryScreen({ category, entryId, transcript, onDone }:
       <h3>Feedback on your conversation with {category.personaName}</h3>
       {saved?.saveFailed && (
         <HistorySaveNotice>
-          This conversation couldn't be saved, so it won't show up in History. Your feedback is still shown below.
+          This conversation couldn't be saved, so it won't show up in History.
         </HistorySaveNotice>
       )}
       {saved ? (

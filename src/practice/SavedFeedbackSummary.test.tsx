@@ -57,6 +57,7 @@ describe("SavedFeedbackSummary", () => {
 
     expect(await screen.findByText("What you did well")).toBeInTheDocument();
     expect(screen.getByText(/couldn't be saved/i)).toBeInTheDocument();
+    expect(screen.getByText(/conversation itself is still in History/i)).toBeInTheDocument();
 
     expect((await getHistoryEntry("entry-1"))?.summary).toBeNull();
   });
