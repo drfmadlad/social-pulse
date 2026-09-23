@@ -441,6 +441,13 @@ was lost, never promises what isn't guaranteed yet, and never blocks the feedbac
 - **Feedback not saved:** "This feedback couldn't be saved, so it won't be here if you come back to
   this conversation later. The conversation itself is still in History."
 
+**Render errors.** The "Something went wrong" screen reuses the `.home-section` card, with the
+`--ink-muted` `--text-sm` body line the empty states use and a `button-primary` link, "Go to
+Home". It's a plain statement, not an alarm: no error colour, no icon, no apology, no error text
+or code. It says what's true and what's safe: "This screen couldn't load. Anything you'd already
+finished is still saved in History." It doesn't say that an unfinished conversation is safe,
+because it isn't.
+
 **Apply It.** The label reads "Apply it in the real world", in sentence case and never as an
 uppercase caption.
 - **The suggestion** is one or two sentences that name a real situation and start with a verb or

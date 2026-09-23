@@ -215,6 +215,28 @@ If the delete fails, the entry stays and a calm note says so.
 
 **Navigation:** from History list. Back → History list.
 
+### Something went wrong
+**Responsible for:** catching a render error on any screen and offering a way back. Without it
+React unmounts everything and leaves a blank page, and an installed PWA has no address bar to
+recover from. It is the route tree's `errorElement` (`RouteErrorScreen`), not a screen the user
+navigates to, and it has no URL of its own.
+
+It says the screen couldn't load and that anything already finished is still saved in History,
+with one **Go to Home** action. It never shows the error's message or a stack trace; those still
+reach the console. It makes no claim about a conversation in progress, which isn't saved until it
+ends and is lost with the screen. Saved History is untouched, because nothing here writes to it.
+
+Home itself stays at five elements; this isn't a Home card.
+
+**Last resort.** A render error in `App` or the router itself is outside the route tree, so
+`AppErrorBoundary` in `main.tsx` catches it with the same wording and a **Reload** button in place
+of Go to Home. It uses no router context, since that's what may have failed.
+
+**Known limitation.** If Home itself throws every time it renders, Go to Home lands on the same
+error again. Navigation can't recover from a deterministic crash on the destination.
+
+**Navigation:** none in. Go to Home → Home.
+
 ### Heading structure
 
 Every screen has exactly one `h1`, naming it, and it opens the screen's outline. Headings below it
@@ -231,6 +253,7 @@ outline that matches what's on screen and a landmark for where they are.
 | Lesson flow | the Lesson's title, **visually hidden** | `h2` for the step's title or prompt; on the Recap a visually hidden `h2` "Recap" with `h3` for Apply it |
 | History list | History | none |
 | History entry detail | the category with the persona | `h2` for each Feedback Summary group |
+| Something went wrong | Something went wrong | none |
 
 A heading's level is semantics only. Its size and weight come from the type scale in DESIGN.md
 (Type), so changing a level never changes how it looks. The Lesson flow's `h1` is visually hidden

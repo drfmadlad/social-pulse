@@ -15,6 +15,7 @@ import { LessonFlowScreen } from "./lessons/LessonFlowScreen";
 import { LessonsListScreen } from "./lessons/LessonsListScreen";
 import { HistoryEntryDetailScreen } from "./history/HistoryEntryDetailScreen";
 import { HistoryListScreen } from "./history/HistoryListScreen";
+import { RouteErrorScreen } from "./RouteErrorScreen";
 import { ScreenDirectionProvider, ScreenTransition } from "./ScreenTransition";
 
 function AppShell() {
@@ -37,7 +38,7 @@ function AppShell() {
 // eslint-disable-next-line react-refresh/only-export-components
 export function createAppRouteObjects() {
   return createRoutesFromElements(
-    <Route element={<AppShell />}>
+    <Route element={<AppShell />} errorElement={<RouteErrorScreen />}>
       <Route path="/" element={<ScreenTransition><HomeScreen /></ScreenTransition>} />
       <Route path="/practice" element={<ScreenTransition><PracticePickerScreen /></ScreenTransition>} />
       {/* Conversation and the Lesson flow are position:fixed/full-viewport; they animate themselves instead of via this wrapper. */}
