@@ -24,7 +24,8 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
 
   const isBusy = phase === "loading-opening" || phase === "sending";
   const canSend = !isBusy && draft.trim().length > 0;
-  const canEnd = phase === "chatting" || phase === "error";
+  const hasSaidSomething = turns.some((turn) => turn.role === "user");
+  const canEnd = (phase === "chatting" || phase === "error") && hasSaidSomething;
 
   async function sendTurns(nextTurns: ChatMessage[]) {
     const requestId = start();
