@@ -15,9 +15,9 @@ export function HistoryEntryDetail({ entry, onBack }: HistoryEntryDetailProps) {
       <button type="button" className="back-button" onClick={onBack}>
         ← Back to History
       </button>
-      <h3>
+      <h1 className="screen-title">
         {entry.categoryName} with {entry.personaName}
-      </h3>
+      </h1>
       <p className="history-entry-detail__meta">
         <time dateTime={entry.endedAt}>{formatEntryTimestamp(entry.endedAt)}</time>
       </p>

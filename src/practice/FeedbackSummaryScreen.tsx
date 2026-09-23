@@ -41,7 +41,7 @@ export function FeedbackSummaryScreen({ category, entryId, transcript, onDone }:
       <button type="button" className="back-button" onClick={onDone}>
         Done
       </button>
-      <h3>Feedback on your conversation with {category.personaName}</h3>
+      <h1 className="screen-title">Feedback on your conversation with {category.personaName}</h1>
       {saved ? (
         <SavedFeedbackSummary
           entryId={entryId}

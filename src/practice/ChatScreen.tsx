@@ -81,7 +81,7 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
         <button type="button" className="back-button" onClick={onBack}>
           ← Practice
         </button>
-        <h3>{category.personaName}</h3>
+        <h1>{category.personaName}</h1>
         <button
           type="button"
           className="button-primary conversation-screen__end-button"

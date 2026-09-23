@@ -9,7 +9,9 @@ export function LessonsListScreen() {
   return (
     <section aria-labelledby="lessons-heading" className="home-section">
       <HomeLink />
-      <h2 id="lessons-heading">Lessons</h2>
+      <h1 id="lessons-heading" className="home-section__heading">
+        Lessons
+      </h1>
       <LessonList lessons={lessons} finishedLessonIds={finishedLessonIds} />
     </section>
   );

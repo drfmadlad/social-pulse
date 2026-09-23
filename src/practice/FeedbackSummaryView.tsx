@@ -21,11 +21,11 @@ export function FeedbackSummaryView({ summary }: { summary: FeedbackSummary }) {
   return (
     <>
       <section className="feedback-points feedback-points--positive" aria-labelledby={didWellId}>
-        <h4 id={didWellId}>What you did well</h4>
+        <h2 id={didWellId}>What you did well</h2>
         <FeedbackPointList points={summary.didWell} />
       </section>
       <section className="feedback-points feedback-points--growth" aria-labelledby={canImproveId}>
-        <h4 id={canImproveId}>What you can do better</h4>
+        <h2 id={canImproveId}>What you can do better</h2>
         <FeedbackPointList points={summary.canImprove} />
       </section>
     </>

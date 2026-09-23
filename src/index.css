@@ -139,12 +139,12 @@ body {
   margin-block: var(--space-8);
 }
 
-.home-section h2 {
+.home-section__heading {
   margin: 0 0 var(--space-2);
   font: var(--text-heading);
 }
 
-.home-section h3 {
+.screen-title {
   margin: 0 0 var(--space-3);
   font: var(--text-title);
   color: var(--ink);
@@ -310,7 +310,7 @@ body {
   margin-bottom: 0;
 }
 
-.conversation-screen__header h3 {
+.conversation-screen__header h1 {
   flex: 1;
   margin: 0;
   color: var(--ink);
@@ -552,7 +552,7 @@ body {
   margin-top: var(--space-4);
 }
 
-.feedback-points h4 {
+.feedback-points h2 {
   margin: 0 0 var(--space-2);
   font: var(--text-heading);
 }
