@@ -12,7 +12,6 @@ const category: ScenarioCategory = {
   name: "Dating",
   personaName: "Jordan",
   blurb: "a first date at a coffee shop",
-  systemPrompt: "You are Jordan.",
 };
 
 const transcript = [

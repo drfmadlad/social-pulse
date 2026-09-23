@@ -17,13 +17,17 @@ export class AiProxyError extends Error {
   }
 }
 
-export async function requestAiReply(messages: ChatMessage[]): Promise<ChatMessage> {
+/**
+ * `categoryId` names the Practice Conversation's Scenario Category instead of carrying its
+ * prompt: the prompt itself lives only in the serverless function, keyed by that id.
+ */
+export async function requestAiReply(messages: ChatMessage[], categoryId?: string): Promise<ChatMessage> {
   let response: Response;
   try {
     response = await fetch("/api/conversation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify(categoryId ? { messages, categoryId } : { messages }),
     });
   } catch {
     throw new AiProxyError("Could not reach the server. Check your connection and try again.", "network_error");

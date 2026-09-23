@@ -44,6 +44,19 @@ describe("ConversationScreen", () => {
     expect(screen.getByRole("button", { name: "← Practice" })).toBeInTheDocument();
   });
 
+  it("names the Scenario Category by id and never sends prompt text of its own", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/practice/dating");
+    await screen.findByText("Hey! Good to see you.");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ messages: [], categoryId: "dating" });
+  });
+
   it("shows the typing indicator inside the transcript rather than as a floating status line", () => {
     const fetchMock = vi.fn(() => new Promise(() => {}));
     vi.stubGlobal("fetch", fetchMock);

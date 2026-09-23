@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { AiProviderError, callAiProvider, type ChatMessage } from "./_lib/aiProvider.js";
 import { isAllowedOrigin } from "./_lib/originCheck.js";
 import { checkRateLimit, getClientKey } from "./_lib/rateLimiter.js";
+import { getScenarioPrompt } from "./_lib/scenarioPrompts.js";
 
 const MAX_MESSAGES = 40;
 const MAX_MESSAGE_LENGTH = 2000;
@@ -59,8 +60,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // The Conversation screen names its Scenario Category instead of sending a system message: the
+  // prompt for that category lives only here, so this is where it's resolved and prepended.
+  const categoryId: unknown = req.body?.categoryId;
+  let finalMessages: ChatMessage[] = messages;
+  if (categoryId !== undefined) {
+    if (typeof categoryId !== "string" || categoryId.length === 0) {
+      res.status(400).json({
+        error: { code: "invalid_request", message: "`categoryId` must be a non-empty string when present." },
+      });
+      return;
+    }
+
+    const systemPrompt = getScenarioPrompt(categoryId);
+    if (systemPrompt === undefined) {
+      res.status(400).json({
+        error: { code: "unknown_category", message: `Unknown Scenario Category "${categoryId}".` },
+      });
+      return;
+    }
+
+    finalMessages = [
+      { role: "system", content: systemPrompt },
+      ...messages.filter((message) => message.role !== "system"),
+    ];
+  }
+
   try {
-    const result = await callAiProvider(messages);
+    const result = await callAiProvider(finalMessages);
     res.status(200).json({ message: { role: "assistant", content: result.content } });
   } catch (error) {
     if (error instanceof AiProviderError) {
