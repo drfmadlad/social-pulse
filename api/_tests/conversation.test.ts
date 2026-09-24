@@ -45,7 +45,7 @@ describe("POST /api/conversation", () => {
     expect(callAiProviderMock).not.toHaveBeenCalled();
   });
 
-  it("rejects a request with an empty messages array", async () => {
+  it("rejects a request with no messages array and no categoryId", async () => {
     const req = createMockReq({ body: { messages: [] } });
     const res = createMockRes();
 
@@ -53,6 +53,21 @@ describe("POST /api/conversation", () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.body).toMatchObject({ error: { code: "invalid_request" } });
+    expect(callAiProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts an empty messages array with a categoryId, so the persona can open the conversation", async () => {
+    callAiProviderMock.mockResolvedValue({ content: "Hey! Thanks for coming out tonight." });
+    const req = createMockReq({ body: { messages: [], categoryId: "dating" } });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ message: { role: "assistant", content: "Hey! Thanks for coming out tonight." } });
+    const [sentMessages] = callAiProviderMock.mock.calls[0];
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].role).toBe("system");
   });
 
   it("rejects a request with an invalid message shape", async () => {

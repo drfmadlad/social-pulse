@@ -23,7 +23,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const messages: unknown = req.body?.messages;
   if (
     !Array.isArray(messages) ||
-    messages.length === 0 ||
     messages.length > MAX_MESSAGES ||
     !messages.every(isValidMessage)
   ) {
@@ -31,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error: {
         code: "invalid_request",
         message:
-          `Request body must include a non-empty \`messages\` array of { role, content }, ` +
+          `Request body must include a \`messages\` array of { role, content }, ` +
           `with at most ${MAX_MESSAGES} messages and ${MAX_MESSAGE_LENGTH} characters per message.`,
       },
     });
@@ -39,7 +38,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // The Conversation screen names its Scenario Category instead of sending a system message: the
-  // prompt for that category lives only here, so this is where it's resolved and prepended.
+  // prompt for that category lives only here, so this is where it's resolved and prepended. An
+  // empty `messages` array is therefore valid: it's how the persona speaks first.
   const categoryId: unknown = req.body?.categoryId;
   if (typeof categoryId !== "string" || categoryId.length === 0) {
     res.status(400).json({
