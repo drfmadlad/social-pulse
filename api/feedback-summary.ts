@@ -52,5 +52,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     { role: "user", content: FEEDBACK_SUMMARY_CLOSING_MESSAGE },
   ];
 
-  await sendAiProviderReply(res, finalMessages);
+  await sendAiProviderReply(res, finalMessages, "feedback_summary");
 }

@@ -58,5 +58,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const finalMessages: ChatMessage[] = [{ role: "system", content: systemPrompt }, ...messages];
 
-  await sendAiProviderReply(res, finalMessages);
+  await sendAiProviderReply(res, finalMessages, "conversation");
 }
