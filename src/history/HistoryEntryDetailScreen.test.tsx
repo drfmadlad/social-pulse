@@ -3,7 +3,9 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { scenarioCategories } from "../practice/scenarioCategories";
 import { mockError, mockFeedbackSummary } from "../test/apiMocks";
+import { findFocus } from "../practice/focuses";
 import { defaultScenarioOf } from "../practice/scenarios";
+import { putStoredHistoryEntry } from "../test/storedHistory";
 import {
   attachFeedbackSummary,
   deleteHistoryEntry,
@@ -84,6 +86,88 @@ describe("HistoryEntryDetailScreen", () => {
     await waitFor(async () => {
       const [entry] = await getAllHistoryEntries();
       expect(entry.summary).not.toBeNull();
+    });
+  });
+
+  describe("Focus (issue #65)", () => {
+    it("shows the entry's Focus above its transcript", async () => {
+      vi.stubGlobal("fetch", vi.fn());
+      await saveEndedConversation({
+        id: "entry-1",
+        category,
+        scenario: defaultScenarioOf(category.id)!,
+        focus: findFocus("reading-the-room"),
+        transcript,
+      });
+
+      renderAt("/history/entry-1");
+
+      const focusLine = (await screen.findByText("Reading the room")).closest("p")!;
+      expect(focusLine).toHaveTextContent("Your focus: Reading the room");
+      const firstLine = screen.getByText("Hey! Thanks for coming out tonight.");
+      expect(focusLine.compareDocumentPosition(firstLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("asks for missing feedback on the entry's Focus", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+      await saveEndedConversation({
+        id: "entry-1",
+        category,
+        scenario: defaultScenarioOf(category.id)!,
+        focus: findFocus("reading-the-room"),
+        transcript,
+      });
+
+      renderAt("/history/entry-1");
+      fireEvent.click(await screen.findByRole("button", { name: "Get feedback" }));
+
+      expect(await screen.findByText("What you did well")).toBeInTheDocument();
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).focusId).toBe("reading-the-room");
+    });
+
+    it("shows no Focus for an entry without one, including one saved before Focuses existed", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+      await putStoredHistoryEntry({
+        id: "entry-1",
+        categoryId: "dating",
+        categoryName: "Dating",
+        personaName: "Jordan",
+        transcript,
+        summary: null,
+        endedAt: new Date().toISOString(),
+      });
+
+      renderAt("/history/entry-1");
+      fireEvent.click(await screen.findByRole("button", { name: "Get feedback" }));
+
+      expect(await screen.findByText("What you did well")).toBeInTheDocument();
+      expect(screen.queryByText(/your focus/i)).not.toBeInTheDocument();
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).not.toHaveProperty("focusId");
+    });
+
+    it("shows no Focus, and asks about none, for a Focus the app no longer offers", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+      await putStoredHistoryEntry({
+        id: "entry-1",
+        categoryId: "dating",
+        categoryName: "Dating",
+        personaName: "Jordan",
+        scenarioId: "coffee-first-date",
+        focusId: "a-focus-since-removed",
+        transcript,
+        summary: null,
+        endedAt: new Date().toISOString(),
+      });
+
+      renderAt("/history/entry-1");
+      fireEvent.click(await screen.findByRole("button", { name: "Get feedback" }));
+
+      expect(await screen.findByText("What you did well")).toBeInTheDocument();
+      expect(screen.queryByText(/your focus/i)).not.toBeInTheDocument();
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).not.toHaveProperty("focusId");
     });
   });
 

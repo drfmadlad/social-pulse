@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockError, mockFeedbackSummary, mockReply } from "../test/apiMocks";
 import { AiProxyError } from "./aiProxyClient";
 import { requestFeedbackSummary } from "./feedbackSummary";
+import { findFocus } from "./focuses";
 import { scenarioCategories } from "./scenarioCategories";
 
 const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
@@ -29,6 +30,23 @@ describe("requestFeedbackSummary", () => {
       personaName: category.personaName,
       transcript,
     });
+  });
+
+  it("names a Focus by id alone, never its wording (issue #65)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockFeedbackSummary());
+    vi.stubGlobal("fetch", fetchMock);
+    const focus = findFocus("staying-calm")!;
+
+    await requestFeedbackSummary(category, transcript, focus);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body).toEqual({
+      categoryName: category.name,
+      personaName: category.personaName,
+      transcript,
+      focusId: "staying-calm",
+    });
+    expect(JSON.stringify(body)).not.toContain(focus.label);
   });
 
   it("resolves the parsed Feedback Summary on a well-formed, grounded reply", async () => {

@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { focuses, type Focus } from "./focuses";
 import { conversationPath } from "./practicePaths";
 import { findCategory } from "./scenarioCategories";
 import { findScenario, pickSurpriseScenario, scenariosIn } from "./scenarios";
@@ -9,16 +10,25 @@ type ScenarioChoice = { kind: "surprise" } | { kind: "chosen"; scenarioId: strin
 
 const SURPRISE_ME: ScenarioChoice = { kind: "surprise" };
 
+/** The Focus picker's options: None (the default, no Focus), then the fixed list. */
+const focusOptions: { key: string; label: string; focus: Focus | undefined }[] = [
+  { key: "none", label: "None", focus: undefined },
+  ...focuses.map((focus) => ({ key: focus.id, label: focus.label, focus })),
+];
+
 /**
  * Sets up one Practice Conversation before it starts (INFORMATION-ARCHITECTURE.md, Scenario brief):
  * the Persona and what they're like, a Scenario chooser defaulting to Surprise me, the chosen
- * Scenario's situation and the user's role in it, and Start.
+ * Scenario's situation and the user's role in it, an optional Focus defaulting to none, and Start.
  */
 export function ScenarioBriefScreen() {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
   const chooserName = useId();
+  const focusName = useId();
+  const focusHintId = useId();
   const [choice, setChoice] = useState<ScenarioChoice>(SURPRISE_ME);
+  const [focus, setFocus] = useState<Focus | undefined>(undefined);
   const category = findCategory(categoryId);
 
   if (!category) {
@@ -41,7 +51,7 @@ export function ScenarioBriefScreen() {
     const scenario = chosen ?? pickSurpriseScenario(category!.id)!;
     // Replaced, not pushed: once the conversation starts, back from it leads to the Practice picker
     // (INFORMATION-ARCHITECTURE.md, Conversation), the system back gesture included.
-    navigate(conversationPath(category!.id, scenario.id), { replace: true });
+    navigate(conversationPath(category!.id, scenario.id, focus?.id), { replace: true });
   }
 
   return (
@@ -88,6 +98,30 @@ export function ScenarioBriefScreen() {
           </p>
         )}
       </div>
+
+      <fieldset className="scenario-brief__chooser" aria-describedby={focusHintId}>
+        <legend>Focus</legend>
+        <p id={focusHintId} className="scenario-brief__hint">
+          Optional. Pick something to practise, and your feedback will speak to it.
+        </p>
+        <div className="scenario-brief__focus-options">
+          {focusOptions.map((option) => (
+            <label
+              key={option.key}
+              className={option.focus === focus ? "check-option check-option--selected" : "check-option"}
+            >
+              <input
+                type="radio"
+                name={focusName}
+                value={option.key}
+                checked={option.focus === focus}
+                onChange={() => setFocus(option.focus)}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <button type="button" className="button-primary scenario-brief__start" onClick={start}>
         Start

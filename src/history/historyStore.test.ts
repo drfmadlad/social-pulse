@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ScenarioCategory } from "../practice/scenarioCategories";
+import { findFocus } from "../practice/focuses";
 import { defaultScenarioOf } from "../practice/scenarios";
 import { putStoredHistoryEntry } from "../test/storedHistory";
 import {
@@ -52,6 +53,24 @@ describe("historyStore", () => {
     await saveEndedConversation({ id: "entry-1", category, scenario, transcript });
 
     expect((await getHistoryEntry("entry-1"))?.scenarioId).toBe(scenario.id);
+  });
+
+  it("records the conversation's Focus when it had one (issue #65)", async () => {
+    await saveEndedConversation({
+      id: "entry-1",
+      category,
+      scenario: defaultScenarioOf(category.id)!,
+      focus: findFocus("staying-calm"),
+      transcript,
+    });
+
+    expect((await getHistoryEntry("entry-1"))?.focusId).toBe("staying-calm");
+  });
+
+  it("stores no Focus at all for a conversation without one, so the entry is shaped as before", async () => {
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
+
+    expect(await getHistoryEntry("entry-1")).not.toHaveProperty("focusId");
   });
 
   it("reads back an entry saved before Scenarios existed as it was stored, with no Scenario of its own", async () => {

@@ -376,6 +376,11 @@ Medium density (§4), top to bottom with `--space-6` between blocks:
 - **The situation panel**, a `--primary-soft` block with `--radius-md` and `--space-4` padding: "The
   situation" and "Your role" as `--text-xs` uppercase `--ink-muted` labels, each followed by its
   text in `--text-body` `--ink`. With Surprise me chosen, it holds one line instead (§7).
+- **The Focus picker**, legend "Focus" styled like the chooser's, then one line of explanation in
+  `--text-sm` `--ink-muted` (§7). Its options are the same outlined pills, but sized to their label
+  and wrapping, `--space-2` apart, in `--text-sm` with `--radius-full` and a 44px minimum height:
+  eight full-width pills would double the screen's length for an optional setting. **None** comes
+  first and is chosen by default, with no badge.
 - **Start**, a full-width `--primary` pill.
 
 The screen pushes in like any other (§6); choosing an option uses Option select.
@@ -383,6 +388,12 @@ The screen pushes in like any other (§6); choosing an option uses Option select
 **On the Conversation,** the Scenario's situation and the user's role open the transcript as one
 quiet block: `--text-sm` `--ink-muted`, centred, with a `--line` hairline under it. It isn't a
 notice (no ground, no edge) and scrolls away with the transcript.
+
+**The Focus line,** on the Feedback Summary (under its title) and the History entry detail (under
+its timestamp), reads "Your focus:" in `--text-sm` `--ink-muted`, then the Focus's label in 600
+`--ink`, with `--space-6` below it. It's neutral on purpose: no ground, no edge, and never
+`--positive` or `--growth`, which mark results, since the Focus is never marked achieved. It adds no
+heading.
 
 **Lessons list rows** keep §4's medium density.
 - **A finished Lesson** shows a small `--positive` check (16px) at the row's end, announced as
@@ -558,6 +569,9 @@ says "One of Jordan's situations, picked when you start. You'll see it at the to
 conversation." It never hints at which. A chosen Scenario's labels are "The situation" and "Your
 role"; on the Conversation the role reads "Your role: …". Scenario titles are plain descriptions
 ("A first date over coffee"), never a level, difficulty or rating (INFORMATION-ARCHITECTURE.md §5).
+The Focus picker explains itself in one line: "Optional. Pick something to practise, and your
+feedback will speak to it." Its first option reads "None". Focus labels are things to practise
+("Staying calm"), never targets ("Ask three questions") and never a goal, score or streak.
 
 **Conversation length.** A Practice Conversation holds a limited number of messages, and the
 Conversation screen says so quietly rather than letting the server refuse a line

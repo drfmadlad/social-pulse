@@ -1,4 +1,5 @@
 import { AiProxyError, requestAiProxy, type ChatMessage } from "./aiProxyClient";
+import type { Focus } from "./focuses";
 import type { ScenarioCategory } from "./scenarioCategories";
 import { stripCodeFences } from "./stripCodeFences";
 
@@ -49,14 +50,20 @@ function isGroundedInTranscript(summary: FeedbackSummary, transcript: ChatMessag
   return [...summary.didWell, ...summary.canImprove].every((point) => userText.includes(point.quote));
 }
 
+/**
+ * Asks for the Feedback Summary of an ended conversation. A Focus is named by id alone: the server
+ * resolves its wording and rejects an id it doesn't know.
+ */
 export async function requestFeedbackSummary(
   category: ScenarioCategory,
   transcript: ChatMessage[],
+  focus?: Focus,
 ): Promise<FeedbackSummary> {
   const reply = await requestAiProxy("/api/feedback-summary", {
     categoryName: category.name,
     personaName: category.personaName,
     transcript,
+    ...(focus && { focusId: focus.id }),
   });
 
   let parsed: unknown;

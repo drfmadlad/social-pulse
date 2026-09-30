@@ -131,12 +131,20 @@ Conversation with the same Scenario and Focus.
   entry saved then has no Scenario of its own and reads as its category's default
   (`scenarioOfEntry`). A request with no Scenario gets the default too, as a safety net for an
   installed app still on the version from before Scenarios until it reloads.
+- **Focus.** Seven aims, each worded as something to practise rather than a target to hit, after
+  **None** (the default): Asking follow-up questions, Showing you're listening, Sharing about
+  yourself, Reading the room, Staying calm, Handling silences, Wrapping up gracefully. They follow the
+  Lessons' skills and fit every category. The list is fixed in the app (`src/practice/focuses.ts`,
+  ids and labels only). What each one means to the Feedback Summary is server-side only
+  (`api/_lib/focusPrompts.ts`), keyed by the same ids, so the request names a Focus by id, no free
+  text reaches the prompt, and the server rejects an id it doesn't know. A test checks the two lists
+  agree.
 - **Start replaces the brief** in history rather than pushing on top of it, so back from the
   Conversation — its back action and the system back gesture alike — lands on the Practice picker.
 
 **Navigation:** from Practice picker, at `/practice/:categoryId`. Back → Practice picker. Start →
-Conversation, at `/practice/:categoryId/:scenarioId`. An unknown category redirects to the Practice
-picker.
+Conversation, at `/practice/:categoryId/:scenarioId`, with `?focus=<id>` when a Focus was picked. An
+unknown category redirects to the Practice picker.
 
 ### Conversation
 **Responsible for:** one live Practice Conversation. Chrome-free, full viewport.
@@ -165,13 +173,19 @@ picker.
   up") offers **Get feedback** as the primary action and **Keep talking** as secondary.
 
 **Navigation:** from Scenario brief, a Paused Conversation's card, or Try again, at
-`/practice/:categoryId/:scenarioId`. Back → Save for later / Discard, then Practice picker. A URL
-naming a Scenario the category doesn't have redirects to that category's Scenario brief. Ending
+`/practice/:categoryId/:scenarioId` (plus `?focus=<id>` with a Focus). Back → Save for later /
+Discard, then Practice picker. A URL naming a Scenario the category doesn't have, or a Focus the app
+doesn't offer, redirects to that category's Scenario brief. Ending
 goes to the Feedback Summary, which the leave confirmation doesn't ask about; every other way out
 (the brief included) is leaving.
 
-**Recording the Scenario.** The History entry records the Scenario the conversation was set in
-(`scenarioId`). Entries saved before Scenarios existed are read as they were stored, with no
+**The Focus rides along, unseen.** The Focus lives in the Conversation's URL, so a reload keeps it,
+and ending hands it to the Feedback Summary with the transcript and Scenario. The Persona never hears
+about it: it shapes the feedback, not the conversation.
+
+**Recording the Scenario and Focus.** The History entry records the Focus (`focusId`) only when there
+was one, so an entry without a Focus is stored exactly as before; like `scenarioId`, it needed no
+database upgrade. It also records the Scenario the conversation was set in (`scenarioId`). Entries saved before Scenarios existed are read as they were stored, with no
 database upgrade or rewrite, and open as usual; wherever their Scenario is needed, it's their
 category's default (see Scenario brief).
 
@@ -182,8 +196,13 @@ one place richer density is wanted.
 Two clearly-separated groups — what you did well, what you can do better — each point showing
 its quote and, where present, its explanation.
 
-- **Focus.** When one was set, a line at the top names it, and at least one point speaks to it.
-  Nothing says whether it was achieved.
+- **Focus.** When one was set, a line under the title names it ("Your focus: Staying calm"), and at
+  least one point speaks to it: a moment that shows it, or one where it would have helped. Focus
+  points can sit in either group, and in both where the conversation has both kinds of moment, so
+  where they fall isn't a verdict. Nothing says whether it was achieved, not overall and not for one
+  moment, and the line itself is neutral. After a reload the Focus is read back
+  off the saved History entry. An entry naming a Focus since removed shows none, and asks for
+  feedback without one.
 - **Try saying it this way.** Each "can do better" point also shows a rewritten version of the
   quote.
 - **A Lesson for it.** A "can do better" point may link to the one Lesson that teaches its skill.
@@ -418,7 +437,8 @@ Lesson Steps change inside the Lesson flow screen, not as pushes onto the stack 
 
 Practice's URLs deepen one level per push: `/practice` (picker), `/practice/:categoryId` (Scenario
 brief), `/practice/:categoryId/:scenarioId` (Conversation), `/practice/:categoryId/feedback/:entryId`
-(Feedback Summary). `src/practice/practicePaths.ts` spells them out. The brief is replaced by the
+(Feedback Summary). A Focus is a query parameter on the Conversation's URL, `?focus=<id>`, not a
+level. `src/practice/practicePaths.ts` spells them out. The brief is replaced by the
 Conversation it starts, so it isn't on the stack under it.
 
 **Routing.** The app has no router today. Recommendation: `react-router-dom`. It gives a real
