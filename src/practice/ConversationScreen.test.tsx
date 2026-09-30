@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import { createMemoryRouter, Outlet, RouterProvider, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { advancePastAiRequestTimeout, hangingFetch, mockError, mockReply } from "../test/apiMocks";
@@ -13,7 +14,7 @@ function LocationDisplay() {
 // `useBlocker`, which only reports blocked navigation against a data router. The extra "/practice"
 // entry before `path` gives the system-back tests somewhere to go back to, the way a real user
 // always reaches a Practice Conversation via the Practice picker.
-function renderAt(path: string) {
+function renderAt(path: string, { strictMode = false }: { strictMode?: boolean } = {}) {
   const router = createMemoryRouter(
     [
       {
@@ -32,8 +33,28 @@ function renderAt(path: string) {
     ],
     { initialEntries: ["/practice", path], initialIndex: 1 },
   );
-  const view = render(<RouterProvider router={router} />);
+  const app = <RouterProvider router={router} />;
+  const view = render(strictMode ? <StrictMode>{app}</StrictMode> : app);
   return { ...view, router };
+}
+
+/** A promise the test settles by hand, for holding a reply in flight while asserting on the wait. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
+function requestedMessages(fetchMock: ReturnType<typeof vi.fn>, callIndex: number) {
+  const [, init] = fetchMock.mock.calls[callIndex];
+  return JSON.parse(init.body as string).messages;
+}
+
+function sendMessage(content: string) {
+  fireEvent.change(screen.getByLabelText("Message"), { target: { value: content } });
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
 }
 
 /** Simulates the system back gesture / browser back, which react-router surfaces as a POP navigation. */
@@ -416,5 +437,183 @@ describe("ConversationScreen", () => {
 
     const bubbles = screen.getAllByRole("listitem");
     expect(bubbles.every((bubble) => bubble.textContent && bubble.textContent.trim().length > 0)).toBe(true);
+  });
+
+  // The conversation model's transitions (issue #46), driven the way a user drives them: the
+  // opening line, sending, a reply arriving, an error, and retrying it.
+  describe("turn by turn", () => {
+    it("waits for the Persona's opening line with the composer locked, then hands the turn to the user", async () => {
+      const opening = deferred<Response>();
+      const fetchMock = vi.fn().mockReturnValueOnce(opening.promise);
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating");
+
+      expect(screen.getByRole("status")).toHaveAccessibleName("Jordan is typing");
+      expect(screen.getByLabelText("Message")).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "End & get feedback" })).toBeDisabled();
+
+      await act(async () => opening.resolve(mockReply("Hey! Good to see you.")));
+
+      expect(screen.getByText("Hey! Good to see you.")).toBeInTheDocument();
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Message")).toBeEnabled();
+    });
+
+    it("shows the user's line straight away and clears the composer, keeping it locked until the reply arrives", async () => {
+      const reply = deferred<Response>();
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+        .mockReturnValueOnce(reply.promise);
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating");
+      await screen.findByText("Hey! Good to see you.");
+      sendMessage("  Hi, nice to meet you!  ");
+
+      expect(screen.getByText("Hi, nice to meet you!")).toBeInTheDocument();
+      expect(screen.getByLabelText("Message")).toHaveValue("");
+      expect(screen.getByLabelText("Message")).toBeDisabled();
+      expect(screen.getByRole("status")).toHaveAccessibleName("Jordan is typing");
+      expect(screen.getByRole("button", { name: "End & get feedback" })).toBeDisabled();
+
+      await act(async () => reply.resolve(mockReply("Likewise!")));
+
+      expect(screen.getAllByRole("listitem").map((bubble) => bubble.querySelector("p")?.textContent)).toEqual([
+        "Hey! Good to see you.",
+        "Hi, nice to meet you!",
+        "Likewise!",
+      ]);
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Message")).toBeEnabled();
+    });
+
+    it("sends the whole conversation so far with each new line", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+        .mockResolvedValueOnce(mockReply("Likewise!"))
+        .mockResolvedValueOnce(mockReply("I'm good, thanks."));
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating");
+      await screen.findByText("Hey! Good to see you.");
+      sendMessage("Hi, nice to meet you!");
+      await screen.findByText("Likewise!");
+      sendMessage("How are you?");
+      await screen.findByText("I'm good, thanks.");
+
+      expect(requestedMessages(fetchMock, 2)).toEqual([
+        { role: "assistant", content: "Hey! Good to see you." },
+        { role: "user", content: "Hi, nice to meet you!" },
+        { role: "assistant", content: "Likewise!" },
+        { role: "user", content: "How are you?" },
+      ]);
+    });
+
+    it("won't send a message that's only whitespace", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating");
+      await screen.findByText("Hey! Good to see you.");
+      fireEvent.change(screen.getByLabelText("Message"), { target: { value: "   " } });
+
+      expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+      fireEvent.submit(screen.getByLabelText("Message"));
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("clears the error and waits again while a retry is on its way", async () => {
+      const retry = deferred<Response>();
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+        .mockResolvedValueOnce(mockError(500, "provider_error", "Something broke."))
+        .mockReturnValueOnce(retry.promise);
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating");
+      await screen.findByText("Hey! Good to see you.");
+      sendMessage("Hi, nice to meet you!");
+      await screen.findByText("Something broke.");
+
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveAccessibleName("Jordan is typing");
+      expect(screen.getByLabelText("Message")).toBeDisabled();
+
+      await act(async () => retry.resolve(mockReply("Likewise!")));
+
+      expect(screen.getByText("Likewise!")).toBeInTheDocument();
+    });
+
+    it("retries a failed line by resending the same conversation, without repeating the user's line", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+        .mockResolvedValueOnce(mockError(500, "provider_error", "Something broke."))
+        .mockResolvedValueOnce(mockReply("Likewise!"));
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating");
+      await screen.findByText("Hey! Good to see you.");
+      sendMessage("Hi, nice to meet you!");
+      await screen.findByText("Something broke.");
+
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      await screen.findByText("Likewise!");
+
+      expect(requestedMessages(fetchMock, 2)).toEqual(requestedMessages(fetchMock, 1));
+      expect(screen.getAllByRole("listitem").map((bubble) => bubble.querySelector("p")?.textContent)).toEqual([
+        "Hey! Good to see you.",
+        "Hi, nice to meet you!",
+        "Likewise!",
+      ]);
+    });
+
+    it("keeps a failed line in the conversation when the user sends another instead of retrying", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+        .mockResolvedValueOnce(mockError(500, "provider_error", "Something broke."))
+        .mockResolvedValueOnce(mockReply("Likewise!"));
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating");
+      await screen.findByText("Hey! Good to see you.");
+      sendMessage("Hi, nice to meet you!");
+      await screen.findByText("Something broke.");
+
+      sendMessage("Sorry, hello!");
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      await screen.findByText("Likewise!");
+      expect(requestedMessages(fetchMock, 2)).toEqual([
+        { role: "assistant", content: "Hey! Good to see you." },
+        { role: "user", content: "Hi, nice to meet you!" },
+        { role: "user", content: "Sorry, hello!" },
+      ]);
+    });
+
+    it("shows only the latest opening line when the conversation is started twice in a row", async () => {
+      // React StrictMode mounts the screen, tears it down and mounts it again in development,
+      // so the opening line is asked for twice; only the second request's reply may land.
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(mockReply("An opening line nobody should see."))
+        .mockResolvedValueOnce(mockReply("Hey! Good to see you."));
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating", { strictMode: true });
+
+      expect(await screen.findByText("Hey! Good to see you.")).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText("An opening line nobody should see.")).not.toBeInTheDocument();
+      expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    });
   });
 });

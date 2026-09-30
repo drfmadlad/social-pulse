@@ -19,5 +19,7 @@ export function ConversationScreen() {
     navigate(`/practice/${category!.id}/feedback/${entryId}`, { state: { transcript } });
   }
 
-  return <ChatScreen category={category} onBack={() => navigate("/practice")} onEnd={handleEnd} />;
+  // Keyed by category so a different category's URL starts a fresh conversation rather than
+  // carrying this one's turns across.
+  return <ChatScreen key={category.id} category={category} onBack={() => navigate("/practice")} onEnd={handleEnd} />;
 }

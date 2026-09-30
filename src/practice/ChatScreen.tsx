@@ -1,14 +1,12 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useBlocker } from "react-router-dom";
-import { AiProxyError, requestAiReply, type ChatMessage } from "./aiProxyClient";
+import type { ChatMessage } from "./aiProxyClient";
 import { LeaveConversationDialog } from "./LeaveConversationDialog";
 import { useScreenDirection } from "../ScreenTransition";
 import { screenTransitionClassName } from "../screenDirection";
 import type { ScenarioCategory } from "./scenarioCategories";
 import { TranscriptView } from "./TranscriptView";
-import { useLatestRequestGuard } from "./useLatestRequestGuard";
-
-type Phase = "loading-opening" | "chatting" | "sending" | "error";
+import { usePracticeConversation } from "./usePracticeConversation";
 
 interface ChatScreenProps {
   category: ScenarioCategory;
@@ -17,17 +15,11 @@ interface ChatScreenProps {
 }
 
 export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
-  const [turns, setTurns] = useState<ChatMessage[]>([]);
-  const [phase, setPhase] = useState<Phase>("loading-opening");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const conversation = usePracticeConversation(category.id);
   const [draft, setDraft] = useState("");
-  const { start, isStale } = useLatestRequestGuard();
   const direction = useScreenDirection();
 
-  const isBusy = phase === "loading-opening" || phase === "sending";
-  const canSend = !isBusy && draft.trim().length > 0;
-  const hasSaidSomething = turns.some((turn) => turn.role === "user");
-  const canEnd = (phase === "chatting" || phase === "error") && hasSaidSomething;
+  const canSend = !conversation.isAwaitingReply && draft.trim().length > 0;
 
   // Guards every way out of the screen (issue #33) — the on-screen back button below and the
   // system back gesture both attempt navigation through this same router, so one blocker catches
@@ -36,43 +28,14 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
   // asked about.
   const feedbackPathPrefix = `/practice/${category.id}/feedback/`;
   const blocker = useBlocker(
-    ({ nextLocation }) => hasSaidSomething && !nextLocation.pathname.startsWith(feedbackPathPrefix),
+    ({ nextLocation }) => conversation.hasSaidSomething && !nextLocation.pathname.startsWith(feedbackPathPrefix),
   );
-
-  async function sendTurns(nextTurns: ChatMessage[]) {
-    const requestId = start();
-    const isOpeningLine = nextTurns.length === 0;
-    setTurns(nextTurns);
-    setPhase(isOpeningLine ? "loading-opening" : "sending");
-    setErrorMessage(null);
-
-    try {
-      const reply = await requestAiReply(nextTurns, category.id);
-      if (isStale(requestId)) return;
-      setTurns([...nextTurns, reply]);
-      setPhase("chatting");
-    } catch (error) {
-      if (isStale(requestId)) return;
-      setErrorMessage(error instanceof AiProxyError ? error.message : "Something went wrong. Please try again.");
-      setPhase("error");
-    }
-  }
-
-  useEffect(() => {
-    void sendTurns([]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category.id]);
 
   function handleSend(event: FormEvent) {
     event.preventDefault();
     if (!canSend) return;
-    const content = draft.trim();
+    conversation.send(draft.trim());
     setDraft("");
-    void sendTurns([...turns, { role: "user", content }]);
-  }
-
-  function handleRetry() {
-    void sendTurns(turns);
   }
 
   return (
@@ -85,19 +48,23 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
         <button
           type="button"
           className="button-primary conversation-screen__end-button"
-          disabled={!canEnd}
-          onClick={() => onEnd(turns)}
+          disabled={!conversation.canEnd}
+          onClick={() => onEnd(conversation.turns)}
         >
           End &amp; get feedback
         </button>
       </header>
 
       <div className="conversation-screen__transcript">
-        <TranscriptView transcript={turns} personaName={category.personaName} isTyping={isBusy} />
-        {phase === "error" && errorMessage && (
+        <TranscriptView
+          transcript={conversation.turns}
+          personaName={category.personaName}
+          isTyping={conversation.isAwaitingReply}
+        />
+        {conversation.errorMessage && (
           <div role="alert" className="chat-screen__error">
-            <p>{errorMessage}</p>
-            <button type="button" className="button-primary" onClick={handleRetry}>
+            <p>{conversation.errorMessage}</p>
+            <button type="button" className="button-primary" onClick={conversation.retry}>
               Try again
             </button>
           </div>
@@ -109,7 +76,7 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
         <input
           id="chat-draft"
           value={draft}
-          disabled={isBusy}
+          disabled={conversation.isAwaitingReply}
           onChange={(event) => setDraft(event.target.value)}
         />
         <button type="submit" className="button-primary" disabled={!canSend}>
