@@ -11,6 +11,15 @@ const RGB_NO_ALPHA = 2;
 
 const publicFile = (path: string) => new URL(`./public/${path.replace(/^\//, "")}`, import.meta.url);
 
+function chunkTypes(png: Buffer) {
+  const types: string[] = [];
+  // Each chunk: 4-byte length, 4-byte type, data, 4-byte CRC.
+  for (let at = PNG_SIGNATURE.length; at < png.length; at += 12 + png.readUInt32BE(at)) {
+    types.push(png.toString("ascii", at + 4, at + 8));
+  }
+  return types;
+}
+
 function readPng(path: string) {
   const bytes = readFileSync(publicFile(path));
   expect(bytes.subarray(0, 8), `${path} is not a PNG`).toEqual(PNG_SIGNATURE);
@@ -18,7 +27,7 @@ function readPng(path: string) {
     width: bytes.readUInt32BE(16),
     height: bytes.readUInt32BE(20),
     colourType: bytes[25],
-    hasTransparencyChunk: bytes.includes("tRNS"),
+    hasTransparencyChunk: chunkTypes(bytes).includes("tRNS"),
   };
 }
 
