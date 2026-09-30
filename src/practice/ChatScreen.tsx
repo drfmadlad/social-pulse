@@ -5,19 +5,22 @@ import type { ChatMessage } from "./aiProxyClient";
 import { LeaveConversationDialog } from "./LeaveConversationDialog";
 import { useScreenDirection } from "../ScreenTransition";
 import { screenTransitionClassName } from "../screenDirection";
+import { feedbackSummaryPathPrefix } from "./practicePaths";
 import type { ScenarioCategory } from "./scenarioCategories";
+import type { Scenario } from "./scenarios";
 import { TranscriptView } from "./TranscriptView";
 import { usePracticeConversation } from "./usePracticeConversation";
 
 interface ChatScreenProps {
   category: ScenarioCategory;
+  scenario: Scenario;
   onBack: () => void;
   onEnd: (transcript: ChatMessage[]) => void;
 }
 
-export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
+export function ChatScreen({ category, scenario, onBack, onEnd }: ChatScreenProps) {
   const { turns, isAwaitingReply, errorMessage, hasSaidSomething, canEnd, lengthLimit, send, retry } =
-    usePracticeConversation(category.id);
+    usePracticeConversation(scenario);
   const [draft, setDraft] = useState("");
   const direction = useScreenDirection();
 
@@ -27,8 +30,8 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
   // system back gesture both attempt navigation through this same router, so one blocker catches
   // both. Ending the conversation navigates to its Feedback Summary (issue #35 put the History
   // entry id on the end of that URL), which isn't leaving, so that path is exempted rather than
-  // asked about.
-  const feedbackPathPrefix = `/practice/${category.id}/feedback/`;
+  // asked about. Nothing else is: the Scenario brief and the Practice picker are both leaving.
+  const feedbackPathPrefix = feedbackSummaryPathPrefix(category.id);
   const blocker = useBlocker(
     ({ nextLocation }) => hasSaidSomething && !nextLocation.pathname.startsWith(feedbackPathPrefix),
   );
@@ -60,6 +63,11 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
       </header>
 
       <div className="conversation-screen__transcript">
+        {/* The Scenario stays in view from the first line, so a Surprise me pick is known too. */}
+        <div className="conversation-screen__scenario">
+          <p>{scenario.situation}</p>
+          <p>Your role: {scenario.role}</p>
+        </div>
         <TranscriptView transcript={turns} personaName={category.personaName} isTyping={isAwaitingReply} />
         {lengthLimit === "near" && (
           <p role="status" className="conversation-screen__length-note">

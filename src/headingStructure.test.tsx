@@ -8,6 +8,7 @@ import { scenarioCategories } from "./practice/scenarioCategories";
 import { mockReply, mockWrittenReplyVerdict } from "./test/apiMocks";
 import { PRACTICE_OFFLINE_NOTICE, startOffline } from "./test/connection";
 import { expectSaneHeadingHierarchy } from "./test/headingStructure";
+import { defaultScenarioOf } from "./practice/scenarios";
 import { settleDeviceReads } from "./test/settleDeviceReads";
 
 async function renderScreen(path: string) {
@@ -53,15 +54,24 @@ describe("heading structure", () => {
     expectSaneHeadingHierarchy(container);
   });
 
+  it("Scenario brief has exactly one h1, the Persona's name, and no skipped levels, whatever is chosen", async () => {
+    const { container } = await renderScreen("/practice/dating");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Jordan");
+    expectSaneHeadingHierarchy(container);
+
+    fireEvent.click(screen.getByRole("radio", { name: defaultScenarioOf(datingCategory.id)!.title }));
+    expectSaneHeadingHierarchy(container);
+  });
+
   it("Conversation has exactly one h1 and no skipped levels", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you.")));
-    const { container, findByText } = await renderScreen("/practice/dating");
+    const { container, findByText } = await renderScreen(`/practice/dating/${defaultScenarioOf(datingCategory.id)!.id}`);
     await findByText("Hey! Good to see you.");
     expectSaneHeadingHierarchy(container);
   });
 
   it("Feedback Summary has exactly one h1 and no skipped levels", async () => {
-    await saveEndedConversation({ id: "entry-1", category: datingCategory, transcript });
+    await saveEndedConversation({ id: "entry-1", category: datingCategory, scenario: defaultScenarioOf(datingCategory.id)!, transcript });
     await attachFeedbackSummary("entry-1", summary);
     const { container, findByText } = await renderScreen("/practice/dating/feedback/entry-1");
     await findByText("What you did well");
@@ -104,7 +114,7 @@ describe("heading structure", () => {
   });
 
   it("History entry detail has exactly one h1 and no skipped levels", async () => {
-    await saveEndedConversation({ id: "entry-1", category: datingCategory, transcript });
+    await saveEndedConversation({ id: "entry-1", category: datingCategory, scenario: defaultScenarioOf(datingCategory.id)!, transcript });
     await attachFeedbackSummary("entry-1", summary);
     const { container, findByText } = await renderScreen("/history/entry-1");
     await findByText("What you did well");

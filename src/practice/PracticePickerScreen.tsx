@@ -2,6 +2,7 @@ import { useId } from "react";
 import { useHref, useLinkClickHandler } from "react-router-dom";
 import { HomeLink } from "../HomeLink";
 import { useOnlineStatus } from "../useOnlineStatus";
+import { scenarioBriefPath } from "./practicePaths";
 import { scenarioCategories, type ScenarioCategory } from "./scenarioCategories";
 
 interface CategoryCardProps {
@@ -11,14 +12,14 @@ interface CategoryCardProps {
 }
 
 /**
- * One category's card: a link to its Conversation, or, offline, where a Conversation would fail on
- * its first line, a disabled link that can't open one. It's the same <a> either way, not a router
+ * One category's card: a link to its Scenario brief, or, offline, where the Conversation it sets up
+ * would fail on its first line, a disabled link that can't open one. It's the same <a> either way, not a router
  * <Link> swapped for a plain anchor, so a keyboard user focused on it keeps their focus when the
  * connection drops or returns. Offline it stays focusable and is described by the notice, so a
  * screen reader hears the category, that it's unavailable, and why.
  */
 function CategoryCard({ category, online, offlineNoticeId }: CategoryCardProps) {
-  const to = `/practice/${category.id}`;
+  const to = scenarioBriefPath(category.id);
   const href = useHref(to);
   const followLink = useLinkClickHandler<HTMLAnchorElement>(to);
 

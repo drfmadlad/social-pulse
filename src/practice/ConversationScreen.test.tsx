@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../../api/_lib/requestLimits";
 import { advancePastAiRequestTimeout, hangingFetch, mockError, mockReply } from "../test/apiMocks";
 import { ConversationScreen } from "./ConversationScreen";
+import { defaultScenarioOf } from "./scenarios";
 
 function LocationDisplay() {
   const location = useLocation();
@@ -27,7 +28,8 @@ function renderAt(path: string, { strictMode = false }: { strictMode?: boolean }
         ),
         children: [
           { path: "/practice", element: <div>Practice picker</div> },
-          { path: "/practice/:categoryId", element: <ConversationScreen /> },
+          { path: "/practice/:categoryId", element: <div>Scenario brief</div> },
+          { path: "/practice/:categoryId/:scenarioId", element: <ConversationScreen /> },
           { path: "/practice/:categoryId/feedback/:entryId", element: <div>Feedback Summary stub</div> },
         ],
       },
@@ -72,7 +74,7 @@ afterEach(() => {
 
 describe("ConversationScreen", () => {
   it("redirects to the Practice picker when the URL names an unknown category", () => {
-    renderAt("/practice/not-a-real-category");
+    renderAt("/practice/not-a-real-category/coffee-first-date");
 
     expect(screen.getByText("Practice picker")).toBeInTheDocument();
   });
@@ -81,31 +83,49 @@ describe("ConversationScreen", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
 
     expect(await screen.findByText("Hey! Good to see you.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Jordan" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "← Practice" })).toBeInTheDocument();
   });
 
-  it("names the Scenario Category by id and never sends prompt text of its own", async () => {
+  it("redirects to the category's Scenario brief when the URL names a Scenario it doesn't have", () => {
+    renderAt("/practice/networking/coffee-first-date");
+
+    expect(screen.getByText("Scenario brief")).toBeInTheDocument();
+    expect(JSON.parse(screen.getByTestId("location").textContent!).pathname).toBe("/practice/networking");
+  });
+
+  it("keeps the Scenario's situation and the user's role in view at the top of the transcript", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you.")));
+    const scenario = defaultScenarioOf("dating")!;
+
+    renderAt(`/practice/dating/${scenario.id}`);
+    await screen.findByText("Hey! Good to see you.");
+
+    expect(screen.getByText(scenario.situation)).toBeInTheDocument();
+    expect(screen.getByText(`Your role: ${scenario.role}`)).toBeInTheDocument();
+  });
+
+  it("names the Scenario Category and Scenario by id and never sends prompt text of its own", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [, init] = fetchMock.mock.calls[0];
     const body = JSON.parse(init.body as string);
-    expect(body).toEqual({ messages: [], categoryId: "dating" });
+    expect(body).toEqual({ messages: [], categoryId: "dating", scenarioId: "coffee-first-date" });
   });
 
   it("shows the typing indicator inside the transcript rather than as a floating status line", () => {
     const fetchMock = vi.fn(() => new Promise(() => {}));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
 
     const indicator = screen.getByRole("status");
     expect(indicator.closest("ul")).toHaveClass("chat-screen__messages");
@@ -116,7 +136,7 @@ describe("ConversationScreen", () => {
     const fetchMock = vi.fn(() => new Promise(() => {}));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
 
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
@@ -127,7 +147,7 @@ describe("ConversationScreen", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
 
     fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
@@ -140,7 +160,7 @@ describe("ConversationScreen", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
     vi.stubGlobal("fetch", fetchMock);
 
-    const { router } = renderAt("/practice/dating");
+    const { router } = renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
 
     await pressSystemBack(router);
@@ -157,7 +177,7 @@ describe("ConversationScreen", () => {
     vi.stubGlobal("fetch", fetchMock);
     const confirmSpy = vi.spyOn(window, "confirm");
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -182,7 +202,7 @@ describe("ConversationScreen", () => {
       .mockResolvedValueOnce(mockReply("Likewise!"));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -201,7 +221,7 @@ describe("ConversationScreen", () => {
       .mockResolvedValueOnce(mockReply("Likewise!"));
     vi.stubGlobal("fetch", fetchMock);
 
-    const { router } = renderAt("/practice/dating");
+    const { router } = renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -224,7 +244,7 @@ describe("ConversationScreen", () => {
       .mockResolvedValueOnce(mockReply("Likewise!"));
     vi.stubGlobal("fetch", fetchMock);
 
-    const { router } = renderAt("/practice/dating");
+    const { router } = renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -245,7 +265,7 @@ describe("ConversationScreen", () => {
       .mockResolvedValueOnce(mockReply("Likewise!"));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -264,7 +284,7 @@ describe("ConversationScreen", () => {
       .mockResolvedValueOnce(mockReply("Likewise!"));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
 
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
@@ -282,13 +302,15 @@ describe("ConversationScreen", () => {
       { role: "user", content: "Hi, nice to meet you!" },
       { role: "assistant", content: "Likewise!" },
     ]);
+    // So its History entry records the Scenario it was set in (issue #53).
+    expect(location.state.scenarioId).toBe("coffee-first-date");
   });
 
   it("disables End & get feedback until the user has sent a message", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
 
     expect(screen.getByRole("button", { name: "End & get feedback" })).toBeDisabled();
@@ -301,7 +323,7 @@ describe("ConversationScreen", () => {
       .mockResolvedValueOnce(mockReply("Likewise!"));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -314,7 +336,7 @@ describe("ConversationScreen", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(mockError(500, "provider_error", "Something broke."));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
 
     expect(await screen.findByText("Something broke.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "End & get feedback" })).toBeDisabled();
@@ -327,7 +349,7 @@ describe("ConversationScreen", () => {
       .mockResolvedValueOnce(mockError(500, "provider_error", "Something broke."));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi, nice to meet you!" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -343,7 +365,7 @@ describe("ConversationScreen", () => {
       .mockResolvedValueOnce(mockReply("Hey! Good to see you."));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/job-interview");
+    renderAt("/practice/job-interview/first-interview");
 
     expect(await screen.findByText("Slow down and try again shortly.")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
@@ -362,7 +384,7 @@ describe("ConversationScreen", () => {
       .mockResolvedValueOnce(mockReply("Hey! Good to see you."));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/job-interview");
+    renderAt("/practice/job-interview/first-interview");
     await advancePastAiRequestTimeout();
 
     expect(screen.getByText("The request timed out. Please try again.")).toBeInTheDocument();
@@ -378,7 +400,7 @@ describe("ConversationScreen", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(mockError(500, "provider_error", "Something broke."));
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/small-talk");
+    renderAt("/practice/small-talk/break-room");
 
     expect(await screen.findByText("Something broke.")).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -394,7 +416,7 @@ describe("ConversationScreen", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
 
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Something that trips the filter" } });
@@ -426,7 +448,7 @@ describe("ConversationScreen", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/dating");
+    renderAt("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
 
     fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi again" } });
@@ -448,7 +470,7 @@ describe("ConversationScreen", () => {
       const fetchMock = vi.fn().mockReturnValueOnce(opening.promise);
       vi.stubGlobal("fetch", fetchMock);
 
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
 
       expect(screen.getByRole("status")).toHaveAccessibleName("Jordan is typing");
       expect(screen.getByLabelText("Message")).toBeDisabled();
@@ -470,7 +492,7 @@ describe("ConversationScreen", () => {
         .mockReturnValueOnce(reply.promise);
       vi.stubGlobal("fetch", fetchMock);
 
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Hey! Good to see you.");
       sendMessage("  Hi, nice to meet you!  ");
 
@@ -499,7 +521,7 @@ describe("ConversationScreen", () => {
         .mockResolvedValueOnce(mockReply("I'm good, thanks."));
       vi.stubGlobal("fetch", fetchMock);
 
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Hey! Good to see you.");
       sendMessage("Hi, nice to meet you!");
       await screen.findByText("Likewise!");
@@ -518,7 +540,7 @@ describe("ConversationScreen", () => {
       const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you."));
       vi.stubGlobal("fetch", fetchMock);
 
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Hey! Good to see you.");
       fireEvent.change(screen.getByLabelText("Message"), { target: { value: "   " } });
 
@@ -536,7 +558,7 @@ describe("ConversationScreen", () => {
         .mockReturnValueOnce(retry.promise);
       vi.stubGlobal("fetch", fetchMock);
 
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Hey! Good to see you.");
       sendMessage("Hi, nice to meet you!");
       await screen.findByText("Something broke.");
@@ -560,7 +582,7 @@ describe("ConversationScreen", () => {
         .mockResolvedValueOnce(mockReply("Likewise!"));
       vi.stubGlobal("fetch", fetchMock);
 
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Hey! Good to see you.");
       sendMessage("Hi, nice to meet you!");
       await screen.findByText("Something broke.");
@@ -584,7 +606,7 @@ describe("ConversationScreen", () => {
         .mockResolvedValueOnce(mockReply("Likewise!"));
       vi.stubGlobal("fetch", fetchMock);
 
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Hey! Good to see you.");
       sendMessage("Hi, nice to meet you!");
       await screen.findByText("Something broke.");
@@ -603,7 +625,7 @@ describe("ConversationScreen", () => {
     it("caps each line at the length the server accepts, so a long paste can't be rejected", async () => {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you.")));
 
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Hey! Good to see you.");
 
       expect(screen.getByLabelText("Message")).toHaveAttribute("maxLength", String(MAX_MESSAGE_LENGTH));
@@ -618,7 +640,7 @@ describe("ConversationScreen", () => {
         .mockResolvedValueOnce(mockReply("Hey! Good to see you."));
       vi.stubGlobal("fetch", fetchMock);
 
-      renderAt("/practice/dating", { strictMode: true });
+      renderAt("/practice/dating/coffee-first-date", { strictMode: true });
 
       expect(await screen.findByText("Hey! Good to see you.")).toBeInTheDocument();
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -679,7 +701,7 @@ describe("ConversationScreen", () => {
 
     it("says nothing about length early in a conversation", async () => {
       const { nextReply } = answerEveryLine();
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Reply 1");
 
       await talkUntil(() => screen.queryByText("Reply 6") !== null, nextReply);
@@ -690,7 +712,7 @@ describe("ConversationScreen", () => {
 
     it("says quietly, a few lines before the limit, that the conversation is nearly as long as it can go", async () => {
       const { nextReply } = answerEveryLine();
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Reply 1");
 
       await talkUntil(() => screen.queryByText(NEARLY_FULL) !== null, nextReply);
@@ -706,7 +728,7 @@ describe("ConversationScreen", () => {
 
     it("at the limit, the composer gives way to End & get feedback, which ends the conversation with every line", async () => {
       const { fetchMock, nextReply } = answerEveryLine();
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Reply 1");
 
       const linesSent = await talkUntil(composerIsGone, nextReply);
@@ -735,7 +757,7 @@ describe("ConversationScreen", () => {
           return true;
         },
       });
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Reply 1");
 
       while (!hasFailed) {
@@ -765,7 +787,7 @@ describe("ConversationScreen", () => {
           return true;
         },
       });
-      renderAt("/practice/dating");
+      renderAt("/practice/dating/coffee-first-date");
       await screen.findByText("Reply 1");
 
       while (failures < 1) {

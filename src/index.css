@@ -280,6 +280,78 @@ body {
   cursor: not-allowed;
 }
 
+/* The Scenario brief (DESIGN.md §3, Scenario brief): medium density, like the picker it opens from. */
+/* The brief's small labels: the category above the Persona's name, and the situation panel's. */
+.scenario-brief__label {
+  font: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.scenario-brief__category {
+  margin: 0 0 var(--space-1);
+}
+
+.scenario-brief__persona {
+  margin: 0 0 var(--space-6);
+  color: var(--ink-muted);
+}
+
+.scenario-brief__chooser {
+  min-width: 0;
+  margin: 0 0 var(--space-6);
+  padding: 0;
+  border: none;
+}
+
+/* Floating the legend lets it lay out like an ordinary block above the options. */
+.scenario-brief__chooser legend {
+  float: left;
+  width: 100%;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  font: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.scenario-brief__options {
+  clear: both;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.scenario-brief__situation {
+  margin: 0 0 var(--space-6);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--primary-soft);
+  color: var(--ink);
+}
+
+.scenario-brief__situation p,
+.scenario-brief__situation dl {
+  margin: 0;
+}
+
+.scenario-brief__situation dt {
+  margin-bottom: var(--space-1);
+}
+
+.scenario-brief__situation dd {
+  margin: 0;
+}
+
+.scenario-brief__situation dd + dt {
+  margin-top: var(--space-4);
+}
+
+.scenario-brief__start {
+  width: 100%;
+}
+
 /* DESIGN.md §6, Screen push. Movement and opacity are separate animations because they run for
    different durations. Whole screens never spring. */
 @keyframes screen-push-in {
@@ -390,6 +462,20 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: var(--space-4);
+}
+
+/* The Scenario, kept in view at the top of the transcript: quiet, and scrolls away with it. */
+.conversation-screen__scenario {
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-muted);
+  font: var(--text-sm);
+  text-align: center;
+}
+
+.conversation-screen__scenario p {
+  margin: 0;
 }
 
 .conversation-screen__composer {

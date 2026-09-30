@@ -5,13 +5,13 @@ import { goOffline, goOnline, PRACTICE_OFFLINE_NOTICE, startOffline } from "../t
 import { scenarioCategories } from "./scenarioCategories";
 import { PracticePickerScreen } from "./PracticePickerScreen";
 
-/** The picker at /practice, with a stand-in Conversation so a test can tell whether a card opened one. */
+/** The picker at /practice, with a stand-in Scenario brief so a test can tell whether a card opened one. */
 function renderPicker() {
   return render(
     <MemoryRouter initialEntries={["/practice"]}>
       <Routes>
         <Route path="/practice" element={<PracticePickerScreen />} />
-        <Route path="/practice/:categoryId" element={<p>Conversation opened</p>} />
+        <Route path="/practice/:categoryId" element={<p>Scenario brief opened</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -22,7 +22,7 @@ function categoryCard(name: string) {
 }
 
 describe("PracticePickerScreen", () => {
-  it("shows each Scenario Category's persona and setting, linking to its own Conversation URL", () => {
+  it("shows each Scenario Category's persona and setting, linking to its own Scenario brief", () => {
     renderPicker();
 
     expect(scenarioCategories).toHaveLength(6);
@@ -34,12 +34,12 @@ describe("PracticePickerScreen", () => {
     }
   });
 
-  it("opens a category's Conversation when its card is tapped", () => {
+  it("opens a category's Scenario brief when its card is tapped", () => {
     renderPicker();
 
     fireEvent.click(categoryCard("Dating"));
 
-    expect(screen.getByText("Conversation opened")).toBeInTheDocument();
+    expect(screen.getByText("Scenario brief opened")).toBeInTheDocument();
   });
 
   it("names Home as the back destination", () => {
@@ -78,13 +78,13 @@ describe("PracticePickerScreen", () => {
       }
     });
 
-    it("doesn't start a Conversation when a category is tapped", () => {
+    it("doesn't open a Scenario brief when a category is tapped", () => {
       startOffline();
       renderPicker();
 
       fireEvent.click(categoryCard("Dating"));
 
-      expect(screen.queryByText("Conversation opened")).not.toBeInTheDocument();
+      expect(screen.queryByText("Scenario brief opened")).not.toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Practice" })).toBeInTheDocument();
     });
 
@@ -111,7 +111,7 @@ describe("PracticePickerScreen", () => {
     expect(categoryCard("Dating")).not.toHaveAccessibleDescription();
 
     fireEvent.click(categoryCard("Dating"));
-    expect(screen.getByText("Conversation opened")).toBeInTheDocument();
+    expect(screen.getByText("Scenario brief opened")).toBeInTheDocument();
   });
 
   it("keeps a keyboard user's focus on their card as the connection drops and returns", () => {
