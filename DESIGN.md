@@ -442,6 +442,13 @@ was lost, never promises what isn't guaranteed yet, and never blocks the feedbac
 - **Feedback not saved:** "This feedback couldn't be saved, so it won't be here if you come back to
   this conversation later. The conversation itself is still in History."
 
+**Offline Practice.** Offline, the Practice picker reads "You're offline — Practice needs a
+connection. Lessons work offline." between its heading and the category cards, in the same quiet
+notice as a save failure: `--text-sm` `--ink` on `--surface` with a `--line` edge, polite
+(`role="status"`), with no retry action, since reconnecting is what brings Practice back. It's a
+statement of fact, not an error: no error colour, no icon, no apology. The cards stay, dimmed to
+the disabled pill's 50% opacity with a not-allowed cursor.
+
 **Render errors.** The "Something went wrong" screen reuses the `.home-section` card, with the
 `--ink-muted` `--text-sm` body line the empty states use and a `button-primary` link, "Go to
 Home". It's a plain statement, not an alarm: no error colour, no icon, no apology, no error text

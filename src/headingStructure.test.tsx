@@ -6,6 +6,7 @@ import { attachFeedbackSummary, resetHistoryStoreForTests, saveEndedConversation
 import { isChoiceStep, lessons } from "./lessons/lessons";
 import { scenarioCategories } from "./practice/scenarioCategories";
 import { mockReply, mockWrittenReplyVerdict } from "./test/apiMocks";
+import { PRACTICE_OFFLINE_NOTICE, startOffline } from "./test/connection";
 import { expectSaneHeadingHierarchy } from "./test/headingStructure";
 import { settleDeviceReads } from "./test/settleDeviceReads";
 
@@ -42,6 +43,13 @@ describe("heading structure", () => {
 
   it("Practice picker has exactly one h1 and no skipped levels", async () => {
     const { container } = await renderScreen("/practice");
+    expectSaneHeadingHierarchy(container);
+  });
+
+  it("Practice picker keeps the same outline offline, where its notice adds no heading", async () => {
+    startOffline();
+    const { container } = await renderScreen("/practice");
+    expect(screen.getByRole("status")).toHaveTextContent(PRACTICE_OFFLINE_NOTICE);
     expectSaneHeadingHierarchy(container);
   });
 
