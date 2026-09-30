@@ -373,6 +373,19 @@ body {
   background: var(--canvas);
 }
 
+/* At the length limit (issue #58, DESIGN.md §7), a note and End & get feedback take the composer's
+   place. The note a few lines before it is the shared quiet notice, further down. */
+.conversation-screen__composer--full {
+  align-items: center;
+}
+
+.conversation-screen__full-note {
+  flex: 1;
+  margin: 0;
+  color: var(--ink);
+  font: var(--text-sm);
+}
+
 /* The in-app replacement for `window.confirm` when leaving a Practice Conversation (issue #33). */
 .leave-dialog__scrim {
   position: fixed;
@@ -545,9 +558,11 @@ body {
   font: var(--text-sm);
 }
 
-/* DESIGN.md §7's quiet notice: save failures, and Practice's offline note. */
+/* DESIGN.md §7's quiet notice: save failures, Practice's offline note, and the Conversation's
+   note that it's nearly as long as it can go. */
 .history-save-notice,
-.offline-notice {
+.offline-notice,
+.conversation-screen__length-note {
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--line);

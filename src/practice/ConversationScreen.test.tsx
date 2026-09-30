@@ -1,7 +1,8 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { createMemoryRouter, Outlet, RouterProvider, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../../api/_lib/requestLimits";
 import { advancePastAiRequestTimeout, hangingFetch, mockError, mockReply } from "../test/apiMocks";
 import { ConversationScreen } from "./ConversationScreen";
 
@@ -599,6 +600,15 @@ describe("ConversationScreen", () => {
       ]);
     });
 
+    it("caps each line at the length the server accepts, so a long paste can't be rejected", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you.")));
+
+      renderAt("/practice/dating");
+      await screen.findByText("Hey! Good to see you.");
+
+      expect(screen.getByLabelText("Message")).toHaveAttribute("maxLength", String(MAX_MESSAGE_LENGTH));
+    });
+
     it("shows only the latest opening line when the conversation is started twice in a row", async () => {
       // React StrictMode mounts the screen, tears it down and mounts it again in development,
       // so the opening line is asked for twice; only the second request's reply may land.
@@ -614,6 +624,170 @@ describe("ConversationScreen", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(screen.queryByText("An opening line nobody should see.")).not.toBeInTheDocument();
       expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    });
+  });
+
+  // The length limit (issue #58): the server takes at most MAX_CONVERSATION_MESSAGES per request,
+  // so the conversation stops offering the composer before it could build a longer one.
+  describe("length limit", () => {
+    const NEARLY_FULL = /nearly as long as it can go/i;
+    const FULL = /is as long as it can go/i;
+
+    /**
+     * Answers every request with a fresh numbered reply ("Reply 1", "Reply 2"…), or with an error
+     * where `failWhen` says so. `nextReply` names the reply the next request will get.
+     */
+    function answerEveryLine({ failWhen }: { failWhen?: (messages: unknown[]) => boolean } = {}) {
+      let replies = 0;
+      const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        const { messages } = JSON.parse(init!.body as string) as { messages: unknown[] };
+        if (failWhen?.(messages)) return mockError(500, "provider_error", "Something broke.");
+        replies += 1;
+        return mockReply(`Reply ${replies}`);
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      return { fetchMock, nextReply: () => `Reply ${replies + 1}` };
+    }
+
+    /** Keeps talking, a line at a time and each reply landing, until `isDone`. Returns how many lines it took. */
+    async function talkUntil(isDone: () => boolean, nextReply: () => string) {
+      let linesSent = 0;
+      while (!isDone()) {
+        linesSent += 1;
+        expect(linesSent).toBeLessThanOrEqual(MAX_CONVERSATION_MESSAGES); // never loop forever
+        const reply = nextReply();
+        sendMessage(`Line ${linesSent}`);
+        await screen.findByText(reply);
+      }
+      return linesSent;
+    }
+
+    const composerIsGone = () => screen.queryByLabelText("Message") === null;
+
+    function expectEveryRequestWithinTheLimit(fetchMock: ReturnType<typeof vi.fn>) {
+      fetchMock.mock.calls.forEach((_call, index) => {
+        expect(requestedMessages(fetchMock, index).length).toBeLessThanOrEqual(MAX_CONVERSATION_MESSAGES);
+      });
+    }
+
+    /** Ends the conversation from the End & get feedback that took the composer's place. */
+    function endFromWhereTheComposerWas() {
+      const limitNote = screen.getByText(FULL);
+      fireEvent.click(within(limitNote.parentElement!).getByRole("button", { name: "End & get feedback" }));
+      return JSON.parse(screen.getByTestId("location").textContent!);
+    }
+
+    it("says nothing about length early in a conversation", async () => {
+      const { nextReply } = answerEveryLine();
+      renderAt("/practice/dating");
+      await screen.findByText("Reply 1");
+
+      await talkUntil(() => screen.queryByText("Reply 6") !== null, nextReply);
+
+      expect(screen.queryByText(NEARLY_FULL)).not.toBeInTheDocument();
+      expect(screen.queryByText(FULL)).not.toBeInTheDocument();
+    });
+
+    it("says quietly, a few lines before the limit, that the conversation is nearly as long as it can go", async () => {
+      const { nextReply } = answerEveryLine();
+      renderAt("/practice/dating");
+      await screen.findByText("Reply 1");
+
+      await talkUntil(() => screen.queryByText(NEARLY_FULL) !== null, nextReply);
+
+      // A polite note, not an error, and the composer is still there to keep talking.
+      expect(screen.getByText(NEARLY_FULL)).toHaveAttribute("role", "status");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Message")).toBeEnabled();
+
+      const linesAfterTheNote = await talkUntil(composerIsGone, nextReply);
+      expect(linesAfterTheNote).toBe(3);
+    });
+
+    it("at the limit, the composer gives way to End & get feedback, which ends the conversation with every line", async () => {
+      const { fetchMock, nextReply } = answerEveryLine();
+      renderAt("/practice/dating");
+      await screen.findByText("Reply 1");
+
+      const linesSent = await talkUntil(composerIsGone, nextReply);
+
+      expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
+      expect(screen.queryByText(NEARLY_FULL)).not.toBeInTheDocument();
+      expect(screen.getByText(FULL)).toHaveAttribute("role", "status");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expectEveryRequestWithinTheLimit(fetchMock);
+
+      const location = endFromWhereTheComposerWas();
+
+      expect(location.pathname).toMatch(/^\/practice\/dating\/feedback\/[^/]+$/);
+      // The opening line, then each of the user's lines and its reply.
+      expect(location.state.transcript).toHaveLength(1 + 2 * linesSent);
+      expect(location.state.transcript.length).toBeLessThanOrEqual(MAX_CONVERSATION_MESSAGES);
+    });
+
+    it("stays within the limit when a reply near it fails and the user sends another line instead of retrying", async () => {
+      // Fails the reply to the last line that fits, the first time it's asked for.
+      let hasFailed = false;
+      const { fetchMock, nextReply } = answerEveryLine({
+        failWhen: (messages) => {
+          if (hasFailed || messages.length < MAX_CONVERSATION_MESSAGES - 2) return false;
+          hasFailed = true;
+          return true;
+        },
+      });
+      renderAt("/practice/dating");
+      await screen.findByText("Reply 1");
+
+      while (!hasFailed) {
+        sendMessage("Still here");
+        await waitFor(() => expect(screen.getByLabelText("Message")).toBeEnabled());
+      }
+
+      // The failed line stays in the conversation, and there's still room for one more line.
+      expect(screen.getByRole("alert")).toHaveTextContent("Something broke.");
+      expect(screen.getByLabelText("Message")).toBeEnabled();
+
+      await talkUntil(composerIsGone, nextReply);
+
+      expect(screen.getByText(FULL)).toBeInTheDocument();
+      expectEveryRequestWithinTheLimit(fetchMock);
+      const location = endFromWhereTheComposerWas();
+      expect(location.state.transcript.length).toBeLessThanOrEqual(MAX_CONVERSATION_MESSAGES);
+    });
+
+    it("reaches the limit with a reply still failed, and keeps both Try again and End & get feedback working", async () => {
+      // Fails the reply to the last line that fits, then the reply to the line sent instead of retrying.
+      let failures = 0;
+      const { fetchMock, nextReply } = answerEveryLine({
+        failWhen: (messages) => {
+          if (failures >= 2 || messages.length < MAX_CONVERSATION_MESSAGES - 2) return false;
+          failures += 1;
+          return true;
+        },
+      });
+      renderAt("/practice/dating");
+      await screen.findByText("Reply 1");
+
+      while (failures < 1) {
+        sendMessage("Still here");
+        await waitFor(() => expect(screen.getByLabelText("Message")).toBeEnabled());
+      }
+      sendMessage("Sorry, as I was saying");
+      await waitFor(() => expect(failures).toBe(2));
+
+      // The limit is reached with the reply failed: no composer, and no validation error either.
+      expect(await screen.findByText(FULL)).toBeInTheDocument();
+      expect(screen.queryByLabelText("Message")).not.toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent("Something broke.");
+      expect(within(screen.getByText(FULL).parentElement!).getByRole("button", { name: "End & get feedback" })).toBeEnabled();
+
+      const reply = nextReply();
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      await screen.findByText(reply);
+
+      expectEveryRequestWithinTheLimit(fetchMock);
+      const location = endFromWhereTheComposerWas();
+      expect(location.state.transcript).toHaveLength(MAX_CONVERSATION_MESSAGES);
     });
   });
 });

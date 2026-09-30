@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useBlocker } from "react-router-dom";
+import { MAX_MESSAGE_LENGTH } from "../../api/_lib/requestLimits";
 import type { ChatMessage } from "./aiProxyClient";
 import { LeaveConversationDialog } from "./LeaveConversationDialog";
 import { useScreenDirection } from "../ScreenTransition";
@@ -15,7 +16,7 @@ interface ChatScreenProps {
 }
 
 export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
-  const { turns, isAwaitingReply, errorMessage, hasSaidSomething, canEnd, send, retry } =
+  const { turns, isAwaitingReply, errorMessage, hasSaidSomething, canEnd, lengthLimit, send, retry } =
     usePracticeConversation(category.id);
   const [draft, setDraft] = useState("");
   const direction = useScreenDirection();
@@ -39,6 +40,15 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
     setDraft("");
   }
 
+  // The top bar always has it; at the length limit it also takes the composer's place.
+  function endButton(className: string) {
+    return (
+      <button type="button" className={className} disabled={!canEnd} onClick={() => onEnd(turns)}>
+        End &amp; get feedback
+      </button>
+    );
+  }
+
   return (
     <div className={`conversation-screen ${screenTransitionClassName(direction)}`}>
       <header className="conversation-screen__header">
@@ -46,18 +56,16 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
           ← Practice
         </button>
         <h1>{category.personaName}</h1>
-        <button
-          type="button"
-          className="button-primary conversation-screen__end-button"
-          disabled={!canEnd}
-          onClick={() => onEnd(turns)}
-        >
-          End &amp; get feedback
-        </button>
+        {endButton("button-primary conversation-screen__end-button")}
       </header>
 
       <div className="conversation-screen__transcript">
         <TranscriptView transcript={turns} personaName={category.personaName} isTyping={isAwaitingReply} />
+        {lengthLimit === "near" && (
+          <p role="status" className="conversation-screen__length-note">
+            This conversation is nearly as long as it can go. You&apos;ve got a few more lines.
+          </p>
+        )}
         {errorMessage && (
           <div role="alert" className="chat-screen__error">
             <p>{errorMessage}</p>
@@ -68,18 +76,30 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
         )}
       </div>
 
-      <form className="conversation-screen__composer" onSubmit={handleSend}>
-        <label htmlFor="chat-draft">Message</label>
-        <input
-          id="chat-draft"
-          value={draft}
-          disabled={isAwaitingReply}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <button type="submit" className="button-primary" disabled={!canSend}>
-          Send
-        </button>
-      </form>
+      {lengthLimit === "reached" ? (
+        // At the length limit the composer gives way to ending (issue #58), so the user is never
+        // left facing the server's validation error.
+        <div className="conversation-screen__composer conversation-screen__composer--full">
+          <p role="status" className="conversation-screen__full-note">
+            This conversation is as long as it can go.
+          </p>
+          {endButton("button-primary")}
+        </div>
+      ) : (
+        <form className="conversation-screen__composer" onSubmit={handleSend}>
+          <label htmlFor="chat-draft">Message</label>
+          <input
+            id="chat-draft"
+            value={draft}
+            maxLength={MAX_MESSAGE_LENGTH}
+            disabled={isAwaitingReply}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <button type="submit" className="button-primary" disabled={!canSend}>
+            Send
+          </button>
+        </form>
+      )}
 
       {blocker.state === "blocked" && (
         <LeaveConversationDialog onCancel={() => blocker.reset()} onLeave={() => blocker.proceed()} />

@@ -82,8 +82,10 @@ describe("POST /api/feedback-summary", () => {
     expect(res.body).toMatchObject({ error: { code: "invalid_request" } });
   });
 
+  // The limits are literals here on purpose: they pin the HTTP contract (issue #58's ~80 messages,
+  // 2000 characters), so an accidental change to the shared constants in _lib/requestLimits.ts fails here.
   it("rejects a transcript over the max message count", async () => {
-    const transcript = Array.from({ length: 41 }, () => ({ role: "user" as const, content: "hi" }));
+    const transcript = Array.from({ length: 81 }, () => ({ role: "user" as const, content: "hi" }));
     const req = createMockReq({ body: { categoryName: "Dating", personaName: "Jordan", transcript } });
     const res = createMockRes();
 
@@ -91,6 +93,30 @@ describe("POST /api/feedback-summary", () => {
 
     expect(res.statusCode).toBe(400);
     expect(callAiProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts a transcript at the max message count", async () => {
+    callAiProviderMock.mockResolvedValue({ content: "{}" });
+    const transcript = Array.from({ length: 80 }, () => ({ role: "user" as const, content: "hi" }));
+    const req = createMockReq({ body: { categoryName: "Dating", personaName: "Jordan", transcript } });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    const [sentMessages] = callAiProviderMock.mock.calls[0];
+    expect(sentMessages.slice(1, -1)).toEqual(transcript);
+  });
+
+  it("accepts a transcript message at the max content length", async () => {
+    callAiProviderMock.mockResolvedValue({ content: "{}" });
+    const transcript = [{ role: "user" as const, content: "a".repeat(2000) }];
+    const req = createMockReq({ body: { categoryName: "Dating", personaName: "Jordan", transcript } });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
   });
 
   it("rejects a transcript message over the max content length", async () => {
