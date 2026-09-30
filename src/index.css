@@ -1,15 +1,20 @@
+/* Two palettes, light and dark, and the phone's setting picks one (DESIGN.md §3, Color). Every
+   color token is defined in both of these `:root` blocks and nowhere else; the rest of the app
+   only ever uses the tokens, so switching the setting switches the whole app live. */
 :root {
-  color-scheme: light;
+  /* Lets the browser's own UI, like scrollbars and form controls, follow the same setting. */
+  color-scheme: light dark;
 
   /* Grounds */
   --canvas: #F3F0E8;
   --surface: #FDFBF7;
   --line: #E2DDD2;
 
-  /* Ink */
+  /* Ink. Text is --ink or --ink-muted, 4.5:1 on every ground. --ink-faint is never readable text:
+     it's the 3:1 tier for input edges, the typing indicator and receded options. */
   --ink: #23302F;
-  --ink-muted: #5E6B69;
-  --ink-faint: #8E9895;
+  --ink-muted: #56635F;
+  --ink-faint: #768380;
 
   /* Primary */
   --primary: #2F6F6A;
@@ -57,12 +62,54 @@
 
   --shadow-card: 0 1px 2px rgba(35, 48, 47, 0.04), 0 8px 24px rgba(35, 48, 47, 0.06);
 
+  /* Dims the screen behind a dialog. */
+  --scrim: rgba(35, 48, 47, 0.4);
+
   /* Motion (DESIGN.md §6) */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   font: var(--text-body);
+}
+
+/* Dark: Social Pulse's own night palette, not an inversion. A deep green-cast slate rather than a
+   warm-tinted or purple-black ground; raised surfaces step lighter; the hues lift so they read as
+   text and edges on dark, which puts dark ink on the filled primary. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Grounds */
+    --canvas: #121A19;
+    --surface: #293734;
+    --line: #3C4B48;
+
+    /* Ink */
+    --ink: #E4EBE8;
+    --ink-muted: #A4B2AE;
+    --ink-faint: #7F8E8A;
+
+    /* Primary */
+    --primary: #72B8AE;
+    --primary-soft: #132C29;
+    --on-primary: #0F1A19;
+
+    /* Feedback semantics */
+    --positive: #8AC498;
+    --positive-soft: #1C3224;
+    --growth: #DE9C7F;
+    --growth-soft: #332822;
+
+    /* Celebration only. On a dark ground the teal lifts so it still leads, and the sunflower
+       deepens a little so the brightest piece isn't the 20% one. */
+    --confetti-teal: #22C3B3;
+    --confetti-berry: #E8528A;
+    --confetti-leaf: #5DBE4B;
+    --confetti-sunflower: #E0A30B;
+
+    /* A shadow the ink's color can't cast on a dark ground; the ground's own darkest shade can. */
+    --shadow-card: 0 1px 2px rgba(6, 10, 9, 0.3), 0 8px 24px rgba(6, 10, 9, 0.4);
+    --scrim: rgba(6, 10, 9, 0.6);
+  }
 }
 
 * {
@@ -188,7 +235,7 @@ body {
 }
 
 .home-nav__count {
-  color: var(--ink-faint);
+  color: var(--ink-muted);
   font: var(--text-sm);
 }
 
@@ -361,7 +408,7 @@ body {
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
+  border: 1px solid var(--ink-faint);
   font: var(--text-body);
   color: var(--ink);
   background: var(--canvas);
@@ -375,7 +422,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: rgba(35, 48, 47, 0.4);
+  background: var(--scrim);
   animation: screen-fade-in 200ms var(--ease-out);
 }
 
@@ -479,7 +526,11 @@ body {
 .chat-message__author {
   display: block;
   font: var(--text-xs);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
+}
+
+.chat-message--user .chat-message__author {
+  color: var(--on-primary);
 }
 
 .chat-message p {
@@ -632,18 +683,13 @@ body {
   }
 }
 
+/* In --ink rather than the group's hue: in light mode neither --positive nor --growth reaches
+   4.5:1 on its own tint, and the tint already says which group a point is in. */
 .feedback-points__quote {
   margin: 0;
   font-style: italic;
   font: var(--text-body);
-}
-
-.feedback-points--positive .feedback-points__quote {
-  color: var(--positive);
-}
-
-.feedback-points--growth .feedback-points__quote {
-  color: var(--growth);
+  color: var(--ink);
 }
 
 .feedback-points__explanation {
@@ -796,7 +842,7 @@ body {
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--line);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
   font: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1341,7 +1387,7 @@ body {
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
+  border: 1px solid var(--ink-faint);
   font: var(--text-body);
   color: var(--ink);
   background: var(--surface);

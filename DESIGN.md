@@ -87,8 +87,14 @@ and `--color-accent` doing double duty as both decoration and error text.
 ## 3. Direction
 
 **Go light.** The reference is light, warm and calm; "calm habit-tracking app" density reads
-light; and dark-plus-purple is the specific thing that feels generic. Dark mode stays possible
-later as a properly designed counterpart, not an auto-inversion.
+light; and dark-plus-purple is the specific thing that feels generic. Light is the design's home.
+
+**Dark follows the phone.** At night the paper ground is harsh, so a dark counterpart exists
+(issue #50), designed rather than auto-inverted, and chosen by the phone's own light/dark setting
+through `prefers-color-scheme`. There's no in-app switch, because there's no settings screen to
+put one on. Changing the setting switches the open app live, with no reload. It is still not
+dark-plus-purple: the ground is a deep green-cast slate from the primary's family, not a
+purple-black (the retired `#0f0f1a`) and not Gleam's warm-tinted dark (§1).
 
 **Own palette, not a copy.** The vocabulary app's seafoam is about paper and study. Social
 Pulse is about conversation, nerves and honest feedback. The borrowable part is the warm paper
@@ -97,45 +103,111 @@ coaching feedback with some authority.
 
 ### Color
 
-```css
-/* Grounds */
---canvas:        #F3F0E8;  /* app ground — warm paper */
---surface:       #FDFBF7;  /* raised cards */
---line:          #E2DDD2;  /* hairline */
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| **Grounds** | | | |
+| `--canvas` | `#F3F0E8` | `#121A19` | App ground: warm paper, or deep green-cast slate |
+| `--surface` | `#FDFBF7` | `#293734` | Raised cards. In dark, raised steps *lighter* |
+| `--line` | `#E2DDD2` | `#3C4B48` | Hairline |
+| **Ink** | | | |
+| `--ink` | `#23302F` | `#E4EBE8` | Warm charcoal with a green cast, never pure black; in dark, a green-grey white, never pure white |
+| `--ink-muted` | `#56635F` | `#A4B2AE` | Secondary text |
+| `--ink-faint` | `#768380` | `#7F8E8A` | **Never readable text.** The 3:1 tier: input edges, the typing indicator, receded options |
+| **Primary** | | | |
+| `--primary` | `#2F6F6A` | `#72B8AE` | Deep slate-teal; in dark, lifted so it reads as text and edges |
+| `--primary-soft` | `#D7E6E3` | `#132C29` | Tint: the "your move" ground, persona bubble, key-line marker |
+| `--on-primary` | `#FDFBF7` | `#0F1A19` | On a `--primary` fill. Dark ink in dark mode, because the lifted primary is light |
+| **Feedback semantics** | | | |
+| `--positive` | `#4E7A57` | `#8AC498` | Muted forest: "what you did well" |
+| `--positive-soft` | `#DDE9DC` | `#1C3224` | |
+| `--growth` | `#C97B5A` | `#DE9C7F` | Clay: "what you can do better" |
+| `--growth-soft` | `#F5E3D9` | `#332822` | |
 
-/* Ink */
---ink:           #23302F;  /* warm charcoal, green cast — never pure black */
---ink-muted:     #5E6B69;
---ink-faint:     #8E9895;
+Thirteen tokens, each with a light and a dark value, plus four celebration-only brights and the
+shadow and scrim below. Clay rather than red for "what you can do better" is deliberate: that half
+of the Feedback Summary is guidance, not error, and should not read as failure.
 
-/* Primary */
---primary:       #2F6F6A;  /* deep slate-teal */
---primary-soft:  #D7E6E3;
---on-primary:    #FDFBF7;
+**How dark is built.** It keeps light's structure rather than inverting it. The grounds hold the
+same tonal steps (canvas → `--primary-soft` → `--surface` about 1.2:1 each), so the "your move"
+ground and the elevation-by-tonal-step principle both survive. The full hues lift so they read on
+dark, which makes the filled primary light with dark `--on-primary` text: selected options, the
+user's chat bubbles, the pill and the Apply It card. The `-soft` tints become dark tints of the same
+hues.
 
-/* Feedback semantics */
---positive:      #4E7A57;  /* muted forest — "what you did well" */
---positive-soft: #DDE9DC;
---growth:        #C97B5A;  /* clay — "what you can do better" */
---growth-soft:   #F5E3D9;
-```
+**Only tokens.** Every color is a token defined in `src/index.css`'s two `:root` blocks (the dark
+one under `@media (prefers-color-scheme: dark)`), and nothing else in `src/` holds a color literal.
+That's what makes the setting switch the whole app at once, and `src/palette.test.ts` enforces it.
 
-Thirteen tokens, plus four celebration-only brights below. Clay rather than red for "what you can do better" is deliberate: that half of
-the Feedback Summary is guidance, not error, and should not read as failure.
+#### Contrast
+
+WCAG AA in both modes: text 4.5:1 whatever its size, and 3:1 for control edges and marks that carry
+meaning. The table lists every text-and-ground pairing the app uses, and every such edge and mark.
+`src/palette.test.ts` enforces the minimums; the ratios are recorded here for reference.
+
+| Foreground | On | Light | Dark | Needs |
+|---|---|---|---|---|
+| `--ink` | `--canvas` | 12.01 | 14.61 | 4.5 |
+| `--ink` | `--surface` | 13.23 | 10.26 | 4.5 |
+| `--ink` | `--primary-soft` | 10.63 | 12.22 | 4.5 |
+| `--ink` | `--positive-soft` | 10.92 | 11.33 | 4.5 |
+| `--ink` | `--growth-soft` | 10.99 | 11.82 | 4.5 |
+| `--ink-muted` | `--canvas` | 5.51 | 8.05 | 4.5 |
+| `--ink-muted` | `--surface` | 6.07 | 5.65 | 4.5 |
+| `--ink-muted` | `--primary-soft` | 4.88 | 6.73 | 4.5 |
+| `--ink-muted` | `--positive-soft` | 5.01 | 6.24 | 4.5 |
+| `--ink-muted` | `--growth-soft` | 5.04 | 6.51 | 4.5 |
+| `--primary` | `--canvas` | 5.12 | 7.73 | 4.5 |
+| `--primary` | `--surface` | 5.64 | 5.43 | 4.5 |
+| `--primary` | `--primary-soft` | 4.53 | 6.47 | 4.5 |
+| `--on-primary` | `--primary` | 5.64 | 7.77 | 4.5 |
+| `--ink-faint` | `--canvas` | 3.46 | 5.17 | 3 |
+| `--ink-faint` | `--surface` | 3.81 | 3.63 | 3 |
+| `--ink-faint` | `--primary-soft` | 3.06 | 4.32 | 3 |
+| `--positive` | `--surface` | 4.79 | 6.17 | 3 |
+| `--positive` | `--primary-soft` | 3.84 | 7.35 | 3 |
+
+What this rules out, in both modes:
+- **`--ink-faint` is never text.** Counts, the Draft chip and chat speaker labels use `--ink-muted`;
+  the speaker label on the user's own bubble uses `--on-primary`.
+- **`--positive` and `--growth` are never text on their own tints.** In light mode neither reaches
+  4.5:1 there, so a Feedback Summary quote is `--ink` and the tint says which group it's in.
+- **Inputs carry a `--ink-faint` edge,** not `--line`, so the field itself meets 3:1.
+
+Receded options (`--ink-faint` text) are exempt as inactive controls, and still stay above 3:1.
+A result block's `--positive` or `--growth` edge isn't held to 3:1 either: the verdict text carries
+the meaning, so the edge is a boundary, not a mark. In light mode `--growth` on `--primary-soft` is
+2.52:1. Darkening `--growth` to clear that would change the clay everywhere else it appears.
+
+#### Status bar and theme color
+
+`index.html` carries a `theme-color` pair, one per `prefers-color-scheme`, each set to that mode's
+`--canvas`, so the installed app's status bar and task-switcher color follow the phone. It also
+declares `color-scheme: light dark`, so the browser's own ground before the stylesheet loads, and
+its scrollbars and form controls, match. The manifest's `theme_color` and `background_color` can
+hold only one value each and stay on light `--canvas`; they color the splash screen, which is
+brief.
+
+On iOS, `apple-mobile-web-app-status-bar-style` stays `default`: iOS draws an opaque strip colored
+from `theme-color`. `black-translucent` would run the page under white status-bar text, which
+disappears on the light canvas. Before iOS 18, an installed web app only picked up a change to the
+phone's setting on its next launch; that's the platform, not something the app can fix.
 
 **Retire:** the gradient wordmark, `#6c5ce7`, `#ff7edb`, and `#0f0f1a`.
 
 #### Celebration colors
 
-```css
-/* Celebration only: the finish confetti (§6). Used nowhere else. */
---confetti-teal:      #12A89A;  /* lead: the primary's hue, lit up */
---confetti-berry:     #D8336F;
---confetti-leaf:      #4DAA3C;
---confetti-sunflower: #F2B30C;
-```
+Celebration only: the finish confetti (§6). Used nowhere else.
 
-Four brights for one moment.
+| Token | Light | Dark | |
+|---|---|---|---|
+| `--confetti-teal` | `#12A89A` | `#22C3B3` | Lead: the primary's hue, lit up |
+| `--confetti-berry` | `#D8336F` | `#E8528A` | |
+| `--confetti-leaf` | `#4DAA3C` | `#5DBE4B` | |
+| `--confetti-sunflower` | `#F2B30C` | `#E0A30B` | |
+
+Four brights for one moment. On dark the problem flips: every bright reads (5–8:1 on the dark
+canvas), but sunflower becomes the brightest piece. So in dark the teal lifts to keep the lead
+and sunflower deepens a little, while berry and leaf lift just enough not to sink into the ground.
 
 - **Nowhere else.** Not on buttons, chips, artwork, the Apply It card or anything else. If a
   brighter color seems wanted somewhere else, that's a new decision, not a reuse.
@@ -145,7 +217,8 @@ Four brights for one moment.
   brights, and `--growth` is an outcome color. Gleam's accent is warm, so an orange-led burst would
   borrow it just when the user is paying most attention.
 - **Sunflower stays at 20%.** Against warm paper it's about 1.6:1. That's fine for decoration,
-  but it can't carry the burst.
+  but it can't carry the burst. Against the dark canvas it's the opposite, and 20% keeps it from
+  taking over.
 - **Berry is not the retired `#ff7edb`.** It's deeper and redder, and appears only in the confetti.
 
 #### "Your move" ground
@@ -211,10 +284,17 @@ are in INFORMATION-ARCHITECTURE.md (Heading structure).
 --radius-full: 999px;  /* buttons, pills */
 
 --shadow-card: 0 1px 2px rgba(35,48,47,.04), 0 8px 24px rgba(35,48,47,.06);
+--scrim:       rgba(35,48,47,.4);   /* dims the screen behind a dialog */
+
+/* Dark */
+--shadow-card: 0 1px 2px rgba(6,10,9,.3), 0 8px 24px rgba(6,10,9,.4);
+--scrim:       rgba(6,10,9,.6);
 ```
 
 One shadow token, used sparingly. Like the reference, separation comes mainly from canvas/card
-contrast and hairlines. Buttons are full-width pills.
+contrast and hairlines. Buttons are full-width pills. In dark, a shadow cast in the ink's color
+would glow, so both take the dark ground's deepest shade, and more of it; the lighter `--surface`
+does most of the lifting there.
 
 ### Lesson Steps
 
@@ -400,7 +480,8 @@ Two current strings to fix:
 **Draft-content badge.** The three magenta PLACEHOLDER badges are honest but they are a large
 part of why the homepage reads unfinished. Keep the honesty, move and quiet it: the badge lives
 on the Lessons list row and in the Lesson flow's top bar, never on Home, restyled as a small
-`--ink-faint` outline chip reading "Draft."
+`--line` outline chip reading "Draft." in `--ink-muted` (it was `--ink-faint`, which is too faint
+to be text; see §3, Contrast).
 
 **Lesson flow labels.** On-screen labels are sentence case, even where a spec capitalizes an
 action's name:
@@ -499,7 +580,9 @@ below exist to break that rhythm.
 
 - **Palette tokens only:** solid fills from `--primary`, `--positive`, `--growth` and their
   `-soft` tints. No hard-coded colors, gradients, glows, shadows, outlines, lighting or texture.
-  Never the `--confetti-*` colors.
+  Never the `--confetti-*` colors. Because the fills are tokens, the artwork takes the dark
+  palette with everything else: full hues lift and soft tints darken, so a soft shape still reads
+  as the quieter one.
 - **Only on Explainers.** Explainers never show a result, so the outcome hues read as color there,
   not as a verdict. Check, Reply Choice, Written Reply and the Recap never carry artwork.
 
