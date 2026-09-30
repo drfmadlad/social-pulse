@@ -6,6 +6,7 @@ import { createAppRouteObjects } from "./App";
 import { resetHistoryStoreForTests, saveEndedConversation } from "./history/historyStore";
 import { scenarioCategories } from "./practice/scenarioCategories";
 import { expectSaneHeadingHierarchy } from "./test/headingStructure";
+import { defaultScenarioOf } from "./practice/scenarios";
 import { clickToScreen, settleDeviceReads } from "./test/settleDeviceReads";
 
 const crash = vi.hoisted(() => ({
@@ -93,7 +94,7 @@ describe("a render error", () => {
   it("is caught on the position:fixed Conversation screen too", async () => {
     crash.lessons = false;
     crash.conversation = true;
-    const { container } = await renderApp("/practice/dating");
+    const { container } = await renderApp("/practice/dating/coffee-first-date");
 
     expect(screen.getByRole("heading", { level: 1, name: "Something went wrong" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Go to Home" })).toHaveAttribute("href", "/");
@@ -121,6 +122,7 @@ describe("a render error", () => {
     await saveEndedConversation({
       id: "entry-1",
       category,
+      scenario: defaultScenarioOf(category.id)!,
       transcript: [{ role: "user", content: "Hi, nice to meet you!" }],
     });
     await renderApp("/lessons");

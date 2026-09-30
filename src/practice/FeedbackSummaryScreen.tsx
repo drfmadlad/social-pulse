@@ -4,17 +4,20 @@ import { HistorySaveNotice } from "../history/HistorySaveNotice";
 import type { ChatMessage } from "./aiProxyClient";
 import type { FeedbackSummary } from "./feedbackSummary";
 import type { ScenarioCategory } from "./scenarioCategories";
+import type { Scenario } from "./scenarios";
 import { SavedFeedbackSummary } from "./SavedFeedbackSummary";
 
 interface FeedbackSummaryScreenProps {
   category: ScenarioCategory;
+  /** The Scenario the conversation was set in, recorded on its History entry. */
+  scenario: Scenario;
   /** Minted when the conversation ended, so coming back to this screen finds the same History entry. */
   entryId: string;
   transcript: ChatMessage[];
   onDone: () => void;
 }
 
-export function FeedbackSummaryScreen({ category, entryId, transcript, onDone }: FeedbackSummaryScreenProps) {
+export function FeedbackSummaryScreen({ category, scenario, entryId, transcript, onDone }: FeedbackSummaryScreenProps) {
   // Undefined while the conversation saves, then whatever summary the saved entry holds: null for a
   // conversation that just ended, or the one already attached when this screen is revisited.
   const [saved, setSaved] = useState<{ summary: FeedbackSummary | null; saveFailed: boolean }>();
@@ -25,7 +28,7 @@ export function FeedbackSummaryScreen({ category, entryId, transcript, onDone }:
       let summary: FeedbackSummary | null = null;
       let saveFailed = false;
       try {
-        summary = (await saveEndedConversation({ id: entryId, category, transcript })).summary;
+        summary = (await saveEndedConversation({ id: entryId, category, scenario, transcript })).summary;
       } catch (error) {
         // Still worth showing the feedback even if History can't hold it.
         console.error("Failed to save Practice Conversation to History", error);
@@ -37,7 +40,7 @@ export function FeedbackSummaryScreen({ category, entryId, transcript, onDone }:
     return () => {
       cancelled = true;
     };
-  }, [entryId, category, transcript]);
+  }, [entryId, category, scenario, transcript]);
 
   return (
     <div className="feedback-summary">

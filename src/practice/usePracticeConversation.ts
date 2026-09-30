@@ -1,6 +1,7 @@
 import { useEffect, useReducer } from "react";
 import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../../api/_lib/requestLimits";
 import { describeAiError, requestAiReply, type ChatMessage } from "./aiProxyClient";
+import type { Scenario } from "./scenarios";
 
 /**
  * One Practice Conversation's turns and the transitions between them (issue #46). The Conversation
@@ -20,8 +21,8 @@ type Phase =
   | { kind: "failed"; errorMessage: string };
 
 interface ConversationState {
-  /** Fixed for the conversation's life: every reply is asked for in the category it opened in. */
-  categoryId: string;
+  /** Fixed for the conversation's life: every reply is asked for in the Scenario it opened in. */
+  scenario: Scenario;
   turns: ChatMessage[];
   phase: Phase;
 }
@@ -32,13 +33,13 @@ type ConversationEvent =
   | { type: "replyFailed"; request: ReplyRequest; errorMessage: string }
   | { type: "retried" };
 
-function awaitingReplyTo(categoryId: string, turns: ChatMessage[]): ConversationState {
-  return { categoryId, turns, phase: { kind: "awaiting-reply", request: { messages: turns } } };
+function awaitingReplyTo(scenario: Scenario, turns: ChatMessage[]): ConversationState {
+  return { scenario, turns, phase: { kind: "awaiting-reply", request: { messages: turns } } };
 }
 
 /** A conversation opens on the Persona's first line, so it starts out waiting for it. */
-function opening(categoryId: string): ConversationState {
-  return awaitingReplyTo(categoryId, []);
+function opening(scenario: Scenario): ConversationState {
+  return awaitingReplyTo(scenario, []);
 }
 
 /**
@@ -66,7 +67,7 @@ function conversationReducer(state: ConversationState, event: ConversationEvent)
       if (state.phase.kind === "awaiting-reply") return state;
       // The screen never offers a line the server would reject; this makes sure one can't be sent.
       if (!canAdd(state.turns, event.content)) return state;
-      return awaitingReplyTo(state.categoryId, [...state.turns, { role: "user", content: event.content }]);
+      return awaitingReplyTo(state.scenario, [...state.turns, { role: "user", content: event.content }]);
 
     case "replyArrived":
       if (!isAwaiting(state, event.request)) return state;
@@ -78,7 +79,7 @@ function conversationReducer(state: ConversationState, event: ConversationEvent)
 
     case "retried":
       if (state.phase.kind !== "failed") return state;
-      return awaitingReplyTo(state.categoryId, state.turns);
+      return awaitingReplyTo(state.scenario, state.turns);
   }
 }
 
@@ -116,15 +117,15 @@ export interface PracticeConversation {
 }
 
 /**
- * Runs one Practice Conversation, opened in `categoryId` when the calling component mounts. The
- * conversation keeps that category for its life, so a later change to the argument never sends
- * its turns under another category's Persona; to start over in a different category, remount the
- * caller (the Conversation screen is keyed by category for exactly this).
+ * Runs one Practice Conversation, opened in `scenario` when the calling component mounts. The
+ * conversation keeps that Scenario for its life, so a later change to the argument never sends its
+ * turns under another Scenario or Persona; to start over in a different one, remount the caller
+ * (the Conversation screen is keyed by Scenario for exactly this).
  */
-export function usePracticeConversation(categoryId: string): PracticeConversation {
-  const [state, dispatch] = useReducer(conversationReducer, categoryId, opening);
+export function usePracticeConversation(scenario: Scenario): PracticeConversation {
+  const [state, dispatch] = useReducer(conversationReducer, scenario, opening);
   const pendingRequest = state.phase.kind === "awaiting-reply" ? state.phase.request : null;
-  const conversationCategoryId = state.categoryId;
+  const conversationScenario = state.scenario;
 
   // Every transition that needs a reply puts a new request in the state; this sends it. A request
   // torn down before it settles (React StrictMode's dev-only double mount, or leaving the screen)
@@ -133,7 +134,7 @@ export function usePracticeConversation(categoryId: string): PracticeConversatio
     if (!pendingRequest) return;
     let superseded = false;
 
-    requestAiReply(pendingRequest.messages, conversationCategoryId).then(
+    requestAiReply(pendingRequest.messages, conversationScenario).then(
       (reply) => {
         if (!superseded) dispatch({ type: "replyArrived", request: pendingRequest, reply });
       },
@@ -145,7 +146,7 @@ export function usePracticeConversation(categoryId: string): PracticeConversatio
     return () => {
       superseded = true;
     };
-  }, [pendingRequest, conversationCategoryId]);
+  }, [pendingRequest, conversationScenario]);
 
   const isAwaitingReply = pendingRequest !== null;
   const hasSaidSomething = state.turns.some((turn) => turn.role === "user");

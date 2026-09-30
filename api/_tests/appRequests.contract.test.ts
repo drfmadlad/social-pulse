@@ -28,7 +28,8 @@ import { lessons, type WrittenReplyStep } from "../../src/lessons/lessons.js";
 import { requestWrittenReplyVerdict } from "../../src/lessons/writtenReplyVerdict.js";
 import { requestAiProxy, requestAiReply, type ChatMessage } from "../../src/practice/aiProxyClient.js";
 import { requestFeedbackSummary } from "../../src/practice/feedbackSummary.js";
-import { scenarioCategories } from "../../src/practice/scenarioCategories.js";
+import { findCategory, scenarioCategories } from "../../src/practice/scenarioCategories.js";
+import { defaultScenarioOf, scenarios } from "../../src/practice/scenarios.js";
 import { usePracticeConversation } from "../../src/practice/usePracticeConversation.js";
 
 vi.mock("../_lib/aiProvider.js", async () => {
@@ -109,6 +110,9 @@ function conversationOfLength(length: number): ChatMessage[] {
   );
 }
 
+/** The Scenario the limit cases below are set in; any would do. */
+const defaultScenario = defaultScenarioOf(scenarioCategories[0].id)!;
+
 /** The longest line the app lets the user type (issue #58). */
 const lineAtTheLengthLimit = "a".repeat(MAX_MESSAGE_LENGTH);
 
@@ -119,17 +123,23 @@ const writtenReplySteps = lessons.flatMap((lesson) =>
 );
 
 const contractCases: ContractCase[] = [
+  // Every Scenario the Scenario brief can start (issue #53), whether chosen or picked by Surprise me.
+  ...scenarios.flatMap((scenario): ContractCase[] => {
+    const category = findCategory(scenario.categoryId)!;
+    return [
+      {
+        name: `conversation, ${category.name} / ${scenario.title}: the Persona's opening line (no messages yet)`,
+        aiReply: `Hey, I'm ${category.personaName}.`,
+        send: () => requestAiReply([], scenario),
+      },
+      {
+        name: `conversation, ${category.name} / ${scenario.title}: a reply to the user`,
+        aiReply: "No worries at all.",
+        send: () => requestAiReply(conversationSoFar(category.personaName), scenario),
+      },
+    ];
+  }),
   ...scenarioCategories.flatMap((category): ContractCase[] => [
-    {
-      name: `conversation, ${category.name}: the Persona's opening line (no messages yet)`,
-      aiReply: `Hey, I'm ${category.personaName}.`,
-      send: () => requestAiReply([], category.id),
-    },
-    {
-      name: `conversation, ${category.name}: a reply to the user`,
-      aiReply: "No worries at all.",
-      send: () => requestAiReply(conversationSoFar(category.personaName), category.id),
-    },
     {
       name: `feedback summary, ${category.name}: an ended conversation`,
       aiReply: feedbackSummaryReply,
@@ -159,7 +169,7 @@ const contractCases: ContractCase[] = [
   {
     name: `conversation at the length limit: a reply to ${MAX_CONVERSATION_MESSAGES} messages`,
     aiReply: "No worries at all.",
-    send: () => requestAiReply(conversationOfLength(MAX_CONVERSATION_MESSAGES), scenarioCategories[0].id),
+    send: () => requestAiReply(conversationOfLength(MAX_CONVERSATION_MESSAGES), defaultScenario),
   },
   {
     name: `feedback summary at the length limit: a transcript of ${MAX_CONVERSATION_MESSAGES} messages`,
@@ -170,7 +180,7 @@ const contractCases: ContractCase[] = [
     name: `conversation: a line of ${MAX_MESSAGE_LENGTH} characters`,
     aiReply: "No worries at all.",
     send: () =>
-      requestAiReply([...conversationOfLength(1), { role: "user", content: lineAtTheLengthLimit }], scenarioCategories[0].id),
+      requestAiReply([...conversationOfLength(1), { role: "user", content: lineAtTheLengthLimit }], defaultScenario),
   },
   {
     name: `feedback summary: a transcript with a line of ${MAX_MESSAGE_LENGTH} characters`,
@@ -210,6 +220,20 @@ describe("the app's AI requests pass the server's real validation", () => {
     });
     expect(callAiProviderMock).not.toHaveBeenCalled();
   });
+
+  it("fails a conversation request naming a Scenario the server doesn't know, without asking the AI", async () => {
+    const unknownScenario = { ...defaultScenario, id: "not-a-real-scenario" };
+
+    await expect(requestAiReply([], unknownScenario)).rejects.toThrow("Unknown Scenario");
+    expect(callAiProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("fails a conversation request naming a real Scenario under the wrong category", async () => {
+    const otherCategory = scenarioCategories.find((category) => category.id !== defaultScenario.categoryId)!;
+
+    await expect(requestAiReply([], { ...defaultScenario, categoryId: otherCategory.id })).rejects.toThrow("Unknown Scenario");
+    expect(callAiProviderMock).not.toHaveBeenCalled();
+  });
 });
 
 /**
@@ -232,7 +256,7 @@ describe("a conversation run to its length limit through the app's conversation 
   });
 
   async function openConversation() {
-    const view = renderHook(() => usePracticeConversation(category.id));
+    const view = renderHook(() => usePracticeConversation(defaultScenario));
     await waitFor(() => expect(view.result.current.isAwaitingReply).toBe(false));
     expect(view.result.current.errorMessage).toBeNull();
     return view;

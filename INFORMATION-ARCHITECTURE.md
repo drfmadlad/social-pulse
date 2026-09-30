@@ -115,13 +115,36 @@ all. Own Scenarios are kept on-device and can be edited or deleted from here.
 **Try again** (from a Feedback Summary or History entry) skips this screen and starts a fresh
 Conversation with the same Scenario and Focus.
 
-**Navigation:** from Practice picker. Back → Practice picker.
+- **What the brief shows.** The category's name as a small label, the Persona's name as the
+  screen's `h1`, and one line on what they're like (`personaDescription`, the same in every
+  Scenario). Below the chooser, the chosen Scenario's situation and the user's role. With Surprise
+  me chosen, nothing is given away: a line says one of the Persona's situations is picked when you
+  start, and that it'll show at the top of the conversation.
+- **Where the Scenario lives.** Each Scenario's user-facing text (title, situation, role) is in
+  `src/practice/scenarios.ts`; its prompt situation is server-side only (`scenariosByCategory` in
+  `api/_lib/scenarioPrompts.ts`), keyed by the same category and Scenario ids. The conversation
+  request names both ids, and the server builds the prompt as the category's Persona sheet, then
+  that Scenario's situation, then the shared Persona rules. It rejects a Scenario it doesn't know,
+  including a real one named under another category.
+- **Default Scenario.** Each category names its default Scenario explicitly, on both sides (a test
+  checks they agree): the situation every conversation had before Scenarios existed. A History
+  entry saved then has no Scenario of its own and reads as its category's default
+  (`scenarioOfEntry`). A request with no Scenario gets the default too, as a safety net for an
+  installed app still on the version from before Scenarios until it reloads.
+- **Start replaces the brief** in history rather than pushing on top of it, so back from the
+  Conversation — its back action and the system back gesture alike — lands on the Practice picker.
+
+**Navigation:** from Practice picker, at `/practice/:categoryId`. Back → Practice picker. Start →
+Conversation, at `/practice/:categoryId/:scenarioId`. An unknown category redirects to the Practice
+picker.
 
 ### Conversation
 **Responsible for:** one live Practice Conversation. Chrome-free, full viewport.
 
 - Compact top bar: back, persona name, and **End & get feedback** as a top-bar action
-- Transcript fills the screen
+- Transcript fills the screen. It opens with a quiet note of the Scenario's situation and the
+  user's role, so a Surprise me pick is known from the first line; it scrolls away with the
+  transcript.
 - Composer pinned to the bottom, above the keyboard
 - Typing indicator sits in the transcript, not as a floating status line
 
@@ -141,8 +164,16 @@ Conversation with the same Scenario and Focus.
 - **Natural ending.** When the Persona wraps up in character, a quiet note ("Jordan's wrapping
   up") offers **Get feedback** as the primary action and **Keep talking** as secondary.
 
-**Navigation:** from Scenario brief, a Paused Conversation's card, or Try again. Back → Save for
-later / Discard, then Practice picker.
+**Navigation:** from Scenario brief, a Paused Conversation's card, or Try again, at
+`/practice/:categoryId/:scenarioId`. Back → Save for later / Discard, then Practice picker. A URL
+naming a Scenario the category doesn't have redirects to that category's Scenario brief. Ending
+goes to the Feedback Summary, which the leave confirmation doesn't ask about; every other way out
+(the brief included) is leaving.
+
+**Recording the Scenario.** The History entry records the Scenario the conversation was set in
+(`scenarioId`). Entries saved before Scenarios existed are read as they were stored, with no
+database upgrade or rewrite, and open as usual; wherever their Scenario is needed, it's their
+category's default (see Scenario brief).
 
 ### Feedback Summary
 **Responsible for:** the review of one finished conversation. The app's payoff screen, and the
@@ -384,6 +415,11 @@ Home
 ```
 
 Lesson Steps change inside the Lesson flow screen, not as pushes onto the stack (DESIGN.md §6).
+
+Practice's URLs deepen one level per push: `/practice` (picker), `/practice/:categoryId` (Scenario
+brief), `/practice/:categoryId/:scenarioId` (Conversation), `/practice/:categoryId/feedback/:entryId`
+(Feedback Summary). `src/practice/practicePaths.ts` spells them out. The brief is replaced by the
+Conversation it starts, so it isn't on the stack under it.
 
 **Routing.** The app has no router today. Recommendation: `react-router-dom`. It gives a real
 URL per screen, so browser back and the Android system back gesture both work on the installed

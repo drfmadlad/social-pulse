@@ -8,7 +8,8 @@ import {
   saveEndedConversation,
 } from "../history/historyStore";
 import { mockError, mockFeedbackSummary, mockReply } from "../test/apiMocks";
-import { FeedbackSummaryRoute } from "./FeedbackSummaryRoute";
+import { defaultScenarioOf } from "./scenarios";
+import { FeedbackSummaryRoute, type EndedConversationState } from "./FeedbackSummaryRoute";
 import { scenarioCategories } from "./scenarioCategories";
 
 function LocationDisplay() {
@@ -34,7 +35,7 @@ const transcript = [
   { role: "user" as const, content: "Hi, nice to meet you!" },
 ];
 
-const endedConversation = { transcript };
+const endedConversation: EndedConversationState = { transcript, scenarioId: "coffee-first-date" };
 
 afterEach(async () => {
   vi.unstubAllGlobals();
@@ -68,6 +69,7 @@ describe("FeedbackSummaryRoute", () => {
       const entries = await getAllHistoryEntries();
       expect(entries).toHaveLength(1);
       expect(entries[0].categoryId).toBe("dating");
+      expect(entries[0].scenarioId).toBe("coffee-first-date");
       expect(entries[0].summary).not.toBeNull();
     });
 
@@ -152,7 +154,7 @@ describe("FeedbackSummaryRoute", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
-    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
     await attachFeedbackSummary("entry-1", {
       didWell: [{ quote: "Hi, nice to meet you!" }],
       canImprove: [{ quote: "Hi, nice to meet you!" }],
@@ -172,7 +174,7 @@ describe("FeedbackSummaryRoute", () => {
       .mockResolvedValueOnce(mockFeedbackSummary());
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/networking/feedback/entry-1", endedConversation);
+    renderAt("/practice/networking/feedback/entry-1", { transcript, scenarioId: "networking-event" });
 
     expect(await screen.findByText("Could not generate feedback right now.")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
@@ -189,7 +191,7 @@ describe("FeedbackSummaryRoute", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/public-speaking/feedback/entry-1", endedConversation);
+    renderAt("/practice/public-speaking/feedback/entry-1", { transcript, scenarioId: "talk-rehearsal" });
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.queryByText("What you did well")).not.toBeInTheDocument();
@@ -200,7 +202,7 @@ describe("FeedbackSummaryRoute", () => {
       const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
       const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
-      await saveEndedConversation({ id: "entry-1", category, transcript });
+      await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
       await attachFeedbackSummary("entry-1", {
         didWell: [{ quote: "Hi, nice to meet you!" }],
         canImprove: [{ quote: "Hi, nice to meet you!" }],
@@ -216,7 +218,7 @@ describe("FeedbackSummaryRoute", () => {
       const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
       vi.stubGlobal("fetch", fetchMock);
       const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
-      await saveEndedConversation({ id: "entry-1", category, transcript });
+      await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
 
       renderAt("/practice/dating/feedback/entry-1");
 
@@ -229,7 +231,7 @@ describe("FeedbackSummaryRoute", () => {
       const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
       const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
-      await saveEndedConversation({ id: "entry-1", category, transcript });
+      await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
       await attachFeedbackSummary("entry-1", {
         didWell: [{ quote: "Hi, nice to meet you!" }],
         canImprove: [{ quote: "Hi, nice to meet you!" }],

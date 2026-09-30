@@ -2,12 +2,19 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { createMemoryRouter, Outlet, RouterProvider, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App, { createAppRouteObjects } from "./App";
-import { attachFeedbackSummary, resetHistoryStoreForTests, saveEndedConversation } from "./history/historyStore";
+import {
+  attachFeedbackSummary,
+  getAllHistoryEntries,
+  resetHistoryStoreForTests,
+  saveEndedConversation,
+} from "./history/historyStore";
 import { scenarioCategories } from "./practice/scenarioCategories";
+import { defaultScenarioOf } from "./practice/scenarios";
 import { lessons } from "./lessons/lessons";
 import { mockFeedbackSummary, mockReply } from "./test/apiMocks";
 import { PRACTICE_OFFLINE_NOTICE, startOffline } from "./test/connection";
 import { clickToScreen, settleDeviceReads } from "./test/settleDeviceReads";
+import { putStoredHistoryEntry } from "./test/storedHistory";
 
 function LocationDisplay() {
   const location = useLocation();
@@ -84,6 +91,13 @@ describe("App", () => {
 
     await clickToScreen(screen.getByRole("link", { name: /^Dating/ }));
     expect(screen.getByTestId("location")).toHaveTextContent("/practice/dating");
+    expect(screen.getByRole("heading", { level: 1, name: "Jordan" })).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const scenario = defaultScenarioOf("dating")!;
+    fireEvent.click(screen.getByRole("radio", { name: scenario.title }));
+    await clickToScreen(screen.getByRole("button", { name: "Start" }));
+    expect(screen.getByTestId("location")).toHaveTextContent(`/practice/dating/${scenario.id}`);
     expect(await screen.findByText("Hey! Thanks for coming out tonight.")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Practice" })).not.toBeInTheDocument();
 
@@ -112,21 +126,70 @@ describe("App", () => {
     expect(screen.getByText("That sounds like a great start!")).toBeInTheDocument();
     expect(screen.getByText("What you did well")).toBeInTheDocument();
     expect(screen.getByText("What you can do better")).toBeInTheDocument();
+
+    // The conversation's History entry records the Scenario it was set in.
+    const [entry] = await getAllHistoryEntries();
+    expect(entry.scenarioId).toBe(scenario.id);
   });
 
   it("names each back affordance's destination", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
     await renderApp("/practice");
     expect(screen.getByRole("link", { name: "← Home" })).toBeInTheDocument();
 
     await clickToScreen(screen.getByRole("link", { name: /^Dating/ }));
-    expect(await screen.findByRole("button", { name: "← Practice" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "← Practice" })).toBeInTheDocument();
+
+    await clickToScreen(screen.getByRole("button", { name: "Start" }));
+    expect(screen.getByRole("button", { name: "← Practice" })).toBeInTheDocument();
   });
 
-  it("redirects to the Practice picker when the Conversation URL names an unknown category", async () => {
+  it("redirects to the Practice picker when the Scenario brief URL names an unknown category", async () => {
     await renderApp("/practice/not-a-real-category");
 
     expect(screen.getByTestId("location")).toHaveTextContent("/practice");
     expect(screen.getByRole("heading", { name: "Practice" })).toBeInTheDocument();
+  });
+
+  it("redirects to the Practice picker when the Conversation URL names an unknown category", async () => {
+    await renderApp("/practice/not-a-real-category/coffee-first-date");
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/practice");
+    expect(screen.getByRole("heading", { name: "Practice" })).toBeInTheDocument();
+  });
+
+  it("redirects to the category's Scenario brief when the Conversation URL names an unknown Scenario", async () => {
+    await renderApp("/practice/dating/not-a-real-scenario");
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/practice/dating");
+    expect(screen.getByRole("heading", { level: 1, name: "Jordan" })).toBeInTheDocument();
+  });
+
+  it("still opens a conversation saved before Scenarios existed, in History and at its Feedback Summary URL", async () => {
+    // How a History entry was stored before issue #53: no scenarioId.
+    await putStoredHistoryEntry({
+      id: "entry-before-scenarios",
+      categoryId: "dating",
+      categoryName: "Dating",
+      personaName: "Jordan",
+      transcript: [
+        { role: "assistant", content: "Hey! Thanks for coming out tonight." },
+        { role: "user", content: "Hi, nice to meet you!" },
+      ],
+      summary: { didWell: [{ quote: "Hi, nice to meet you!" }], canImprove: [{ quote: "Hi, nice to meet you!" }] },
+      endedAt: new Date().toISOString(),
+    });
+
+    const historyVisit = await renderApp("/history");
+    await clickToScreen(await screen.findByRole("link", { name: /Dating/ }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/history/entry-before-scenarios");
+    expect(await screen.findByText("Hey! Thanks for coming out tonight.")).toBeInTheDocument();
+    expect(screen.getByText("What you did well")).toBeInTheDocument();
+    historyVisit.unmount();
+
+    await renderApp("/practice/dating/feedback/entry-before-scenarios");
+    expect(await screen.findByText("What you did well")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("/practice/dating/feedback/entry-before-scenarios");
   });
 
   it("redirects to the Practice picker when the Feedback Summary URL has no conversation state and the id doesn't resolve", async () => {
@@ -141,7 +204,7 @@ describe("App", () => {
       { role: "assistant" as const, content: "Hey! Thanks for coming out tonight." },
       { role: "user" as const, content: "Hi, nice to meet you!" },
     ];
-    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
     await attachFeedbackSummary("entry-1", {
       didWell: [{ quote: "Hi, nice to meet you!" }],
       canImprove: [{ quote: "Hi, nice to meet you!" }],
@@ -176,6 +239,7 @@ describe("App", () => {
     await saveEndedConversation({
       id: "entry-1",
       category,
+      scenario: defaultScenarioOf(category.id)!,
       transcript: [{ role: "user", content: "Hi, nice to meet you!" }],
     });
     startOffline();

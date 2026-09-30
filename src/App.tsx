@@ -12,6 +12,7 @@ import { HomeScreen } from "./HomeScreen";
 import { ConversationScreen } from "./practice/ConversationScreen";
 import { FeedbackSummaryRoute } from "./practice/FeedbackSummaryRoute";
 import { PracticePickerScreen } from "./practice/PracticePickerScreen";
+import { ScenarioBriefScreen } from "./practice/ScenarioBriefScreen";
 import { LessonFlowScreen } from "./lessons/LessonFlowScreen";
 import { LessonsListScreen } from "./lessons/LessonsListScreen";
 import { HistoryEntryDetailScreen } from "./history/HistoryEntryDetailScreen";
@@ -43,8 +44,10 @@ export function createAppRouteObjects() {
     <Route element={<AppShell />} errorElement={<RouteErrorScreen />}>
       <Route path="/" element={<ScreenTransition><HomeScreen /></ScreenTransition>} />
       <Route path="/practice" element={<ScreenTransition><PracticePickerScreen /></ScreenTransition>} />
+      {/* The Practice paths are spelled out in practice/practicePaths.ts. */}
+      <Route path="/practice/:categoryId" element={<ScreenTransition><ScenarioBriefScreen /></ScreenTransition>} />
       {/* Conversation and the Lesson flow are position:fixed/full-viewport; they animate themselves instead of via this wrapper. */}
-      <Route path="/practice/:categoryId" element={<ConversationScreen />} />
+      <Route path="/practice/:categoryId/:scenarioId" element={<ConversationScreen />} />
       <Route
         path="/practice/:categoryId/feedback/:entryId"
         element={<ScreenTransition><FeedbackSummaryRoute /></ScreenTransition>}

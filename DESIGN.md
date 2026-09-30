@@ -361,6 +361,29 @@ The Lesson flow is chrome-free and full-viewport, like Conversation (INFORMATION
 - **Apply It** is the screen's one inverted card: `--primary` ground, `--on-primary` text,
   `--radius-lg`. It holds its label (§7) in `--text-sm` 600, then the suggestion in `--text-body`.
 
+### Scenario brief
+
+An ordinary scrolling screen in the `.home-section` card, not chrome-free: nothing has started yet.
+Medium density (§4), top to bottom with `--space-6` between blocks:
+
+- **"← Practice"**, the back action.
+- **The category** as a label: `--text-xs` uppercase, `--ink-muted`.
+- **The Persona's name** as the screen title: `--text-title` Fraunces, `--ink`. Then what they're
+  like in `--text-body` `--ink-muted`.
+- **The chooser**, legend "Situation" in `--text-sm` 600. Its options are the Check option pills
+  (Lesson Steps above): outlined in `--primary`, the chosen one filled, `--space-4` apart. No radio
+  circle and no badge on Surprise me; it's just the first option.
+- **The situation panel**, a `--primary-soft` block with `--radius-md` and `--space-4` padding: "The
+  situation" and "Your role" as `--text-xs` uppercase `--ink-muted` labels, each followed by its
+  text in `--text-body` `--ink`. With Surprise me chosen, it holds one line instead (§7).
+- **Start**, a full-width `--primary` pill.
+
+The screen pushes in like any other (§6); choosing an option uses Option select.
+
+**On the Conversation,** the Scenario's situation and the user's role open the transcript as one
+quiet block: `--text-sm` `--ink-muted`, centred, with a `--line` hairline under it. It isn't a
+notice (no ground, no edge) and scrolls away with the transcript.
+
 **Lessons list rows** keep §4's medium density.
 - **A finished Lesson** shows a small `--positive` check (16px) at the row's end, announced as
   "Done".
@@ -376,7 +399,7 @@ rather than globally.
 | Surface | Level | Rules |
 |---|---|---|
 | **Home** | Airy | `--space-8` between blocks, `--space-6` card padding, `--space-12` above the wordmark. Five elements, hard ceiling. No lists. |
-| **Practice picker, Lessons list, History list** | Medium | `--space-4` between rows, `--space-4`–`--space-6` card padding. |
+| **Practice picker, Scenario brief, Lessons list, History list** | Medium | `--space-4` between rows, `--space-4`–`--space-6` card padding. |
 | **Lesson Steps** | Airy-to-medium | One idea per screen, top-anchored, with empty space below left empty. `--space-4` side padding. `--space-6` between blocks: title, paragraphs, quote, key line, artwork, the line, options, result. `--space-4` between paragraphs, between options, inside option pills and inside result blocks. `--space-6` inside the Apply It card. Scrolling content reserves the pinned bottom row's height, so nothing hides behind it. |
 | **Conversation, Feedback Summary** | Comfortable-dense | `--space-3` between chat bubbles, `--space-4` between feedback points. Content-first; this is where detail is wanted. |
 
@@ -529,6 +552,12 @@ notice as a save failure: `--text-sm` `--ink` on `--surface` with a `--line` edg
 (`role="status"`), with no retry action, since reconnecting is what brings Practice back. It's a
 statement of fact, not an error: no error colour, no icon, no apology. The cards stay, dimmed to
 the disabled pill's 50% opacity with a not-allowed cursor.
+
+**Scenario brief.** The chooser's default reads "Surprise me". With it chosen, the situation panel
+says "One of Jordan's situations, picked when you start. You'll see it at the top of the
+conversation." It never hints at which. A chosen Scenario's labels are "The situation" and "Your
+role"; on the Conversation the role reads "Your role: …". Scenario titles are plain descriptions
+("A first date over coffee"), never a level, difficulty or rating (INFORMATION-ARCHITECTURE.md §5).
 
 **Conversation length.** A Practice Conversation holds a limited number of messages, and the
 Conversation screen says so quietly rather than letting the server refuse a line

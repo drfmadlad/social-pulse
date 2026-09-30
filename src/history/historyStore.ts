@@ -2,12 +2,20 @@ import { HISTORY_STORE as STORE_NAME, openDb, promisifyRequest, resetDbForTests 
 import type { ChatMessage } from "../practice/aiProxyClient";
 import type { FeedbackSummary } from "../practice/feedbackSummary";
 import type { ScenarioCategory } from "../practice/scenarioCategories";
+import type { Scenario } from "../practice/scenarios";
 
 export interface HistoryEntry {
   id: string;
   categoryId: string;
   categoryName: string;
   personaName: string;
+  /**
+   * The Scenario the conversation was set in, by id within its category. Absent on entries saved
+   * before Scenarios existed (issue #53), which were all set in their category's default Scenario:
+   * read it through `scenarioOfEntry` rather than directly. Stored entries are never rewritten to
+   * add it, so there's no database upgrade for it, and an older backup can't be missing anything.
+   */
+  scenarioId?: string;
   transcript: ChatMessage[];
   /** Null until the Feedback Summary arrives, and for good if it never did. */
   summary: FeedbackSummary | null;
@@ -55,6 +63,7 @@ async function withHistoryWrite<T>(work: (store: IDBObjectStore) => Promise<T>):
 export async function saveEndedConversation(conversation: {
   id: string;
   category: ScenarioCategory;
+  scenario: Scenario;
   transcript: ChatMessage[];
 }): Promise<HistoryEntry> {
   const saved = await withHistoryWrite(async (store) => {
@@ -66,6 +75,7 @@ export async function saveEndedConversation(conversation: {
       categoryId: conversation.category.id,
       categoryName: conversation.category.name,
       personaName: conversation.category.personaName,
+      scenarioId: conversation.scenario.id,
       transcript: conversation.transcript,
       summary: null,
       endedAt: new Date().toISOString(),

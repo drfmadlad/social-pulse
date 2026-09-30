@@ -6,8 +6,8 @@
  *
  * - the category's **Persona sheet**: who the Persona is, the same person in every Scenario of the
  *   category (CONTEXT.md, Persona), so it describes the person and never a situation;
- * - the category's **current situation**: where the conversation is set today, and who the user is
- *   to the Persona. Each category has one for now; Scenarios will replace them;
+ * - the chosen **Scenario's situation**: where the conversation is set, and who the user is to the
+ *   Persona. Each category has one or more Scenarios, and the request names one (issue #53);
  * - **the rules every Persona follows**, whatever the category.
  */
 
@@ -222,34 +222,75 @@ export const personaSheets: Readonly<Record<string, PersonaSheet>> = {
   },
 };
 
-/**
- * Where each category's conversation is set today, and who the user is to the Persona. Kept apart
- * from the Persona sheets because a category will have several Scenarios, each with its own.
- */
-export const currentSituations: Readonly<Record<string, string>> = {
-  dating:
-    "You're on a first date with the user at a casual coffee shop. You matched on a dating app and " +
-    "messaged a bit, but this is the first time you've met in person. You've both just sat down with your " +
-    "drinks.",
-  "job-interview":
-    "You're interviewing the user, in person, for a role on your team that they're excited about. If they " +
-    "haven't said what the role is, find out early and treat it as the role you're hiring for. You've read " +
-    "their résumé.",
-  "small-talk":
-    "You've run into the user in the break room at work. You work at the same company and know each other " +
-    "to say hello to, but not well. You're both waiting on the coffee machine.",
-  networking:
-    "You've just met the user at an industry networking event, in the mingling after the talks. You both " +
-    "have a drink in hand and neither of you knows the other.",
-  "public-speaking":
-    "The user is a friend rehearsing a talk or presentation out loud before they give it for real, and " +
-    "you've agreed to be their practice audience. If they haven't said what the talk is and who it's for, " +
-    "find out first, then let them run it and react as that audience would.",
-  "conflict-resolution":
-    "You and the user are roommates, and you're in the middle of a disagreement about something like " +
-    "shared chores or a plan they broke. Settle on one concrete grievance (dishes left for days, say, or " +
-    "bailing on plans you'd made together at the last minute) and stick with it. You're genuinely " +
-    "frustrated, but reasonable.",
+/** One category's Scenarios (CONTEXT.md, Scenario), as the server holds them. */
+export interface CategoryScenarios {
+  /**
+   * The Scenario every conversation in the category was set in before Scenarios existed (issue #53),
+   * named explicitly rather than by position. Must match `src/practice/scenarios.ts`.
+   */
+  defaultScenarioId: string;
+  /**
+   * Each Scenario's prompt piece, by Scenario id: where the conversation is set and who the user is
+   * to the Persona. Kept apart from the Persona sheets because the Persona is the same person in every
+   * one of the category's Scenarios. The app holds only the user-facing text for these ids.
+   */
+  situations: Readonly<Record<string, string>>;
+}
+
+export const scenariosByCategory: Readonly<Record<string, CategoryScenarios>> = {
+  dating: {
+    defaultScenarioId: "coffee-first-date",
+    situations: {
+      "coffee-first-date":
+        "You're on a first date with the user at a casual coffee shop. You matched on a dating app and " +
+        "messaged a bit, but this is the first time you've met in person. You've both just sat down with " +
+        "your drinks.",
+    },
+  },
+  "job-interview": {
+    defaultScenarioId: "first-interview",
+    situations: {
+      "first-interview":
+        "You're interviewing the user, in person, for a role on your team that they're excited about. If " +
+        "they haven't said what the role is, find out early and treat it as the role you're hiring for. " +
+        "You've read their résumé.",
+    },
+  },
+  "small-talk": {
+    defaultScenarioId: "break-room",
+    situations: {
+      "break-room":
+        "You've run into the user in the break room at work. You work at the same company and know each " +
+        "other to say hello to, but not well. You're both waiting on the coffee machine.",
+    },
+  },
+  networking: {
+    defaultScenarioId: "networking-event",
+    situations: {
+      "networking-event":
+        "You've just met the user at an industry networking event, in the mingling after the talks. You " +
+        "both have a drink in hand and neither of you knows the other.",
+    },
+  },
+  "public-speaking": {
+    defaultScenarioId: "talk-rehearsal",
+    situations: {
+      "talk-rehearsal":
+        "The user is a friend rehearsing a talk or presentation out loud before they give it for real, and " +
+        "you've agreed to be their practice audience. If they haven't said what the talk is and who it's " +
+        "for, find out first, then let them run it and react as that audience would.",
+    },
+  },
+  "conflict-resolution": {
+    defaultScenarioId: "roommate-disagreement",
+    situations: {
+      "roommate-disagreement":
+        "You and the user are roommates, and you're in the middle of a disagreement about something like " +
+        "shared chores or a plan they broke. Settle on one concrete grievance (dishes left for days, say, " +
+        "or bailing on plans you'd made together at the last minute) and stick with it. You're genuinely " +
+        "frustrated, but reasonable.",
+    },
+  },
 };
 
 /** The rules every Persona follows, whatever the category or situation. */
@@ -289,14 +330,30 @@ function renderPersonaSheet(sheet: PersonaSheet): string {
   ].join("\n\n");
 }
 
-export function getScenarioPrompt(categoryId: string): string | undefined {
-  if (!Object.hasOwn(personaSheets, categoryId) || !Object.hasOwn(currentSituations, categoryId)) {
+/**
+ * The category's default Scenario id, or undefined for a category the server doesn't know (own
+ * properties only, so "constructor" and the like aren't categories).
+ */
+export function getDefaultScenarioId(categoryId: string): string | undefined {
+  if (!Object.hasOwn(personaSheets, categoryId) || !Object.hasOwn(scenariosByCategory, categoryId)) {
     return undefined;
   }
+  return scenariosByCategory[categoryId].defaultScenarioId;
+}
+
+/**
+ * The system prompt for a conversation in one Scenario: the category's Persona sheet, then that
+ * Scenario's situation, then the rules. Undefined for an unknown category, or a Scenario the
+ * category doesn't have (again own properties only, for Scenario ids too).
+ */
+export function getScenarioPrompt(categoryId: string, scenarioId: string): string | undefined {
+  if (getDefaultScenarioId(categoryId) === undefined) return undefined;
+  const { situations } = scenariosByCategory[categoryId];
+  if (!Object.hasOwn(situations, scenarioId)) return undefined;
 
   return [
     renderPersonaSheet(personaSheets[categoryId]),
-    section("The situation right now", currentSituations[categoryId]),
+    section("The situation right now", situations[scenarioId]),
     section("Rules", personaRules),
   ].join("\n\n");
 }

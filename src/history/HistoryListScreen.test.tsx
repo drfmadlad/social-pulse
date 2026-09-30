@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 import { scenarioCategories } from "../practice/scenarioCategories";
+import { defaultScenarioOf } from "../practice/scenarios";
 import { settleDeviceReads } from "../test/settleDeviceReads";
 import { attachFeedbackSummary, resetHistoryStoreForTests, saveEndedConversation } from "./historyStore";
 import { HistoryEntryDetailScreen } from "./HistoryEntryDetailScreen";
@@ -49,12 +50,14 @@ describe("HistoryListScreen", () => {
     await saveEndedConversation({
       id: "dating-entry",
       category: datingCategory,
+      scenario: defaultScenarioOf(datingCategory.id)!,
       transcript: [{ role: "user", content: "Hi!" }],
     });
     await new Promise((resolve) => setTimeout(resolve, 5));
     await saveEndedConversation({
       id: "job-interview-entry",
       category: jobInterviewCategory,
+      scenario: defaultScenarioOf(jobInterviewCategory.id)!,
       transcript: [{ role: "user", content: "Nice to meet you." }],
     });
 
@@ -70,6 +73,7 @@ describe("HistoryListScreen", () => {
     await saveEndedConversation({
       id: "dating-entry",
       category: datingCategory,
+      scenario: defaultScenarioOf(datingCategory.id)!,
       transcript: [
         { role: "assistant", content: "Hey! Thanks for coming out tonight." },
         { role: "user", content: "Hi, nice to meet you!" },
@@ -97,6 +101,7 @@ describe("HistoryListScreen", () => {
     await saveEndedConversation({
       id: "dating-entry",
       category: datingCategory,
+      scenario: defaultScenarioOf(datingCategory.id)!,
       transcript: [{ role: "user", content: "Hi!" }],
     });
 
@@ -116,6 +121,7 @@ describe("HistoryListScreen", () => {
     await saveEndedConversation({
       id: "dating-entry",
       category: datingCategory,
+      scenario: defaultScenarioOf(datingCategory.id)!,
       transcript: [{ role: "user", content: "Hi!" }],
     });
 

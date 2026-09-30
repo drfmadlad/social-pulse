@@ -6,6 +6,7 @@ import { HomeScreen } from "./HomeScreen";
 import { lessons } from "./lessons/lessons";
 import { pickTodaysLesson } from "./lessons/pickTodaysLesson";
 import { scenarioCategories } from "./practice/scenarioCategories";
+import { defaultScenarioOf } from "./practice/scenarios";
 import { settleDeviceReads } from "./test/settleDeviceReads";
 
 async function renderHome() {
@@ -56,6 +57,7 @@ describe("HomeScreen", () => {
     await saveEndedConversation({
       id: "entry-1",
       category: scenarioCategories[0],
+      scenario: defaultScenarioOf(scenarioCategories[0].id)!,
       transcript: [{ role: "user", content: "Hi!" }],
     });
 

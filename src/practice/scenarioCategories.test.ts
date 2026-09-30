@@ -4,9 +4,10 @@ import { scenarioCategories } from "./scenarioCategories";
 const avoidedTerms = ["roleplay", "simulation", "scenario type", "conversation mode"];
 
 describe("scenarioCategories", () => {
-  it("gives every Scenario Category a user-facing persona name and blurb", () => {
+  it("gives every Scenario Category a user-facing persona name, description and blurb", () => {
     for (const category of scenarioCategories) {
       expect(category.personaName.trim().length).toBeGreaterThan(0);
+      expect(category.personaDescription.trim().length).toBeGreaterThan(0);
       expect(category.blurb.trim().length).toBeGreaterThan(0);
     }
   });

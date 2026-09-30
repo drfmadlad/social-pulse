@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { SavedFeedbackSummary } from "../practice/SavedFeedbackSummary";
-import { scenarioCategories } from "../practice/scenarioCategories";
+import { findCategory } from "../practice/scenarioCategories";
 import { TranscriptView } from "../practice/TranscriptView";
 import { DeleteHistoryEntryDialog } from "./DeleteHistoryEntryDialog";
 import { formatEntryTimestamp } from "./formatEntryTimestamp";
@@ -31,7 +31,7 @@ export function HistoryEntryDetail({ entry, deleteFailed, onBack, onDelete }: Hi
       <TranscriptView transcript={entry.transcript} personaName={entry.personaName} />
       <SavedFeedbackSummary
         entryId={entry.id}
-        category={scenarioCategories.find((category) => category.id === entry.categoryId)}
+        category={findCategory(entry.categoryId)}
         transcript={entry.transcript}
         savedSummary={entry.summary}
       />
