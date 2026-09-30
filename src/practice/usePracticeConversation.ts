@@ -1,5 +1,5 @@
 import { useEffect, useReducer } from "react";
-import { AiProxyError, requestAiReply, type ChatMessage } from "./aiProxyClient";
+import { describeAiError, requestAiReply, type ChatMessage } from "./aiProxyClient";
 
 /**
  * One Practice Conversation's turns and the transitions between them (issue #46). The Conversation
@@ -19,6 +19,8 @@ type Phase =
   | { kind: "failed"; errorMessage: string };
 
 interface ConversationState {
+  /** Fixed for the conversation's life: every reply is asked for in the category it opened in. */
+  categoryId: string;
   turns: ChatMessage[];
   phase: Phase;
 }
@@ -29,13 +31,13 @@ type ConversationEvent =
   | { type: "replyFailed"; request: ReplyRequest; errorMessage: string }
   | { type: "retried" };
 
-function awaitingReplyTo(turns: ChatMessage[]): ConversationState {
-  return { turns, phase: { kind: "awaiting-reply", request: { messages: turns } } };
+function awaitingReplyTo(categoryId: string, turns: ChatMessage[]): ConversationState {
+  return { categoryId, turns, phase: { kind: "awaiting-reply", request: { messages: turns } } };
 }
 
 /** A conversation opens on the Persona's first line, so it starts out waiting for it. */
-function opening(): ConversationState {
-  return awaitingReplyTo([]);
+function opening(categoryId: string): ConversationState {
+  return awaitingReplyTo(categoryId, []);
 }
 
 function conversationReducer(state: ConversationState, event: ConversationEvent): ConversationState {
@@ -43,19 +45,19 @@ function conversationReducer(state: ConversationState, event: ConversationEvent)
     case "sent":
       // One reply at a time: the composer is locked while one is on its way.
       if (state.phase.kind === "awaiting-reply") return state;
-      return awaitingReplyTo([...state.turns, { role: "user", content: event.content }]);
+      return awaitingReplyTo(state.categoryId, [...state.turns, { role: "user", content: event.content }]);
 
     case "replyArrived":
       if (!isAwaiting(state, event.request)) return state;
-      return { turns: [...state.turns, event.reply], phase: { kind: "ready" } };
+      return { ...state, turns: [...state.turns, event.reply], phase: { kind: "ready" } };
 
     case "replyFailed":
       if (!isAwaiting(state, event.request)) return state;
-      return { turns: state.turns, phase: { kind: "failed", errorMessage: event.errorMessage } };
+      return { ...state, phase: { kind: "failed", errorMessage: event.errorMessage } };
 
     case "retried":
       if (state.phase.kind !== "failed") return state;
-      return awaitingReplyTo(state.turns);
+      return awaitingReplyTo(state.categoryId, state.turns);
   }
 }
 
@@ -79,12 +81,15 @@ export interface PracticeConversation {
 }
 
 /**
- * Runs one Practice Conversation in `categoryId`. A fresh conversation per mount: the screen that
- * uses this is keyed by category, so a different category starts over.
+ * Runs one Practice Conversation, opened in `categoryId` when the calling component mounts. The
+ * conversation keeps that category for its life, so a later change to the argument never sends
+ * its turns under another category's Persona; to start over in a different category, remount the
+ * caller (the Conversation screen is keyed by category for exactly this).
  */
 export function usePracticeConversation(categoryId: string): PracticeConversation {
-  const [state, dispatch] = useReducer(conversationReducer, undefined, opening);
+  const [state, dispatch] = useReducer(conversationReducer, categoryId, opening);
   const pendingRequest = state.phase.kind === "awaiting-reply" ? state.phase.request : null;
+  const conversationCategoryId = state.categoryId;
 
   // Every transition that needs a reply puts a new request in the state; this sends it. A request
   // torn down before it settles (React StrictMode's dev-only double mount, or leaving the screen)
@@ -93,21 +98,19 @@ export function usePracticeConversation(categoryId: string): PracticeConversatio
     if (!pendingRequest) return;
     let superseded = false;
 
-    requestAiReply(pendingRequest.messages, categoryId).then(
+    requestAiReply(pendingRequest.messages, conversationCategoryId).then(
       (reply) => {
         if (!superseded) dispatch({ type: "replyArrived", request: pendingRequest, reply });
       },
       (error: unknown) => {
-        if (superseded) return;
-        const errorMessage = error instanceof AiProxyError ? error.message : "Something went wrong. Please try again.";
-        dispatch({ type: "replyFailed", request: pendingRequest, errorMessage });
+        if (!superseded) dispatch({ type: "replyFailed", request: pendingRequest, errorMessage: describeAiError(error) });
       },
     );
 
     return () => {
       superseded = true;
     };
-  }, [pendingRequest, categoryId]);
+  }, [pendingRequest, conversationCategoryId]);
 
   const isAwaitingReply = pendingRequest !== null;
   const hasSaidSomething = state.turns.some((turn) => turn.role === "user");

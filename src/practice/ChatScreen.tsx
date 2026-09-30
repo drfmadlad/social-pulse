@@ -15,11 +15,12 @@ interface ChatScreenProps {
 }
 
 export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
-  const conversation = usePracticeConversation(category.id);
+  const { turns, isAwaitingReply, errorMessage, hasSaidSomething, canEnd, send, retry } =
+    usePracticeConversation(category.id);
   const [draft, setDraft] = useState("");
   const direction = useScreenDirection();
 
-  const canSend = !conversation.isAwaitingReply && draft.trim().length > 0;
+  const canSend = !isAwaitingReply && draft.trim().length > 0;
 
   // Guards every way out of the screen (issue #33) — the on-screen back button below and the
   // system back gesture both attempt navigation through this same router, so one blocker catches
@@ -28,13 +29,13 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
   // asked about.
   const feedbackPathPrefix = `/practice/${category.id}/feedback/`;
   const blocker = useBlocker(
-    ({ nextLocation }) => conversation.hasSaidSomething && !nextLocation.pathname.startsWith(feedbackPathPrefix),
+    ({ nextLocation }) => hasSaidSomething && !nextLocation.pathname.startsWith(feedbackPathPrefix),
   );
 
   function handleSend(event: FormEvent) {
     event.preventDefault();
     if (!canSend) return;
-    conversation.send(draft.trim());
+    send(draft.trim());
     setDraft("");
   }
 
@@ -48,23 +49,19 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
         <button
           type="button"
           className="button-primary conversation-screen__end-button"
-          disabled={!conversation.canEnd}
-          onClick={() => onEnd(conversation.turns)}
+          disabled={!canEnd}
+          onClick={() => onEnd(turns)}
         >
           End &amp; get feedback
         </button>
       </header>
 
       <div className="conversation-screen__transcript">
-        <TranscriptView
-          transcript={conversation.turns}
-          personaName={category.personaName}
-          isTyping={conversation.isAwaitingReply}
-        />
-        {conversation.errorMessage && (
+        <TranscriptView transcript={turns} personaName={category.personaName} isTyping={isAwaitingReply} />
+        {errorMessage && (
           <div role="alert" className="chat-screen__error">
-            <p>{conversation.errorMessage}</p>
-            <button type="button" className="button-primary" onClick={conversation.retry}>
+            <p>{errorMessage}</p>
+            <button type="button" className="button-primary" onClick={retry}>
               Try again
             </button>
           </div>
@@ -76,7 +73,7 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
         <input
           id="chat-draft"
           value={draft}
-          disabled={conversation.isAwaitingReply}
+          disabled={isAwaitingReply}
           onChange={(event) => setDraft(event.target.value)}
         />
         <button type="submit" className="button-primary" disabled={!canSend}>

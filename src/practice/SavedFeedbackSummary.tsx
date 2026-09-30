@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { attachFeedbackSummary } from "../history/historyStore";
 import { HistorySaveNotice } from "../history/HistorySaveNotice";
-import { AiProxyError, type ChatMessage } from "./aiProxyClient";
+import { describeAiError, type ChatMessage } from "./aiProxyClient";
 import { FeedbackSummaryView } from "./FeedbackSummaryView";
 import { requestFeedbackSummary, type FeedbackSummary } from "./feedbackSummary";
 import type { ScenarioCategory } from "./scenarioCategories";
@@ -59,10 +59,7 @@ export function SavedFeedbackSummary({
       setStatus({ kind: "ready", summary, attachFailed });
     } catch (error) {
       if (isStale(requestId)) return;
-      setStatus({
-        kind: "error",
-        message: error instanceof AiProxyError ? error.message : "Something went wrong. Please try again.",
-      });
+      setStatus({ kind: "error", message: describeAiError(error) });
     }
   }
 

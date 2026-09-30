@@ -23,6 +23,14 @@ export class AiProxyError extends Error {
   }
 }
 
+/**
+ * The message to show the user for a failed AI request: the proxy's own plain-language message
+ * when there is one, or a generic one for anything unexpected.
+ */
+export function describeAiError(error: unknown): string {
+  return error instanceof AiProxyError ? error.message : "Something went wrong. Please try again.";
+}
+
 // Comfortably under the serverless function's own 30s ceiling (vercel.json), so the browser gives
 // up before that response could still land, rather than exceeding it silently.
 export const AI_REPLY_TIMEOUT_MS = 20_000;
