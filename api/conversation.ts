@@ -1,10 +1,8 @@
 import type { VercelRequest, VercelResponse } from "./_lib/vercelTypes.js";
 import { rejectDisallowedRequest, sendAiProviderReply } from "./_lib/aiProxyHandler.js";
 import type { ChatMessage } from "./_lib/aiProvider.js";
+import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "./_lib/requestLimits.js";
 import { getScenarioPrompt } from "./_lib/scenarioPrompts.js";
-
-const MAX_MESSAGES = 40;
-const MAX_MESSAGE_LENGTH = 2000;
 
 function isValidMessage(value: unknown): value is ChatMessage {
   if (typeof value !== "object" || value === null) return false;
@@ -23,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const messages: unknown = req.body?.messages;
   if (
     !Array.isArray(messages) ||
-    messages.length > MAX_MESSAGES ||
+    messages.length > MAX_CONVERSATION_MESSAGES ||
     !messages.every(isValidMessage)
   ) {
     res.status(400).json({
@@ -31,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         code: "invalid_request",
         message:
           `Request body must include a \`messages\` array of { role, content }, ` +
-          `with at most ${MAX_MESSAGES} messages and ${MAX_MESSAGE_LENGTH} characters per message.`,
+          `with at most ${MAX_CONVERSATION_MESSAGES} messages and ${MAX_MESSAGE_LENGTH} characters per message.`,
       },
     });
     return;

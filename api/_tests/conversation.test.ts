@@ -80,8 +80,10 @@ describe("POST /api/conversation", () => {
     expect(res.body).toMatchObject({ error: { code: "invalid_request" } });
   });
 
+  // The limits are literals here on purpose: they pin the HTTP contract (issue #58's ~80 messages,
+  // 2000 characters), so an accidental change to the shared constants in _lib/requestLimits.ts fails here.
   it("rejects a request over the max message count", async () => {
-    const messages = Array.from({ length: 41 }, () => chatMessage());
+    const messages = Array.from({ length: 81 }, () => chatMessage());
     const req = createMockReq({ body: { messages } });
     const res = createMockRes();
 
@@ -94,7 +96,7 @@ describe("POST /api/conversation", () => {
 
   it("accepts a request at the max message count", async () => {
     callAiProviderMock.mockResolvedValue({ content: "ok" });
-    const messages = Array.from({ length: 40 }, () => chatMessage());
+    const messages = Array.from({ length: 80 }, () => chatMessage());
     const req = createMockReq({ body: { messages, categoryId: "dating" } });
     const res = createMockRes();
 

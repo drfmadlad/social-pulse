@@ -449,6 +449,20 @@ notice as a save failure: `--text-sm` `--ink` on `--surface` with a `--line` edg
 statement of fact, not an error: no error colour, no icon, no apology. The cards stay, dimmed to
 the disabled pill's 50% opacity with a not-allowed cursor.
 
+**Conversation length.** A Practice Conversation holds a limited number of messages, and the
+Conversation screen says so quietly rather than letting the server refuse a line
+(INFORMATION-ARCHITECTURE.md, Conversation). Both notes are neutral, like `HistorySaveNotice`:
+`--text-sm` `--ink`, announced politely (`role="status"`), never an error colour and never a count
+of lines left.
+- **A few lines before it:** a note at the foot of the transcript, in the same quiet notice as a
+  save failure (`--surface` with a `--line` edge): "This conversation is nearly as long as it can
+  go. You've got a few more lines."
+- **At it:** the composer row gives way to "This conversation is as long as it can go." and an
+  **End & get feedback** `--primary` pill. The top bar's End & get feedback stays too. A failed
+  reply's Try again still works here.
+- **Per line:** the composer and Lesson Written Reply inputs stop at the server's per-message
+  length, so a long paste is cut short rather than refused.
+
 **Render errors.** The "Something went wrong" screen reuses the `.home-section` card, with the
 `--ink-muted` `--text-sm` body line the empty states use and a `button-primary` link, "Go to
 Home". It's a plain statement, not an alarm: no error colour, no icon, no apology, no error text

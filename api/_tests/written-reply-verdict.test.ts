@@ -70,6 +70,16 @@ describe("POST /api/written-reply-verdict", () => {
     expect(callAiProviderMock).not.toHaveBeenCalled();
   });
 
+  it("accepts a reply at the max length", async () => {
+    callAiProviderMock.mockResolvedValue({ content: JSON.stringify({ verdict: "landed", reason: "You reflected it back." }) });
+    const req = createMockReq({ body: { ...validBody, reply: "a".repeat(2000) } });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+  });
+
   it("rejects an over-length reply", async () => {
     const req = createMockReq({ body: { ...validBody, reply: "a".repeat(2001) } });
     const res = createMockRes();

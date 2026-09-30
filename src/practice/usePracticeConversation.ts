@@ -1,4 +1,5 @@
 import { useEffect, useReducer } from "react";
+import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../../api/_lib/requestLimits";
 import { describeAiError, requestAiReply, type ChatMessage } from "./aiProxyClient";
 
 /**
@@ -40,11 +41,31 @@ function opening(categoryId: string): ConversationState {
   return awaitingReplyTo(categoryId, []);
 }
 
+/**
+ * How many more of the user's lines fit, each with the Persona's reply to it (issue #58). The
+ * server takes at most MAX_CONVERSATION_MESSAGES in a reply request and in the Feedback Summary's
+ * transcript, so a line is only offered while it and its reply would both still fit. Counting turns
+ * rather than exchanges keeps that true however the turns got there, a failed reply included.
+ */
+function linesLeft(turns: ChatMessage[]): number {
+  return Math.max(0, Math.floor((MAX_CONVERSATION_MESSAGES - turns.length) / 2));
+}
+
+/** From this many lines left, the Conversation screen says the conversation is nearly at its length. */
+const NEARLY_FULL_LINES_LEFT = 3;
+
+/** Whether the user's line can go in the conversation: something to say, short enough, and room for it. */
+function canAdd(turns: ChatMessage[], content: string): boolean {
+  return content.length > 0 && content.length <= MAX_MESSAGE_LENGTH && linesLeft(turns) > 0;
+}
+
 function conversationReducer(state: ConversationState, event: ConversationEvent): ConversationState {
   switch (event.type) {
     case "sent":
       // One reply at a time: the composer is locked while one is on its way.
       if (state.phase.kind === "awaiting-reply") return state;
+      // The screen never offers a line the server would reject; this makes sure one can't be sent.
+      if (!canAdd(state.turns, event.content)) return state;
       return awaitingReplyTo(state.categoryId, [...state.turns, { role: "user", content: event.content }]);
 
     case "replyArrived":
@@ -66,6 +87,14 @@ function isAwaiting(state: ConversationState, request: ReplyRequest): boolean {
   return state.phase.kind === "awaiting-reply" && state.phase.request === request;
 }
 
+export type LengthLimit = "not-near" | "near" | "reached";
+
+function lengthLimitOf(turns: ChatMessage[]): LengthLimit {
+  const left = linesLeft(turns);
+  if (left === 0) return "reached";
+  return left <= NEARLY_FULL_LINES_LEFT ? "near" : "not-near";
+}
+
 export interface PracticeConversation {
   turns: ChatMessage[];
   /** The Persona's reply (or opening line) is on its way; the user can't send until it lands. */
@@ -76,6 +105,12 @@ export interface PracticeConversation {
   hasSaidSomething: boolean;
   /** End & get feedback is available: the user has spoken, and no reply is pending. */
   canEnd: boolean;
+  /**
+   * Where the conversation stands against its length limit (issue #58): "near" a few lines before
+   * it, and "reached" once there's no room for another line and its reply, so the composer gives
+   * way to End & get feedback. A Try again for a failed reply still fits after the limit is reached.
+   */
+  lengthLimit: LengthLimit;
   send: (content: string) => void;
   retry: () => void;
 }
@@ -121,6 +156,7 @@ export function usePracticeConversation(categoryId: string): PracticeConversatio
     errorMessage: state.phase.kind === "failed" ? state.phase.errorMessage : null,
     hasSaidSomething,
     canEnd: !isAwaitingReply && hasSaidSomething,
+    lengthLimit: lengthLimitOf(state.turns),
     send: (content) => dispatch({ type: "sent", content }),
     retry: () => dispatch({ type: "retried" }),
   };
