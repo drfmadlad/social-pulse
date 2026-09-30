@@ -4,6 +4,7 @@ import { HistorySaveNotice } from "../history/HistorySaveNotice";
 import { describeAiError, type ChatMessage } from "./aiProxyClient";
 import { FeedbackSummaryView } from "./FeedbackSummaryView";
 import { requestFeedbackSummary, type FeedbackSummary } from "./feedbackSummary";
+import type { Focus } from "./focuses";
 import type { ScenarioCategory } from "./scenarioCategories";
 import { useLatestRequestGuard } from "./useLatestRequestGuard";
 
@@ -17,6 +18,8 @@ interface SavedFeedbackSummaryProps {
   entryId: string;
   /** Undefined if the entry's Scenario Category no longer exists, leaving nothing to ask the AI with. */
   category: ScenarioCategory | undefined;
+  /** The conversation's Focus, for the AI to speak to. Undefined when it had none. */
+  focus: Focus | undefined;
   transcript: ChatMessage[];
   savedSummary: FeedbackSummary | null;
   /** Asks for a missing summary straight away (the Feedback screen) rather than waiting for a tap (History). */
@@ -30,6 +33,7 @@ interface SavedFeedbackSummaryProps {
 export function SavedFeedbackSummary({
   entryId,
   category,
+  focus,
   transcript,
   savedSummary,
   generateOnMount = false,
@@ -45,7 +49,7 @@ export function SavedFeedbackSummary({
     const requestId = start();
     setStatus({ kind: "loading" });
     try {
-      const summary = await requestFeedbackSummary(category, transcript);
+      const summary = await requestFeedbackSummary(category, transcript, focus);
       // Only a newer request supersedes this one. Leaving the screen doesn't, so a user who taps
       // Done while waiting still finds the summary on their History entry later.
       if (isStale(requestId)) return;

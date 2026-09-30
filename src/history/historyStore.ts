@@ -1,6 +1,7 @@
 import { HISTORY_STORE as STORE_NAME, openDb, promisifyRequest, resetDbForTests } from "../db";
 import type { ChatMessage } from "../practice/aiProxyClient";
 import type { FeedbackSummary } from "../practice/feedbackSummary";
+import type { Focus } from "../practice/focuses";
 import type { ScenarioCategory } from "../practice/scenarioCategories";
 import type { Scenario } from "../practice/scenarios";
 
@@ -16,6 +17,13 @@ export interface HistoryEntry {
    * add it, so there's no database upgrade for it, and an older backup can't be missing anything.
    */
   scenarioId?: string;
+  /**
+   * The Focus the user picked on the Scenario brief (issue #65), by id. Absent when they left it at
+   * none, and on every entry saved before Focuses existed, so those read exactly as they were stored;
+   * like `scenarioId`, adding it needed no database upgrade. Read it through `findFocus`, which also
+   * gives nothing for a Focus since removed.
+   */
+  focusId?: string;
   transcript: ChatMessage[];
   /** Null until the Feedback Summary arrives, and for good if it never did. */
   summary: FeedbackSummary | null;
@@ -64,6 +72,8 @@ export async function saveEndedConversation(conversation: {
   id: string;
   category: ScenarioCategory;
   scenario: Scenario;
+  /** Undefined when the conversation had no Focus. */
+  focus?: Focus;
   transcript: ChatMessage[];
 }): Promise<HistoryEntry> {
   const saved = await withHistoryWrite(async (store) => {
@@ -76,6 +86,7 @@ export async function saveEndedConversation(conversation: {
       categoryName: conversation.category.name,
       personaName: conversation.category.personaName,
       scenarioId: conversation.scenario.id,
+      ...(conversation.focus && { focusId: conversation.focus.id }),
       transcript: conversation.transcript,
       summary: null,
       endedAt: new Date().toISOString(),

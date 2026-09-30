@@ -29,6 +29,7 @@ describe("SavedFeedbackSummary", () => {
       <SavedFeedbackSummary
         entryId="entry-1"
         category={category}
+        focus={undefined}
         transcript={transcript}
         savedSummary={null}
         generateOnMount
@@ -53,7 +54,14 @@ describe("SavedFeedbackSummary", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockFeedbackSummary()));
 
     render(
-      <SavedFeedbackSummary entryId="entry-1" category={category} transcript={transcript} savedSummary={null} generateOnMount />,
+      <SavedFeedbackSummary
+        entryId="entry-1"
+        category={category}
+        focus={undefined}
+        transcript={transcript}
+        savedSummary={null}
+        generateOnMount
+      />,
     );
 
     expect(await screen.findByText("What you did well")).toBeInTheDocument();

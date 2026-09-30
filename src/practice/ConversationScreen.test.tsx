@@ -121,6 +121,50 @@ describe("ConversationScreen", () => {
     expect(body).toEqual({ messages: [], categoryId: "dating", scenarioId: "coffee-first-date" });
   });
 
+  describe("with a Focus (issue #65)", () => {
+    async function endAfterOneLine(path: string) {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+        .mockResolvedValueOnce(mockReply("Likewise!"));
+      vi.stubGlobal("fetch", fetchMock);
+      renderAt(path);
+      await screen.findByText("Hey! Good to see you.");
+      sendMessage("Hi, nice to meet you!");
+      await screen.findByText("Likewise!");
+      fireEvent.click(screen.getByRole("button", { name: "End & get feedback" }));
+      return { fetchMock, location: JSON.parse(screen.getByTestId("location").textContent!) };
+    }
+
+    it("hands the Focus on to the Feedback Summary as the conversation ends", async () => {
+      const { location } = await endAfterOneLine("/practice/dating/coffee-first-date?focus=staying-calm");
+
+      expect(location.pathname).toMatch(/^\/practice\/dating\/feedback\/[^/]+$/);
+      expect(location.state.focusId).toBe("staying-calm");
+    });
+
+    it("hands on no Focus when the conversation had none", async () => {
+      const { location } = await endAfterOneLine("/practice/dating/coffee-first-date");
+
+      expect(location.state).not.toHaveProperty("focusId");
+    });
+
+    it("keeps the Focus from the Persona: it's for the feedback, not the conversation", async () => {
+      const { fetchMock } = await endAfterOneLine("/practice/dating/coffee-first-date?focus=staying-calm");
+
+      for (const [, init] of fetchMock.mock.calls) {
+        expect(init.body as string).not.toMatch(/focus|staying/i);
+      }
+    });
+
+    it("redirects to the category's Scenario brief when the URL names a Focus the app doesn't offer", () => {
+      renderAt("/practice/dating/coffee-first-date?focus=not-a-real-focus");
+
+      expect(screen.getByText("Scenario brief")).toBeInTheDocument();
+      expect(JSON.parse(screen.getByTestId("location").textContent!).pathname).toBe("/practice/dating");
+    });
+  });
+
   it("shows the typing indicator inside the transcript rather than as a floating status line", () => {
     const fetchMock = vi.fn(() => new Promise(() => {}));
     vi.stubGlobal("fetch", fetchMock);

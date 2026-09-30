@@ -1,7 +1,8 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, Outlet, RouterProvider, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { scenarioCategories } from "./scenarioCategories";
+import { focuses } from "./focuses";
 import { ScenarioBriefScreen } from "./ScenarioBriefScreen";
 import { defaultScenarioOf, pickSurpriseScenario, scenariosIn } from "./scenarios";
 
@@ -12,8 +13,8 @@ vi.mock("./scenarios", async (importOriginal) => {
 });
 
 function LocationDisplay() {
-  const { pathname } = useLocation();
-  return <div data-testid="location">{pathname}</div>;
+  const { pathname, search } = useLocation();
+  return <div data-testid="location">{pathname + search}</div>;
 }
 
 /**
@@ -72,7 +73,7 @@ describe("ScenarioBriefScreen", () => {
     for (const scenario of scenariosIn("dating")) {
       expect(screen.getByRole("radio", { name: scenario.title })).not.toBeChecked();
     }
-    expect(screen.getAllByRole("radio")).toHaveLength(scenariosIn("dating").length + 1);
+    expect(within(chooser).getAllByRole("radio")).toHaveLength(scenariosIn("dating").length + 1);
   });
 
   it("says Surprise me picks a situation when you start, without giving one away", () => {
@@ -123,6 +124,52 @@ describe("ScenarioBriefScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start" }));
 
     expect(pickSurpriseScenario).not.toHaveBeenCalled();
+  });
+
+  describe("Focus (issue #65)", () => {
+    it("offers an optional Focus from a short list, with None chosen by default", () => {
+      renderBrief();
+
+      const group = screen.getByRole("group", { name: "Focus" });
+      expect(group).toHaveAccessibleDescription(/optional/i);
+      expect(within(group).getByRole("radio", { name: "None" })).toBeChecked();
+      for (const focus of focuses) {
+        expect(within(group).getByRole("radio", { name: focus.label })).not.toBeChecked();
+      }
+      expect(within(group).getAllByRole("radio")).toHaveLength(focuses.length + 1);
+    });
+
+    it("keeps the Focus apart from the Situation chooser, so choosing one leaves the other as it was", () => {
+      renderBrief();
+
+      fireEvent.click(screen.getByRole("radio", { name: "Staying calm" }));
+
+      expect(screen.getByRole("radio", { name: "Staying calm" })).toBeChecked();
+      expect(screen.getByRole("radio", { name: "None" })).not.toBeChecked();
+      expect(screen.getByRole("radio", { name: "Surprise me" })).toBeChecked();
+    });
+
+    it("starts the Conversation with the chosen Focus in its URL, so a reload keeps it", () => {
+      renderBrief();
+
+      fireEvent.click(screen.getByRole("radio", { name: datingScenario.title }));
+      fireEvent.click(screen.getByRole("radio", { name: "Asking follow-up questions" }));
+      fireEvent.click(screen.getByRole("button", { name: "Start" }));
+
+      expect(screen.getByText("Conversation opened")).toBeInTheDocument();
+      expect(location()).toBe(`/practice/dating/${datingScenario.id}?focus=follow-up-questions`);
+    });
+
+    it("starts the Conversation with no Focus when None is left chosen, or chosen again", () => {
+      renderBrief();
+
+      fireEvent.click(screen.getByRole("radio", { name: datingScenario.title }));
+      fireEvent.click(screen.getByRole("radio", { name: "Staying calm" }));
+      fireEvent.click(screen.getByRole("radio", { name: "None" }));
+      fireEvent.click(screen.getByRole("button", { name: "Start" }));
+
+      expect(location()).toBe(`/practice/dating/${datingScenario.id}`);
+    });
   });
 
   it("goes back to the Practice picker from the Conversation it started, the system back gesture included", async () => {

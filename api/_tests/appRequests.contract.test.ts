@@ -29,6 +29,7 @@ import { lessons, type WrittenReplyStep } from "../../src/lessons/lessons.js";
 import { requestWrittenReplyVerdict } from "../../src/lessons/writtenReplyVerdict.js";
 import { requestAiProxy, requestAiReply, type ChatMessage } from "../../src/practice/aiProxyClient.js";
 import { requestFeedbackSummary } from "../../src/practice/feedbackSummary.js";
+import { focuses } from "../../src/practice/focuses.js";
 import { findCategory, scenarioCategories } from "../../src/practice/scenarioCategories.js";
 import { defaultScenarioOf, scenarios } from "../../src/practice/scenarios.js";
 import { usePracticeConversation } from "../../src/practice/usePracticeConversation.js";
@@ -157,6 +158,15 @@ const contractCases: ContractCase[] = [
       send: () => requestFeedbackSummary(category, conversationSoFar(category.personaName)),
     },
   ]),
+  // Every Focus the Scenario brief offers (issue #65), named by id alongside the transcript.
+  ...focuses.map(
+    (focus): ContractCase => ({
+      name: `feedback summary with the "${focus.label}" Focus`,
+      aiReply: feedbackSummaryReply,
+      send: () =>
+        requestFeedbackSummary(scenarioCategories[0], conversationSoFar(scenarioCategories[0].personaName), focus),
+    }),
+  ),
   ...writtenReplySteps.map(
     ({ label, step }): ContractCase => ({
       name: `written reply verdict, ${label}`,
@@ -226,6 +236,15 @@ describe("the app's AI requests pass the server's real validation", () => {
     const unknownScenario = { ...defaultScenario, id: "not-a-real-scenario" };
 
     await expect(requestAiReply([], unknownScenario)).rejects.toThrow("Unknown Scenario");
+    expect(callAiProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("fails a feedback summary request naming a Focus the server doesn't know, without asking the AI", async () => {
+    const unknownFocus = { id: "not-a-real-focus", label: "Something the app never offered" };
+
+    await expect(
+      requestFeedbackSummary(scenarioCategories[0], conversationSoFar(scenarioCategories[0].personaName), unknownFocus),
+    ).rejects.toThrow("Unknown Focus");
     expect(callAiProviderMock).not.toHaveBeenCalled();
   });
 

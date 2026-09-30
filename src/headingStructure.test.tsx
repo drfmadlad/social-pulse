@@ -8,6 +8,7 @@ import { scenarioCategories } from "./practice/scenarioCategories";
 import { mockReply, mockWrittenReplyVerdict } from "./test/apiMocks";
 import { PRACTICE_OFFLINE_NOTICE, startOffline } from "./test/connection";
 import { expectSaneHeadingHierarchy } from "./test/headingStructure";
+import { findFocus } from "./practice/focuses";
 import { defaultScenarioOf } from "./practice/scenarios";
 import { settleDeviceReads } from "./test/settleDeviceReads";
 
@@ -61,6 +62,9 @@ describe("heading structure", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: defaultScenarioOf(datingCategory.id)!.title }));
     expectSaneHeadingHierarchy(container);
+
+    fireEvent.click(screen.getByRole("radio", { name: "Staying calm" }));
+    expectSaneHeadingHierarchy(container);
   });
 
   it("Conversation has exactly one h1 and no skipped levels", async () => {
@@ -111,6 +115,25 @@ describe("heading structure", () => {
   it("History list has exactly one h1 and no skipped levels", async () => {
     const { container } = await renderScreen("/history");
     expectSaneHeadingHierarchy(container);
+  });
+
+  it("Feedback Summary and History entry detail keep their outline with a Focus, whose line adds no heading", async () => {
+    await saveEndedConversation({
+      id: "entry-1",
+      category: datingCategory,
+      scenario: defaultScenarioOf(datingCategory.id)!,
+      focus: findFocus("staying-calm"),
+      transcript,
+    });
+    await attachFeedbackSummary("entry-1", summary);
+
+    for (const path of ["/practice/dating/feedback/entry-1", "/history/entry-1"]) {
+      const view = await renderScreen(path);
+      await view.findByText("What you did well");
+      expect(view.getByText("Staying calm")).toBeInTheDocument();
+      expectSaneHeadingHierarchy(view.container);
+      view.unmount();
+    }
   });
 
   it("History entry detail has exactly one h1 and no skipped levels", async () => {
