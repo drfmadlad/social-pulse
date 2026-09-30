@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!--
+    Social Pulse app icon: the source for every icon raster (npm run gen-icons) and the SVG favicon.
+
+    Two round speech bubbles in an exchange: one speaks, the other answers a beat lower, and the
+    space they share is lit. Colours are DESIGN.md tokens only: the ground is primary, the bubbles
+    primary-soft, the shared space surface. Flat fills, no gradients, glows or depth.
+
+    The generator reuses the #ground fill and the #mark group on full-bleed grounds for the
+    maskable and Apple touch icons, so keep the mark inside that group, as plain paths.
+  -->
+  <rect id="ground" width="512" height="512" rx="115" fill="#2F6F6A"/>
+  <g id="mark">
+    <!-- The first speaker: circle centred (194, 218), r 108, tail to the lower left. -->
+    <path d="M100.5 272A108 108 0 1 1 148.4 315.9L83.8 328.2Z" fill="#D7E6E3"/>
+    <!-- The reply: circle centred (318, 290), r 108, tail to the lower right. -->
+    <path d="M411.5 344A108 108 0 1 0 363.6 387.9L428.2 400.2Z" fill="#D7E6E3"/>
+    <!-- The shared space: where the two circles overlap. -->
+    <path d="M296.6 184.1A108 108 0 0 1 215.4 323.9A108 108 0 0 1 296.6 184.1Z" fill="#FDFBF7"/>
+  </g>
+</svg>

@@ -17,7 +17,7 @@ npm run dev
 - `npm run build` — typecheck and build for production
 - `npm run test` — run the test suite once
 - `npm run typecheck` — typecheck without emitting
-- `npm run gen-icons` — regenerate the placeholder PWA icons in `public/icons/`
+- `npm run gen-icons` — regenerate the app icons (`public/icons/*.png`, `public/favicon.ico`) from `public/icons/icon.svg`
 
 ## Configuration
 
