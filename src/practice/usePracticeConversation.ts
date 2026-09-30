@@ -1,5 +1,5 @@
 import { useEffect, useReducer } from "react";
-import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../../api/_lib/requestLimits";
+import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../requestLimits";
 import { describeAiError, requestAiReply, type ChatMessage } from "./aiProxyClient";
 import type { Scenario } from "./scenarios";
 

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_MESSAGE_LENGTH } from "../../api/_lib/requestLimits";
+import { MAX_MESSAGE_LENGTH } from "../requestLimits";
 import { AppRoutes } from "../App";
 import { resetHistoryStoreForTests } from "../history/historyStore";
 import { advancePastAiRequestTimeout, hangingFetch, mockReply, mockWrittenReplyVerdict } from "../test/apiMocks";

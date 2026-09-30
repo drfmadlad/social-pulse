@@ -22,6 +22,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { _resetRateLimiterForTests } from "../_lib/rateLimiter.js";
 import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../_lib/requestLimits.js";
+import * as appRequestLimits from "../../src/requestLimits.js";
 import type { VercelRequest, VercelResponse } from "../_lib/vercelTypes.js";
 import { createMockReq, createMockRes } from "./testHelpers.js";
 import { lessons, type WrittenReplyStep } from "../../src/lessons/lessons.js";
@@ -296,5 +297,13 @@ describe("a conversation run to its length limit through the app's conversation 
     const requestsSoFar = callAiProviderMock.mock.calls.length;
     await say(view, `${lineAtTheLengthLimit}a`);
     expect(callAiProviderMock).toHaveBeenCalledTimes(requestsSoFar);
+  });
+});
+
+describe("the request limits", () => {
+  // The app and the server each keep a copy (see src/requestLimits.ts for why they can't share
+  // one module). If the copies drift, the app builds requests the server rejects for their size.
+  it("are the same in the app and on the server", () => {
+    expect({ ...appRequestLimits }).toEqual({ MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH });
   });
 });

@@ -23,6 +23,16 @@ exclusion Vercel honors is a `_`-prefixed file or folder (`api/_lib/`, `api/_tes
 `vercel.json`'s `functions` block only configures matched functions, it does not exclude
 siblings. Flag any new non-handler file added directly under `api/` without a `_` prefix.
 
+## The browser app never imports from `api/`
+
+`vercel dev` routes every `/api/*` URL to the serverless functions, so Vite's dev server can't
+serve an `api/` module to the browser: an app import from `api/` 404s and the whole app renders
+blank, locally only, because a production build inlines the module and nothing warns you. A value
+both sides need is kept as two copies with a test that they agree (the request limits in
+`src/requestLimits.ts` and `api/_lib/requestLimits.ts`, checked by the contract tests).
+`api/_tests/appImportBoundary.test.ts` fails on any app module that imports from `api/`; test files
+are exempt, since they never reach the browser.
+
 ## Medium-density surfaces default to `--space-4` padding
 
 DESIGN.md §4 sets every non-Home list surface (Practice picker, Lessons list, History list) to

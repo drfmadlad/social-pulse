@@ -1,4 +1,4 @@
-import { MAX_MESSAGE_LENGTH } from "../../api/_lib/requestLimits";
+import { MAX_MESSAGE_LENGTH } from "../requestLimits";
 import type { WrittenReplyStep } from "./lessons";
 import type { WrittenReplyVerdict } from "./writtenReplyVerdict";
 

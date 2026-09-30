@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { StrictMode } from "react";
 import { createMemoryRouter, Outlet, RouterProvider, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../../api/_lib/requestLimits";
+import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../requestLimits";
 import { advancePastAiRequestTimeout, hangingFetch, mockError, mockReply } from "../test/apiMocks";
 import { ConversationScreen } from "./ConversationScreen";
 import { defaultScenarioOf } from "./scenarios";

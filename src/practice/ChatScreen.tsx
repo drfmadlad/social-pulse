@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useBlocker } from "react-router-dom";
-import { MAX_MESSAGE_LENGTH } from "../../api/_lib/requestLimits";
+import { MAX_MESSAGE_LENGTH } from "../requestLimits";
 import type { ChatMessage } from "./aiProxyClient";
 import { LeaveConversationDialog } from "./LeaveConversationDialog";
 import { useScreenDirection } from "../ScreenTransition";
