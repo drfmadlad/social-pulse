@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import App, { createAppRouteObjects } from "./App";
 import { attachFeedbackSummary, resetHistoryStoreForTests, saveEndedConversation } from "./history/historyStore";
 import { scenarioCategories } from "./practice/scenarioCategories";
+import { lessons } from "./lessons/lessons";
 import { mockFeedbackSummary, mockReply } from "./test/apiMocks";
+import { PRACTICE_OFFLINE_NOTICE, startOffline } from "./test/connection";
 import { clickToScreen, settleDeviceReads } from "./test/settleDeviceReads";
 
 function LocationDisplay() {
@@ -167,6 +169,36 @@ describe("App", () => {
 
     expect(screen.getByTestId("location")).toHaveTextContent("/lessons");
     expect(screen.getByRole("heading", { name: "Lessons" })).toBeInTheDocument();
+  });
+
+  it("keeps Lessons and History working offline, where only the Practice picker mentions the connection", async () => {
+    const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
+    await saveEndedConversation({
+      id: "entry-1",
+      category,
+      transcript: [{ role: "user", content: "Hi, nice to meet you!" }],
+    });
+    startOffline();
+
+    const lessonsVisit = await renderApp();
+    await clickToScreen(screen.getByRole("link", { name: /^Lessons/ }));
+    expect(screen.queryByText(PRACTICE_OFFLINE_NOTICE)).not.toBeInTheDocument();
+    await clickToScreen(screen.getByRole("link", { name: new RegExp(lessons[0].title) }));
+    expect(screen.getByTestId("location")).toHaveTextContent(`/lessons/${lessons[0].id}`);
+    expect(screen.getByRole("progressbar", { name: "Lesson progress" })).toHaveAttribute("aria-valuenow", "1");
+    lessonsVisit.unmount();
+
+    const historyVisit = await renderApp();
+    await clickToScreen(screen.getByRole("link", { name: /^History/ }));
+    expect(screen.queryByText(PRACTICE_OFFLINE_NOTICE)).not.toBeInTheDocument();
+    await clickToScreen(await screen.findByRole("link", { name: /Dating/ }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/history/entry-1");
+    expect(await screen.findByText("Hi, nice to meet you!")).toBeInTheDocument();
+    historyVisit.unmount();
+
+    await renderApp();
+    await clickToScreen(screen.getByRole("link", { name: "Start practicing" }));
+    expect(screen.getByText(PRACTICE_OFFLINE_NOTICE)).toBeInTheDocument();
   });
 
   it("redirects an unknown path to Home", async () => {

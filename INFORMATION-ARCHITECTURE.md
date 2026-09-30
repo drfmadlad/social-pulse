@@ -88,7 +88,11 @@ needs a user-facing `blurb` field on `ScenarioCategory`.
   straight back into it, skipping the Scenario brief. Only one card can show this.
 - **Offline.** Practice needs a connection. Offline, the screen says so ("You're offline — Practice
   needs a connection. Lessons work offline.") instead of letting a Conversation fail on its first
-  line.
+  line. The category cards stay on screen but can't be opened: each is a disabled link, still reachable
+  by keyboard and described by the notice, so a screen reader hears the category, that it's
+  unavailable, and why. Focus stays on a card as the connection changes. The screen
+  follows the connection live, so the notice appears if it drops while the picker is showing and
+  goes when it returns, without a reload. Lessons and History don't change offline.
 
 **Navigation:** from Home's primary action. A card → Scenario brief (or a Paused Conversation →
 Conversation). Back → Home.

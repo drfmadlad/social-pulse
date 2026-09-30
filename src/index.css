@@ -227,6 +227,12 @@ body {
   color: var(--ink-muted);
 }
 
+/* Offline, a category can't open a Conversation: dimmed the way a disabled pill is. */
+.scenario-list__card[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* DESIGN.md §6, Screen push. Movement and opacity are separate animations because they run for
    different durations. Whole screens never spring. */
 @keyframes screen-push-in {
@@ -539,7 +545,9 @@ body {
   font: var(--text-sm);
 }
 
-.history-save-notice {
+/* DESIGN.md §7's quiet notice: save failures, and Practice's offline note. */
+.history-save-notice,
+.offline-notice {
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--line);
