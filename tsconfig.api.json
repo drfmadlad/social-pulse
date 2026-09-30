@@ -14,5 +14,6 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["api"]
+  "include": ["api"],
+  "exclude": ["api/_tests/**/*.contract.test.ts"]
 }
