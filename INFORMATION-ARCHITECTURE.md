@@ -47,7 +47,7 @@ Actions the homepage also hosts, *inline, inside the cards*:
 
 ## 2. Proposed screens
 
-Eight screens. One job each.
+Ten screens. One job each.
 
 ### Home
 **Responsible for:** answering "what do I want to do right now?" Nothing else.
@@ -83,7 +83,35 @@ needs a user-facing `blurb` field on `ScenarioCategory`.
 
 **Moves here:** the 2×3 button grid, with more per item than the homepage could afford.
 
-**Navigation:** from Home's primary action. Back → Home.
+- **Your own.** A seventh card, after the six categories, for Own Scenarios.
+- **Paused Conversation.** When one is waiting, its card reads "Continue with Jordan" and opens
+  straight back into it, skipping the Scenario brief. Only one card can show this.
+- **Offline.** Practice needs a connection. Offline, the screen says so ("You're offline — Practice
+  needs a connection. Lessons work offline.") instead of letting a Conversation fail on its first
+  line.
+
+**Navigation:** from Home's primary action. A card → Scenario brief (or a Paused Conversation →
+Conversation). Back → Home.
+
+### Scenario brief
+**Responsible for:** setting up one Practice Conversation before it starts.
+
+- The Persona and what they're like, and the chosen Scenario's situation and the user's role in it.
+- **Scenario chooser.** The category's 3–4 Scenarios, defaulting to **Surprise me**, which picks
+  one at random when Start is tapped.
+- **Focus.** Optional, a short list of aims plus none. Leaving it empty is the default.
+- **Start** → Conversation.
+- **Paused Conversation waiting elsewhere.** Start asks first: starting this one discards the
+  paused one.
+
+For **Your own**, the chooser lists saved Own Scenarios instead, with **Write your own**: who
+you're talking to (a name and one line about them) and the situation, about 500 characters in
+all. Own Scenarios are kept on-device and can be edited or deleted from here.
+
+**Try again** (from a Feedback Summary or History entry) skips this screen and starts a fresh
+Conversation with the same Scenario and Focus.
+
+**Navigation:** from Practice picker. Back → Practice picker.
 
 ### Conversation
 **Responsible for:** one live Practice Conversation. Chrome-free, full viewport.
@@ -95,8 +123,22 @@ needs a user-facing `blurb` field on `ScenarioCategory`.
 
 **Moves here:** `ChatScreen`, currently squeezed into the Practice card.
 
-**Navigation:** from Practice picker. Back → confirm, then Practice picker. Today backing out
-silently discards the conversation with no warning; it should ask.
+- **Saved as it goes.** Every turn is kept on-device, so a reload, a crash or the phone closing
+  the app loses nothing. Leaving asks **Save for later** (it becomes the Paused Conversation) or
+  **Discard**. If the user hasn't said anything yet, leaving doesn't ask.
+- **Hint.** A quiet action for a one-line coaching nudge. It appears in the transcript, marked as
+  a Hint, and stays there for the Feedback Summary.
+- **Rewind.** Takes back the user's last message and the Persona's reply. Repeatable.
+- **Voice.** A mic button records the user's reply and fills the composer with the transcription
+  to send or edit. A speaker toggle in the top bar reads the Persona's replies aloud.
+- **Replies stream in** as they're written, rather than appearing whole.
+- **Length limit.** A quiet note a few turns before the limit; at the limit, the composer gives
+  way to **End & get feedback**. The user never sees a raw validation error.
+- **Natural ending.** When the Persona wraps up in character, a quiet note ("Jordan's wrapping
+  up") offers **Get feedback** as the primary action and **Keep talking** as secondary.
+
+**Navigation:** from Scenario brief, a Paused Conversation's card, or Try again. Back → Save for
+later / Discard, then Practice picker.
 
 ### Feedback Summary
 **Responsible for:** the review of one finished conversation. The app's payoff screen, and the
@@ -105,9 +147,18 @@ one place richer density is wanted.
 Two clearly-separated groups — what you did well, what you can do better — each point showing
 its quote and, where present, its explanation.
 
+- **Focus.** When one was set, a line at the top names it, and at least one point speaks to it.
+  Nothing says whether it was achieved.
+- **Try saying it this way.** Each "can do better" point also shows a rewritten version of the
+  quote.
+- **A Lesson for it.** A "can do better" point may link to the one Lesson that teaches its skill.
+  A point with no matching Lesson has no link.
+- **Try again** starts a fresh Conversation with the same Scenario and Focus. It isn't linked to
+  this one.
+
 **Navigation:** from Conversation's end action, at `/practice/:categoryId/feedback/:entryId`. Done
 → **Home**, not back to the category grid. You finished something; you should land somewhere that
-reflects that.
+reflects that. Try again → Conversation. A Lesson link → Lesson flow.
 
 **Saving.** The conversation saves to History the moment it ends, before its feedback exists.
 The Feedback Summary is added to that same entry when it arrives. So a summary that fails, or
@@ -145,8 +196,9 @@ the lesson, not on the homepage.
 **Responsible for:** taking the user through one Lesson a Lesson Step at a time, and marking it
 finished. It replaces Lesson detail on the same route, `/lessons/:lessonId`.
 
-Chrome-free and full viewport, like Conversation. A Lesson is 8–12 Lesson Steps: Explainers,
-Checks, Reply Choices and Written Replies, ending in exactly one Recap. DESIGN.md §3 (Lesson
+Chrome-free and full viewport, like Conversation. A Lesson is about 20 Lesson Steps: Explainers,
+Checks, Reply Choices and Written Replies, ending in exactly one Recap. The weight sits on practice
+(Reply Choice and Written Reply), not on more reading. DESIGN.md §3 (Lesson
 Steps) has the layout.
 
 - **Top:** segmented progress, one segment per step, and the leave action, which names its
@@ -168,17 +220,19 @@ Steps) has the layout.
   - **Next lesson** on another Lesson's Recap
   - a direct link
 
-  It always starts at step 1. An unknown Lesson id redirects to the Lessons list.
+  It starts at step 1, unless it was left partway (see below). An unknown Lesson id redirects to
+  the Lessons list.
 - **The leave action names its destination.** It reads "← Home" when the Lesson was opened from
   Today's idea, and "← Lessons" otherwise. The opener travels with the navigation. With none, as
   on a direct link, it's the Lessons list. A Lesson opened by Next lesson keeps the destination
   of the Lesson before it, so leaving still returns you to where you started.
 - **Back moves one step** inside the Lesson and isn't browser history. The system back gesture
   leaves the Lesson, the same as the leave action.
-- **Leaving restarts the Lesson.** Step position lives only inside the flow. Leaving by any means
-  (the leave action, system back, navigating elsewhere) discards it, and the next visit starts at
-  step 1. There's no confirmation: unlike a Practice Conversation, nothing is lost that can't be
-  redone in a minute.
+- **Leaving keeps your place.** At about 20 steps, restarting costs too much. The step position
+  is kept on-device when the Lesson is left by any means (the leave action, system back,
+  navigating elsewhere). Reopening it offers **Pick up at step N** or **Start over**. There's no
+  confirmation on leaving, since nothing is lost. Finishing clears the kept position. Answers
+  aren't kept, only the position.
 - **Finish leads to Next lesson / Done.** Finish on the Recap:
   1. marks the Lesson finished on-device, next to History;
   2. plays the celebration, the same every time;
@@ -198,7 +252,17 @@ Steps) has the layout.
 Empty state lives here, not on Home — so a new user never sees an empty box on their first
 screen.
 
-**Navigation:** from Home's History row. Back → Home.
+- **Insights row.** At the top, once 5 conversations have a Feedback Summary. Opens Insights.
+- **Filter** by Scenario Category, plus Own Scenarios as one group.
+- **Your data**, a quiet group at the bottom:
+  - **Export** saves every entry as one file, as a backup.
+  - **Import** merges a backup in, skipping entries already here. It never replaces.
+  - **Delete everything** asks first, saying it can't be undone, then shows the empty state.
+
+The app also asks the browser to keep its storage permanently, so saved History isn't cleared for
+lack of use. Nothing on screen depends on the answer.
+
+**Navigation:** from Home's History row. Back → Home. Insights row → Insights.
 
 ### History entry detail
 **Responsible for:** one past conversation — transcript plus its saved Feedback Summary.
@@ -213,7 +277,21 @@ transcript and its Feedback Summary together. It asks first and says the entry c
 then returns to the History list with the entry gone — or to the empty state if it was the last.
 If the delete fails, the entry stays and a calm note says so.
 
-**Navigation:** from History list. Back → History list.
+Shows the entry's Focus, when it had one, and offers **Try again** (see Scenario brief).
+
+**Navigation:** from History list or an Insight's citation. Back → where it was opened from. Try
+again → Conversation.
+
+### Insights
+**Responsible for:** recurring patterns across the user's saved Feedback Summaries.
+
+2–4 Insights, each a worded observation citing the conversations it came from, which open their
+History entries. Never numbers, counts, charts or trends over time.
+
+Generated only when the user taps **Refresh**, never by opening the screen, and saved until the
+next Refresh. The first visit shows only Refresh and a line about what it does.
+
+**Navigation:** from the History list's Insights row. Back → History list.
 
 ### Something went wrong
 **Responsible for:** catching a render error on any screen and offering a way back. Without it
@@ -247,12 +325,14 @@ outline that matches what's on screen and a landmark for where they are.
 |---|---|---|
 | Home | Social Pulse | none |
 | Practice picker | Practice | none |
+| Scenario brief | the persona's name | none |
 | Conversation | the persona's name | none |
 | Feedback Summary | Feedback on your conversation with the persona | `h2` for each of the two groups |
 | Lessons list | Lessons | none |
 | Lesson flow | the Lesson's title, **visually hidden** | `h2` for the step's title or prompt; on the Recap a visually hidden `h2` "Recap" with `h3` for Apply it |
 | History list | History | none |
 | History entry detail | the category with the persona | `h2` for each Feedback Summary group |
+| Insights | Insights | none |
 | Something went wrong | Something went wrong | none |
 
 A heading's level is semantics only. Its size and weight come from the type scale in DESIGN.md
@@ -275,8 +355,8 @@ are in DESIGN.md §7 (Update offer).
   and that includes other tabs: the generated register script would reload every open tab when one
   of them took an update, so registration is the app's own (`src/useAppUpdate.ts`) and a tab reloads
   only after its own user tapped Reload.
-- **Held back on the Conversation and the Lesson flow.** A reload there loses a Practice Conversation
-  or a Lesson's step position, so the note doesn't show on those screens and appears on the next
+- **Held back on the Conversation and the Lesson flow.** Both keep their place on-device, but a reload
+  there still breaks the user's train of thought mid-exchange, so the note doesn't show on those screens and appears on the next
   screen the user reaches. The Feedback Summary shows it: that conversation is already saved.
 - It adds no heading and no navigation, so it doesn't touch the heading structure above or the
   navigation model below.
@@ -288,12 +368,15 @@ pushes onto it.
 
 ```
 Home
-├── Practice picker → Conversation → Feedback Summary ──→ (Done) Home
+├── Practice picker → Scenario brief → Conversation → Feedback Summary ──→ (Done) Home
+│        └── (Paused Conversation) Conversation          ├──→ (Try again) Conversation
+│                                                        └──→ (A Lesson for it) Lesson flow
 ├── Lessons list ──→ Lesson flow ──→ (Next lesson) Lesson flow
 │                        └──→ (Done or ← Lessons) Lessons list
 ├── (Today's idea) Lesson flow ──→ (Next lesson) Lesson flow
 │                        └──→ (Done or ← Home) Home
-└── History list ──→ History entry detail
+└── History list ──→ History entry detail ──→ (Try again) Conversation
+         └──→ Insights ──→ History entry detail
 ```
 
 Lesson Steps change inside the Lesson flow screen, not as pushes onto the stack (DESIGN.md §6).
@@ -334,5 +417,12 @@ Stepped Lessons add these exclusions:
   the answers went. No screen reports how a Lesson's answers went, and there's no extra reward
   for a perfect run.
 - **No tracking of Apply It.** The app never asks whether you did it.
+
+Practice additions add these:
+- **No difficulty levels.** A harder Scenario is a situation (the Persona is already upset), not
+  a setting to climb.
+- **No verdict on a Focus.** The Feedback Summary speaks to it, never marks it achieved.
+- **No linked attempts.** Try again starts a fresh conversation; nothing compares it with the last.
+- **Insights have no numbers.** No counts, charts or trends over time.
 
 `REFERENCE-NOTES.md` §1 lists the Gleam functions excluded for these reasons.
