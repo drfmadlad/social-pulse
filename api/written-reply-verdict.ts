@@ -34,5 +34,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     { role: "user", content: reply },
   ];
 
-  await sendAiProviderReply(res, finalMessages);
+  await sendAiProviderReply(res, finalMessages, "written_reply_verdict");
 }

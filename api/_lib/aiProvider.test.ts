@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { callAiProvider, type ChatMessage } from "./aiProvider.js";
+import { callAiProvider, type AiJob, type ChatMessage } from "./aiProvider.js";
 
 const originalEnv = { ...process.env };
 
@@ -14,7 +14,11 @@ beforeEach(() => {
   process.env = { ...originalEnv };
   process.env.GEMINI_API_KEY = "test-secret-key";
   delete process.env.AI_PROVIDER;
-  delete process.env.AI_MODEL;
+  // Covers AI_MODEL and every per-job AI_MODEL_* setting, so a developer's own shell can't leak
+  // into which model a test sees.
+  for (const name of Object.keys(process.env)) {
+    if (name.startsWith("AI_MODEL")) delete process.env[name];
+  }
 });
 
 afterEach(() => {
@@ -31,7 +35,7 @@ describe("callAiProvider", () => {
   it("throws a provider_error when no API key is configured", async () => {
     delete process.env.GEMINI_API_KEY;
 
-    await expect(callAiProvider(messages)).rejects.toMatchObject({
+    await expect(callAiProvider(messages, "conversation")).rejects.toMatchObject({
       kind: "provider_error",
     });
   });
@@ -39,7 +43,7 @@ describe("callAiProvider", () => {
   it("throws a provider_error for an unsupported AI_PROVIDER value", async () => {
     process.env.AI_PROVIDER = "openai";
 
-    await expect(callAiProvider(messages)).rejects.toMatchObject({
+    await expect(callAiProvider(messages, "conversation")).rejects.toMatchObject({
       kind: "provider_error",
     });
   });
@@ -53,7 +57,7 @@ describe("callAiProvider", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await callAiProvider(messages);
+    const result = await callAiProvider(messages, "conversation");
 
     expect(result).toEqual({ content: "Hello back!" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -67,23 +71,77 @@ describe("callAiProvider", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await callAiProvider(messages);
+    await callAiProvider(messages, "conversation");
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).not.toContain("test-secret-key");
     expect((init.headers as Record<string, string>)["x-goog-api-key"]).toBe("test-secret-key");
   });
 
-  it("defaults to gemini-3.5-flash-lite when AI_MODEL is unset", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse(200, { candidates: [{ content: { parts: [{ text: "hi" }] } }] }),
+  describe("choosing the model per job", () => {
+    const jobs: Array<{ job: AiJob; setting: string; defaultModel: string }> = [
+      { job: "conversation", setting: "AI_MODEL_CONVERSATION", defaultModel: "gemini-3.5-flash-lite" },
+      { job: "hint", setting: "AI_MODEL_HINT", defaultModel: "gemini-3.5-flash-lite" },
+      {
+        job: "written_reply_verdict",
+        setting: "AI_MODEL_WRITTEN_REPLY_VERDICT",
+        defaultModel: "gemini-3.5-flash-lite",
+      },
+      { job: "transcription", setting: "AI_MODEL_TRANSCRIPTION", defaultModel: "gemini-3.5-flash-lite" },
+      { job: "feedback_summary", setting: "AI_MODEL_FEEDBACK_SUMMARY", defaultModel: "gemini-3.5-flash" },
+      { job: "insight", setting: "AI_MODEL_INSIGHT", defaultModel: "gemini-3.5-flash" },
+    ];
+
+    async function modelRequestedFor(job: AiJob): Promise<string> {
+      const fetchMock = vi.fn().mockResolvedValue(
+        jsonResponse(200, { candidates: [{ content: { parts: [{ text: "hi" }] } }] }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      await callAiProvider(messages, job);
+
+      const [url] = fetchMock.mock.calls[0] as [string];
+      return url.match(/\/models\/([^:]+):generateContent$/)?.[1] ?? url;
+    }
+
+    it.each(jobs)("uses $setting for the $job job when it is set", async ({ job, setting }) => {
+      process.env.AI_MODEL = "shared-model";
+      process.env[setting] = "job-specific-model";
+
+      expect(await modelRequestedFor(job)).toBe("job-specific-model");
+    });
+
+    it.each(jobs)("falls back to AI_MODEL for the $job job when $setting is unset", async ({ job }) => {
+      process.env.AI_MODEL = "shared-model";
+
+      expect(await modelRequestedFor(job)).toBe("shared-model");
+    });
+
+    it.each(jobs)("treats a blank $setting as unset", async ({ job, setting }) => {
+      process.env.AI_MODEL = "shared-model";
+      process.env[setting] = "  ";
+
+      expect(await modelRequestedFor(job)).toBe("shared-model");
+    });
+
+    it.each(jobs)(
+      "defaults the $job job to $defaultModel when neither setting is set",
+      async ({ job, defaultModel }) => {
+        expect(await modelRequestedFor(job)).toBe(defaultModel);
+      },
     );
-    vi.stubGlobal("fetch", fetchMock);
 
-    await callAiProvider(messages);
+    it("treats a blank AI_MODEL as unset, as a copied example env file leaves it", async () => {
+      process.env.AI_MODEL = "";
 
-    const [url] = fetchMock.mock.calls[0] as [string];
-    expect(url).toContain("gemini-3.5-flash-lite");
+      expect(await modelRequestedFor("feedback_summary")).toBe("gemini-3.5-flash");
+    });
+
+    it("never lets one job's setting change another job's model", async () => {
+      process.env.AI_MODEL_FEEDBACK_SUMMARY = "summary-only-model";
+
+      expect(await modelRequestedFor("conversation")).toBe("gemini-3.5-flash-lite");
+    });
   });
 
   it("sends the system message as systemInstruction and other turns as contents", async () => {
@@ -92,11 +150,14 @@ describe("callAiProvider", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await callAiProvider([
-      { role: "system", content: "Be nice." },
-      { role: "user", content: "Hello" },
-      { role: "assistant", content: "Hi!" },
-    ]);
+    await callAiProvider(
+      [
+        { role: "system", content: "Be nice." },
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi!" },
+      ],
+      "conversation",
+    );
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
@@ -113,7 +174,7 @@ describe("callAiProvider", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await callAiProvider([{ role: "system", content: "Be nice." }]);
+    await callAiProvider([{ role: "system", content: "Be nice." }], "conversation");
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
@@ -125,7 +186,7 @@ describe("callAiProvider", () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("network down"));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(callAiProvider(messages)).rejects.toSatisfy((error: unknown) => {
+    await expect(callAiProvider(messages, "conversation")).rejects.toSatisfy((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       return !message.includes("test-secret-key");
     });
@@ -135,7 +196,7 @@ describe("callAiProvider", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(429, { error: "rate limit" }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(callAiProvider(messages)).rejects.toMatchObject({
+    await expect(callAiProvider(messages, "conversation")).rejects.toMatchObject({
       kind: "rate_limited",
     });
   });
@@ -144,7 +205,7 @@ describe("callAiProvider", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(500, { error: "boom" }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(callAiProvider(messages)).rejects.toMatchObject({
+    await expect(callAiProvider(messages, "conversation")).rejects.toMatchObject({
       kind: "provider_error",
     });
   });
@@ -153,7 +214,7 @@ describe("callAiProvider", () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("network down"));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(callAiProvider(messages)).rejects.toMatchObject({
+    await expect(callAiProvider(messages, "conversation")).rejects.toMatchObject({
       kind: "provider_error",
     });
   });
@@ -162,7 +223,7 @@ describe("callAiProvider", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { unexpected: true }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(callAiProvider(messages)).rejects.toMatchObject({
+    await expect(callAiProvider(messages, "conversation")).rejects.toMatchObject({
       kind: "provider_error",
     });
   });
@@ -173,7 +234,7 @@ describe("callAiProvider", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(callAiProvider(messages)).rejects.toMatchObject({
+    await expect(callAiProvider(messages, "conversation")).rejects.toMatchObject({
       kind: "blocked",
     });
   });
@@ -184,7 +245,7 @@ describe("callAiProvider", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(callAiProvider(messages)).rejects.toMatchObject({
+    await expect(callAiProvider(messages, "conversation")).rejects.toMatchObject({
       kind: "blocked",
     });
   });
@@ -195,7 +256,7 @@ describe("callAiProvider", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(callAiProvider(messages)).rejects.toSatisfy((error: unknown) => {
+    await expect(callAiProvider(messages, "conversation")).rejects.toSatisfy((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       return (
         !message.includes("SAFETY") &&
@@ -212,10 +273,10 @@ describe("callAiProvider", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(callAiProvider(messages)).rejects.toMatchObject({
+    await expect(callAiProvider(messages, "conversation")).rejects.toMatchObject({
       kind: "provider_error",
     });
-    await expect(callAiProvider(messages)).rejects.toSatisfy((error: unknown) => {
+    await expect(callAiProvider(messages, "conversation")).rejects.toSatisfy((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       return !message.toLowerCase().includes("unexpected response shape");
     });
@@ -227,7 +288,7 @@ describe("callAiProvider", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(callAiProvider(messages)).rejects.toMatchObject({
+    await expect(callAiProvider(messages, "conversation")).rejects.toMatchObject({
       kind: "provider_error",
     });
   });

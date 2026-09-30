@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "./vercelTypes.js";
-import { AiProviderError, callAiProvider, type ChatMessage } from "./aiProvider.js";
+import { AiProviderError, callAiProvider, type AiJob, type ChatMessage } from "./aiProvider.js";
 import { isAllowedOrigin } from "./originCheck.js";
 import { checkRateLimit, getClientKey } from "./rateLimiter.js";
 
@@ -32,12 +32,17 @@ export function rejectDisallowedRequest(req: VercelRequest, res: VercelResponse)
 }
 
 /**
- * Calls the AI provider with the endpoint's fully-resolved messages and writes its reply, mapping
- * a provider failure to the same distinguishable status every AI proxy endpoint uses.
+ * Calls the AI provider with the endpoint's fully-resolved messages, on the model configured for
+ * the endpoint's job, and writes its reply, mapping a provider failure to the same
+ * distinguishable status every AI proxy endpoint uses.
  */
-export async function sendAiProviderReply(res: VercelResponse, messages: ChatMessage[]): Promise<void> {
+export async function sendAiProviderReply(
+  res: VercelResponse,
+  messages: ChatMessage[],
+  job: AiJob,
+): Promise<void> {
   try {
-    const result = await callAiProvider(messages);
+    const result = await callAiProvider(messages, job);
     res.status(200).json({ message: { role: "assistant", content: result.content } });
   } catch (error) {
     if (error instanceof AiProviderError) {
