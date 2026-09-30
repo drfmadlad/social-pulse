@@ -11,7 +11,9 @@ which requires explicit `.js` extensions on relative imports. `tsconfig.api.json
 `moduleResolution: "NodeNext"`, so a missing extension is a typecheck error, not a
 `FUNCTION_INVOCATION_FAILED` discovered after deploy. Flag any relative import under `api/`
 that omits its `.js` extension, even in a test file — nothing in `api/` is exempt from this
-rule, whether or not it's excluded from deployment.
+rule, whether or not it's excluded from deployment. Contract tests (`api/_tests/*.contract.test.ts`)
+also import `src/`, so they're typechecked by `tsconfig.contract.json` under Bundler resolution
+instead, where a missing extension compiles: review is the only check there.
 
 ## Every file under `api/` is a public endpoint unless excluded
 

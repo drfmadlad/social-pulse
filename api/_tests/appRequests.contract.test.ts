@@ -10,8 +10,8 @@
  *
  * ADDING AN ENDPOINT (Hints, transcription, Insights, ...): register its handler in
  * `handlersByEndpoint`, then add its cases to `contractCases`, each calling the app's client
- * function with the inputs its screen passes (every edge the screen can produce, like an empty
- * list) and an AI reply that client accepts. Nothing else in this file needs to change.
+ * function with the inputs its screen passes (including edge shapes like an empty list) and an
+ * AI reply that client accepts. Nothing else in this file needs to change.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { _resetRateLimiterForTests } from "../_lib/rateLimiter.js";
