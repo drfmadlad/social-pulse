@@ -1,0 +1,22 @@
+// Contract tests (api/_tests/*.contract.test.ts) import both the app's client code and the real
+// serverless handlers. Neither side's config can check that: tsconfig.api.json's NodeNext
+// resolution rejects src/'s extensionless imports, and tsconfig.app.json has no Node types for
+// api/. Bundler resolution with DOM and Node types accepts both.
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "Bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["api/_tests/**/*.contract.test.ts"]
+}
