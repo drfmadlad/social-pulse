@@ -3,6 +3,7 @@ import { rejectDisallowedRequest, sendAiProviderReply } from "./_lib/aiProxyHand
 import type { ChatMessage } from "./_lib/aiProvider.js";
 import { buildFeedbackSummaryPrompt, FEEDBACK_SUMMARY_CLOSING_MESSAGE } from "./_lib/feedbackSummaryPrompt.js";
 import { getFocusPrompt, type FocusPrompt } from "./_lib/focusPrompts.js";
+import { OWN_SCENARIO_REQUIREMENTS, parseOwnScenario, type OwnScenarioText } from "./_lib/ownScenarioPrompts.js";
 import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "./_lib/requestLimits.js";
 import { isBoundedString } from "./_lib/validation.js";
 
@@ -63,8 +64,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // An Own Scenario's conversation (issue #67) sends its description too, so the coach knows the
+  // situation. It's optional, so a request from an app that predates it is unchanged, and it's
+  // validated, capped and wrapped the same way the conversation request's is.
+  let ownScenario: OwnScenarioText | undefined;
+  if (req.body?.ownScenario !== undefined) {
+    ownScenario = parseOwnScenario(req.body.ownScenario);
+    if (ownScenario === undefined) {
+      res.status(400).json({ error: { code: "invalid_request", message: OWN_SCENARIO_REQUIREMENTS } });
+      return;
+    }
+  }
+
   const finalMessages: ChatMessage[] = [
-    { role: "system", content: buildFeedbackSummaryPrompt(categoryName, personaName, focus) },
+    { role: "system", content: buildFeedbackSummaryPrompt(categoryName, personaName, focus, ownScenario) },
     ...transcript,
     { role: "user", content: FEEDBACK_SUMMARY_CLOSING_MESSAGE },
   ];

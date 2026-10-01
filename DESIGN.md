@@ -385,6 +385,30 @@ Medium density (§4), top to bottom with `--space-6` between blocks:
 
 The screen pushes in like any other (§6); choosing an option uses Option select.
 
+**Your own** (the brief in Own mode) is the same screen with its parts swapped, so it takes the same
+tokens and spacing, and keeps the Focus picker and Start exactly as above:
+- **The title** is "Your own", `--text-title`, with one `--ink-muted` line under it in the persona
+  line's place saying what it's for and where the text is kept.
+- **The chooser** lists the saved ones as the same outlined pills, each with the person's name in
+  600 and the start of the situation under it in `--text-sm`, on one line with an ellipsis, so two
+  with the same name can be told apart. Below the situation panel (the person, then "The situation",
+  with the user's line breaks kept) a row of three `button-secondary` pills, **Edit**, **Delete**
+  and **Write your own**, wrapping at phone width, `--space-2` apart.
+- **The form** stacks its fields `--space-4` apart: a `--text-sm` 600 `--ink` label above each input,
+  44px minimum, `--radius-sm`, a `--ink-faint` edge (the 3:1 tier for input edges) on `--canvas`,
+  like the composer. The optional line has a `--text-sm` `--ink-muted` hint, the situation is a
+  five-row textarea that grows vertically, and a `--text-sm` `--ink-muted` count ("N of 500
+  characters left.") sits under it. **Save** is the filled `--primary` pill with **Cancel**, outlined,
+  beside it (no Cancel while nothing's saved to go back to). With saved ones the form has an `h2`
+  ("Write your own" or "Edit") in `--text-heading`.
+- **Problems** ("Say who you'll be talking to.", "Describe the situation.", the over-the-cap line)
+  are `--text-sm` 600 `--ink`, under the field they're about, shown only once Save is tried (the
+  over-the-cap line, which only the name or the line can cause, shows as soon as it's true). They're
+  neutral, not an error colour or icon, like the other quiet notices. A failed save says "Couldn't
+  save that. Try again." in the same style.
+- **Delete** uses the same confirmation as deleting a History entry (the `leave-dialog`), and says
+  conversations already had in it stay in History.
+
 **On the Conversation,** the Scenario's situation and the user's role open the transcript as one
 quiet block: `--text-sm` `--ink-muted`, centred, with a `--line` hairline under it. It isn't a
 notice (no ground, no edge) and scrolls away with the transcript.

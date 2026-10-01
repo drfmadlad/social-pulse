@@ -23,7 +23,11 @@ function pathnameFor(route: RouteObject): string {
 describe("holdsBackUpdateOffer", () => {
   it("holds the offer back on every full-viewport route in App", () => {
     const fullViewport = routes().filter(isFullViewport);
-    expect(fullViewport.map((route) => route.path)).toEqual(["/practice/:categoryId/:scenarioId", "/lessons/:lessonId"]);
+    expect(fullViewport.map((route) => route.path)).toEqual([
+      "/practice/own/:scenarioId",
+      "/practice/:categoryId/:scenarioId",
+      "/lessons/:lessonId",
+    ]);
 
     for (const route of fullViewport) {
       expect(holdsBackUpdateOffer(pathnameFor(route)), route.path).toBe(true);

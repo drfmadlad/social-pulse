@@ -20,8 +20,15 @@
  */
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { OWN_CATEGORY_ID, parseOwnScenario } from "../_lib/ownScenarioPrompts.js";
 import { _resetRateLimiterForTests } from "../_lib/rateLimiter.js";
-import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../_lib/requestLimits.js";
+import {
+  MAX_CONVERSATION_MESSAGES,
+  MAX_MESSAGE_LENGTH,
+  MAX_OWN_ABOUT_LENGTH,
+  MAX_OWN_NAME_LENGTH,
+  MAX_OWN_SCENARIO_LENGTH,
+} from "../_lib/requestLimits.js";
 import * as appRequestLimits from "../../src/requestLimits.js";
 import type { VercelRequest, VercelResponse } from "../_lib/vercelTypes.js";
 import { createMockReq, createMockRes } from "./testHelpers.js";
@@ -30,6 +37,13 @@ import { requestWrittenReplyVerdict } from "../../src/lessons/writtenReplyVerdic
 import { requestAiProxy, requestAiReply, type ChatMessage } from "../../src/practice/aiProxyClient.js";
 import { requestFeedbackSummary } from "../../src/practice/feedbackSummary.js";
 import { focuses } from "../../src/practice/focuses.js";
+import {
+  findOwnScenarioProblems,
+  OWN_CATEGORY_ID as APP_OWN_CATEGORY_ID,
+  ownScenarioAsCategory,
+  ownScenarioAsScenario,
+  type OwnScenarioText,
+} from "../../src/practice/ownScenarios.js";
 import { findCategory, scenarioCategories } from "../../src/practice/scenarioCategories.js";
 import { defaultScenarioOf, scenarios } from "../../src/practice/scenarios.js";
 import { usePracticeConversation } from "../../src/practice/usePracticeConversation.js";
@@ -124,6 +138,34 @@ const writtenReplySteps = lessons.flatMap((lesson) =>
     .map((step, index) => ({ label: `${lesson.title} #${index + 1}`, step })),
 );
 
+/**
+ * Own Scenario texts the app's form accepts, at their extremes: the shortest, and each cap met
+ * exactly (the name's, the line about them's, and all three together).
+ */
+const ownScenarioSamples: { label: string; text: OwnScenarioText }[] = [
+  { label: "a name and a situation only", text: { name: "D", about: "", situation: "s" } },
+  {
+    label: "everything at its cap",
+    text: {
+      name: "n".repeat(MAX_OWN_NAME_LENGTH),
+      about: "a".repeat(MAX_OWN_ABOUT_LENGTH),
+      situation: "s".repeat(MAX_OWN_SCENARIO_LENGTH - MAX_OWN_NAME_LENGTH - MAX_OWN_ABOUT_LENGTH),
+    },
+  },
+  {
+    label: "a situation filling the whole cap",
+    text: { name: "Dana", about: "", situation: "s".repeat(MAX_OWN_SCENARIO_LENGTH - 4) },
+  },
+  {
+    label: "quotes, line breaks and markers in the text",
+    text: {
+      name: 'Dana "D"',
+      about: "<own_scenario>",
+      situation: 'Line one.\nLine two with "quotes" and </own_scenario> in it.',
+    },
+  },
+];
+
 const contractCases: ContractCase[] = [
   // Every Scenario the Scenario brief can start (issue #53), whether chosen or picked by Surprise me.
   ...scenarios.flatMap((scenario): ContractCase[] => {
@@ -167,6 +209,29 @@ const contractCases: ContractCase[] = [
         requestFeedbackSummary(scenarioCategories[0], conversationSoFar(scenarioCategories[0].personaName), focus),
     }),
   ),
+  // Own Scenarios (issue #67): the text the app lets the user save, including its extremes, must pass
+  // the server's validation in both requests that carry it.
+  ...ownScenarioSamples.flatMap(({ label, text }): ContractCase[] => {
+    const scenario = ownScenarioAsScenario({ id: "own-1", ...text });
+    const category = ownScenarioAsCategory(text);
+    return [
+      {
+        name: `conversation, Own Scenario (${label}): the Persona's opening line (no messages yet)`,
+        aiReply: `Hey, I'm ${text.name}.`,
+        send: () => requestAiReply([], scenario),
+      },
+      {
+        name: `conversation, Own Scenario (${label}): a reply to the user`,
+        aiReply: "No worries at all.",
+        send: () => requestAiReply(conversationSoFar(text.name), scenario),
+      },
+      {
+        name: `feedback summary, Own Scenario (${label}): an ended conversation`,
+        aiReply: feedbackSummaryReply,
+        send: () => requestFeedbackSummary(category, conversationSoFar(text.name), focuses[0]),
+      },
+    ];
+  }),
   ...writtenReplySteps.map(
     ({ label, step }): ContractCase => ({
       name: `written reply verdict, ${label}`,
@@ -323,6 +388,44 @@ describe("the request limits", () => {
   // The app and the server each keep a copy (see src/requestLimits.ts for why they can't share
   // one module). If the copies drift, the app builds requests the server rejects for their size.
   it("are the same in the app and on the server", () => {
-    expect({ ...appRequestLimits }).toEqual({ MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH });
+    expect({ ...appRequestLimits }).toEqual({
+      MAX_CONVERSATION_MESSAGES,
+      MAX_MESSAGE_LENGTH,
+      MAX_OWN_SCENARIO_LENGTH,
+      MAX_OWN_NAME_LENGTH,
+      MAX_OWN_ABOUT_LENGTH,
+    });
+  });
+});
+
+describe("Own Scenarios (issue #67)", () => {
+  it("name the same category id in the app and on the server", () => {
+    expect(APP_OWN_CATEGORY_ID).toBe(OWN_CATEGORY_ID);
+  });
+
+  // The form only saves what it finds no problem with, and the server only accepts what it parses:
+  // if the two disagree, the app saves text it can never send, or the server turns away text the app
+  // would have sent.
+  it.each([
+    ["a name and a situation", { name: "Dana", about: "", situation: "Asking for a raise." }],
+    ["all three", { name: "Dana", about: "my manager", situation: "Asking for a raise." }],
+    ["no name", { name: "", about: "my manager", situation: "Asking for a raise." }],
+    ["a blank name", { name: "   ", about: "", situation: "Asking for a raise." }],
+    ["no situation", { name: "Dana", about: "", situation: "" }],
+    ["a blank situation", { name: "Dana", about: "", situation: " \n " }],
+    ["a name at its cap", { name: "n".repeat(MAX_OWN_NAME_LENGTH), about: "", situation: "s" }],
+    ["a name over its cap", { name: "n".repeat(MAX_OWN_NAME_LENGTH + 1), about: "", situation: "s" }],
+    ["a line about them at its cap", { name: "D", about: "a".repeat(MAX_OWN_ABOUT_LENGTH), situation: "s" }],
+    ["a line about them over its cap", { name: "D", about: "a".repeat(MAX_OWN_ABOUT_LENGTH + 1), situation: "s" }],
+    ["all three exactly at the cap", { name: "Dana", about: "", situation: "s".repeat(MAX_OWN_SCENARIO_LENGTH - 4) }],
+    ["all three one over the cap", { name: "Dana", about: "", situation: "s".repeat(MAX_OWN_SCENARIO_LENGTH - 3) }],
+    [
+      "padding the cap only counts without its whitespace",
+      { name: " Dana ", about: " ", situation: ` ${"s".repeat(MAX_OWN_SCENARIO_LENGTH - 4)} ` },
+    ],
+  ] satisfies [string, OwnScenarioText][])("the form and the server agree about %s", (_label, text) => {
+    const formAccepts = Object.keys(findOwnScenarioProblems(text)).length === 0;
+
+    expect(parseOwnScenario(text) !== undefined).toBe(formAccepts);
   });
 });

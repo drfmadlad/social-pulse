@@ -2,6 +2,7 @@ import { useId } from "react";
 import { useHref, useLinkClickHandler } from "react-router-dom";
 import { HomeLink } from "../HomeLink";
 import { useOnlineStatus } from "../useOnlineStatus";
+import { ownScenarioCard } from "./ownScenarios";
 import { scenarioBriefPath } from "./practicePaths";
 import { scenarioCategories, type ScenarioCategory } from "./scenarioCategories";
 
@@ -62,7 +63,8 @@ export function PracticePickerScreen() {
         )}
       </div>
       <ul className="scenario-list">
-        {scenarioCategories.map((category) => (
+        {/* Your own is the seventh card, after the six categories (issue #67). */}
+        {[...scenarioCategories, ownScenarioCard].map((category) => (
           <li key={category.id}>
             <CategoryCard category={category} online={online} offlineNoticeId={offlineNoticeId} />
           </li>

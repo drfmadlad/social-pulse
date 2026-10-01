@@ -2,6 +2,12 @@ import type { VercelRequest, VercelResponse } from "./_lib/vercelTypes.js";
 import { rejectDisallowedRequest, sendAiProviderReply } from "./_lib/aiProxyHandler.js";
 import type { ChatMessage } from "./_lib/aiProvider.js";
 import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "./_lib/requestLimits.js";
+import {
+  getOwnScenarioPrompt,
+  OWN_CATEGORY_ID,
+  OWN_SCENARIO_REQUIREMENTS,
+  parseOwnScenario,
+} from "./_lib/ownScenarioPrompts.js";
 import { getDefaultScenarioId, getScenarioPrompt } from "./_lib/scenarioPrompts.js";
 
 function isValidMessage(value: unknown): value is ChatMessage {
@@ -43,6 +49,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({
       error: { code: "invalid_request", message: "Request body must include a non-empty `categoryId` string." },
     });
+    return;
+  }
+
+  // An Own Scenario (issue #67) is the one case where the caller's own text is part of the prompt, so
+  // it's checked and wrapped before anything else touches it. It has no Scenario Category or Scenario
+  // id: the category id says so, and the text rides along.
+  const ownScenarioText: unknown = req.body?.ownScenario;
+  if (categoryId === OWN_CATEGORY_ID || ownScenarioText !== undefined) {
+    const ownScenario = categoryId === OWN_CATEGORY_ID ? parseOwnScenario(ownScenarioText) : undefined;
+    if (ownScenario === undefined) {
+      res.status(400).json({
+        error: {
+          code: "invalid_request",
+          message: `Send \`ownScenario\` with \`categoryId\` "${OWN_CATEGORY_ID}", and only then. ${OWN_SCENARIO_REQUIREMENTS}`,
+        },
+      });
+      return;
+    }
+
+    await sendAiProviderReply(
+      res,
+      [{ role: "system", content: getOwnScenarioPrompt(ownScenario) }, ...messages],
+      "conversation",
+    );
     return;
   }
 

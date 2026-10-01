@@ -2,7 +2,7 @@ import { useState } from "react";
 import { findFocus } from "../practice/focuses";
 import { FocusLine } from "../practice/FocusLine";
 import { SavedFeedbackSummary } from "../practice/SavedFeedbackSummary";
-import { findCategory } from "../practice/scenarioCategories";
+import { categoryOfEntry } from "../practice/ownScenarios";
 import { TranscriptView } from "../practice/TranscriptView";
 import { TryAgainButton } from "../practice/TryAgainButton";
 import { DeleteHistoryEntryDialog } from "./DeleteHistoryEntryDialog";
@@ -37,7 +37,7 @@ export function HistoryEntryDetail({ entry, deleteFailed, onBack, onDelete }: Hi
       <TranscriptView transcript={entry.transcript} personaName={entry.personaName} />
       <SavedFeedbackSummary
         entryId={entry.id}
-        category={findCategory(entry.categoryId)}
+        category={categoryOfEntry(entry)}
         focus={focus}
         transcript={entry.transcript}
         savedSummary={entry.summary}

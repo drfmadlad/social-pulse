@@ -383,6 +383,92 @@ body {
   width: 100%;
 }
 
+/* The Own Scenario brief (issue #67) reuses the brief's chooser, situation panel, Focus picker and
+   Start, and adds a form and the chosen one's actions. Medium density, like the rest of the brief. */
+.own-option__name {
+  display: block;
+  font-weight: 600;
+}
+
+/* A saved situation's first line, so two with the same name can be told apart. */
+.own-option__situation {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--text-sm);
+}
+
+.own-situation {
+  white-space: pre-wrap;
+}
+
+.own-chosen-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-6);
+}
+
+.own-form-panel {
+  margin: 0 0 var(--space-6);
+}
+
+.own-form-panel__heading {
+  margin: 0 0 var(--space-4);
+  font: var(--text-heading);
+}
+
+.own-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-4);
+}
+
+.own-form__field label {
+  font: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.own-form__field input,
+.own-form__field textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ink-faint);
+  font: var(--text-body);
+  color: var(--ink);
+  background: var(--canvas);
+}
+
+.own-form__field textarea {
+  resize: vertical;
+}
+
+.own-form__hint,
+.own-form__problem {
+  margin: 0;
+  font: var(--text-sm);
+}
+
+.own-form__hint {
+  color: var(--ink-muted);
+}
+
+/* A neutral note, not an alarm: the same ink as the rest of the form, like the other quiet notices. */
+.own-form__problem {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.own-form__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
 /* DESIGN.md §6, Screen push. Movement and opacity are separate animations because they run for
    different durations. Whole screens never spring. */
 @keyframes screen-push-in {

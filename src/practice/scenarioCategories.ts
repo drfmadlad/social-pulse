@@ -8,6 +8,12 @@ export interface ScenarioCategory {
    */
   personaDescription: string;
   blurb: string;
+  /**
+   * Set only on the stand-in for an Own Scenario (`ownScenarioAsCategory`), so the Feedback Summary
+   * request can send what the user wrote. The same shape as `OwnScenarioText`, spelled out because
+   * this file, like `scenarios.ts`, has to stay free of imports (`api/_tests/` loads it).
+   */
+  own?: { name: string; about: string; situation: string };
 }
 
 export const scenarioCategories: ScenarioCategory[] = [

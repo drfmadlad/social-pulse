@@ -6,6 +6,10 @@
  * - `/practice/:categoryId/:scenarioId`: a Conversation set in that Scenario, with `?focus=<id>`
  *   when it has a Focus
  * - `/practice/:categoryId/feedback/:entryId`: a finished conversation's Feedback Summary
+ *
+ * An Own Scenario (issue #67) has no category: `own` takes the category's place in all of them, and
+ * its id the Scenario's. `/practice/own` is its brief, and `App.tsx` routes it, and its Conversation,
+ * ahead of the dynamic routes.
  */
 export function scenarioBriefPath(categoryId: string): string {
   return `/practice/${categoryId}`;

@@ -67,6 +67,21 @@ describe("heading structure", () => {
     expectSaneHeadingHierarchy(container);
   });
 
+  it("Own Scenario brief has exactly one h1 and no skipped levels, with the form, the chooser and an edit open", async () => {
+    const { container } = await renderScreen("/practice/own");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Your own");
+    expectSaneHeadingHierarchy(container);
+
+    fireEvent.change(screen.getByLabelText("Who you'll be talking to"), { target: { value: "Dana" } });
+    fireEvent.change(screen.getByLabelText("The situation"), { target: { value: "Asking for a raise." } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByRole("button", { name: "Start" });
+    expectSaneHeadingHierarchy(container);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expectSaneHeadingHierarchy(container);
+  });
+
   it("Conversation has exactly one h1 and no skipped levels", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you.")));
     const { container, findByText } = await renderScreen(`/practice/dating/${defaultScenarioOf(datingCategory.id)!.id}`);

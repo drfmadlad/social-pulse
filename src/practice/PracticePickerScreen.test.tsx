@@ -34,6 +34,20 @@ describe("PracticePickerScreen", () => {
     }
   });
 
+  it("ends with Your own, a seventh card for Own Scenarios (issue #67), opening its brief", () => {
+    renderPicker();
+
+    const cards = screen.getAllByRole("link").filter((link) => link.className.includes("scenario-list__card"));
+    expect(cards).toHaveLength(7);
+    expect(cards[6]).toHaveTextContent("Your own");
+    expect(cards[6]).toHaveTextContent("a situation you write yourself");
+    expect(cards[6]).toHaveAttribute("href", "/practice/own");
+
+    fireEvent.click(cards[6]);
+
+    expect(screen.getByText("Scenario brief opened")).toBeInTheDocument();
+  });
+
   it("opens a category's Scenario brief when its card is tapped", () => {
     renderPicker();
 
@@ -76,6 +90,19 @@ describe("PracticePickerScreen", () => {
         card.focus();
         expect(card).toHaveFocus();
       }
+    });
+
+    it("treats Your own like a category: it can't start a Conversation, so its card is unavailable too", () => {
+      startOffline();
+      renderPicker();
+
+      const card = categoryCard("Your own");
+      expect(card).not.toHaveAttribute("href");
+      expect(card).toHaveAttribute("aria-disabled", "true");
+      expect(card).toHaveAccessibleDescription(PRACTICE_OFFLINE_NOTICE);
+
+      fireEvent.click(card);
+      expect(screen.queryByText("Scenario brief opened")).not.toBeInTheDocument();
     });
 
     it("doesn't open a Scenario brief when a category is tapped", () => {
