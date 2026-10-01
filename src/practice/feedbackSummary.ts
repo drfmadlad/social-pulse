@@ -52,7 +52,8 @@ function isGroundedInTranscript(summary: FeedbackSummary, transcript: ChatMessag
 
 /**
  * Asks for the Feedback Summary of an ended conversation. A Focus is named by id alone: the server
- * resolves its wording and rejects an id it doesn't know.
+ * resolves its wording and rejects an id it doesn't know. An Own Scenario's stand-in category (issue
+ * #67) sends what the user wrote too, so the coach knows the situation.
  */
 export async function requestFeedbackSummary(
   category: ScenarioCategory,
@@ -64,6 +65,7 @@ export async function requestFeedbackSummary(
     personaName: category.personaName,
     transcript,
     ...(focus && { focusId: focus.id }),
+    ...(category.own && { ownScenario: category.own }),
   });
 
   let parsed: unknown;

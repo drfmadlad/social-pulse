@@ -1,9 +1,10 @@
 const DB_NAME = "social-pulse";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export const HISTORY_STORE = "historyEntries";
 export const LESSON_PROGRESS_STORE = "lessonProgress";
 export const LESSON_POSITION_STORE = "lessonPositions";
+export const OWN_SCENARIOS_STORE = "ownScenarios";
 
 export function promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -28,6 +29,9 @@ export function openDb(): Promise<IDBDatabase> {
     }
     if (!db.objectStoreNames.contains(LESSON_POSITION_STORE)) {
       db.createObjectStore(LESSON_POSITION_STORE, { keyPath: "lessonId" });
+    }
+    if (!db.objectStoreNames.contains(OWN_SCENARIOS_STORE)) {
+      db.createObjectStore(OWN_SCENARIOS_STORE, { keyPath: "id" });
     }
   };
   return promisifyRequest(request);

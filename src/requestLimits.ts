@@ -20,3 +20,13 @@ export const MAX_CONVERSATION_MESSAGES = 80;
  * Written Reply. The app caps both inputs at this length.
  */
 export const MAX_MESSAGE_LENGTH = 2000;
+
+/**
+ * What an Own Scenario's text may hold (issue #67): the Persona's name, one line about them and the
+ * situation. The three together are capped, and the name and the line get a cap of their own so the
+ * situation always keeps most of the room. The form stops at these, and the server rejects anything
+ * over them.
+ */
+export const MAX_OWN_SCENARIO_LENGTH = 500;
+export const MAX_OWN_NAME_LENGTH = 40;
+export const MAX_OWN_ABOUT_LENGTH = 160;

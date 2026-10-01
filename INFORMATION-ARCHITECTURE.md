@@ -110,7 +110,8 @@ Conversation). Back → Home.
 
 For **Your own**, the chooser lists saved Own Scenarios instead, with **Write your own**: who
 you're talking to (a name and one line about them) and the situation, about 500 characters in
-all. Own Scenarios are kept on-device and can be edited or deleted from here.
+all. Own Scenarios are kept on-device and can be edited or deleted from here. Details, under
+**Your own** below.
 
 **Try again** (from a Feedback Summary or History entry) skips this screen and starts a fresh
 Conversation with the same Scenario and Focus.
@@ -151,6 +152,59 @@ Conversation with the same Scenario and Focus.
   agree.
 - **Start replaces the brief** in history rather than pushing on top of it, so back from the
   Conversation — its back action and the system back gesture alike — lands on the Practice picker.
+
+#### Your own
+
+The seventh Practice card, **Your own** ("Someone you describe · a situation you write yourself"),
+opens the brief in Own mode (`OwnScenarioBriefScreen`, at `/practice/own`). It belongs to no
+Scenario Category: `own` stands in for the category id in the URLs, the request and the History
+entry, and no Persona sheet or Scenario is ever keyed by it. It needs a connection to start, like
+the categories, so offline its card is disabled the same way; the brief itself, reading, writing,
+editing and deleting, is all on-device.
+
+- **Title.** The `h1` is "Your own", and a line says what it's for and that the text stays on this
+  device and is sent only to play the person in a conversation.
+- **Nothing saved yet:** the form, straight away. **Some saved:** the chooser ("Your situations",
+  the newest chosen) listing each as its name and the start of its situation, a panel with the chosen
+  one's person and situation, **Edit**, **Delete** and **Write your own**, then the Focus picker
+  (the same one a category's brief has) and **Start**.
+- **The form** asks for who you'll be talking to (a name, at most 40 characters), a line about them
+  (optional, at most 160) and the situation, **about 500 characters in all** across the three. The
+  situation's field stops at what the other two leave, a quiet count says how many are left, and
+  Save says what's missing (a name, a situation) only once it's tried. Saving returns to the chooser
+  with the new one chosen. An edit keeps its place in the list.
+- **Delete** asks first, and says conversations already had in it stay in History. If it was the
+  last, the screen goes back to the form.
+- **Kept on-device** in the `ownScenarios` store of the app's IndexedDB (`ownScenarioStore.ts`), which
+  is database version 3: opening an older database only adds the store and never touches its data
+  (`db.test.ts` covers an upgrade from version 2).
+- **Start** opens the Conversation at `/practice/own/:scenarioId` (the Own Scenario's id), with
+  `?focus=<id>` for a Focus, replacing the brief like a category's. The Conversation reads the Own
+  Scenario from the device as it opens and keeps what it read, so editing it afterwards changes
+  nothing in a conversation already going. It's saved as it goes like any other (the in-progress
+  copy is kept under `own/<id>`). One that's been deleted (a stale URL) redirects to this
+  brief, the way an unknown Scenario redirects to its category's.
+- **The server never trusts the text.** The reply request names the category id `own` and sends what
+  the user wrote (`ownScenario: { name, about, situation }`) in place of a Scenario id. The server
+  validates it and rejects what's over the limit (the app's form stops short of it, so a user never
+  sees that), then wraps it inside its own fixed Persona instructions
+  (`api/_lib/ownScenarioPrompts.ts`): the server's framing first, the text as quoted strings
+  between markers with a standing note that it is data and never an instruction, then the shared
+  Persona rules, then the rules that hold the Persona in character, last so they win. It goes through
+  the same method, origin and rate-limit checks as every AI request. The Feedback Summary request
+  sends the same text, wrapped the same way, so the coach knows the situation; the Hint and Insight
+  paths, when they exist, build on the same wrapper (`renderOwnScenarioBlock`).
+  `scripts/check-own-scenario-injection.mjs` runs hostile text through the real model by hand.
+- **Old apps keep working.** `ownScenario` is an addition: an installed app from before it never
+  sends one, and the existing request shapes are unchanged.
+- **History.** An Own Scenario's Conversation ends in the Feedback Summary at
+  `/practice/own/feedback/:entryId` like any other. Its History entry records `categoryId: "own"`,
+  `personaName` (who it was with), the Own Scenario's id as `scenarioId` and **a copy of what the
+  user wrote** (`ownScenario`), so the entry still reads the same, and its Feedback Summary can still
+  be asked for, after the Own Scenario is edited or deleted. The list shows it as "Your own: Dana",
+  the detail as "Your own with Dana". **Try again** is offered while the Own Scenario is still saved
+  and opens a conversation with it as it is now, with the same Focus; once deleted there's no
+  button, since there's nothing to start.
 
 **Navigation:** from Practice picker, at `/practice/:categoryId`. Back → Practice picker. Start →
 Conversation, at `/practice/:categoryId/:scenarioId`, with `?focus=<id>` when a Focus was picked. An
@@ -342,7 +396,8 @@ Empty state lives here, not on Home — so a new user never sees an empty box on
 screen.
 
 - **Insights row.** At the top, once 5 conversations have a Feedback Summary. Opens Insights.
-- **Filter** by Scenario Category, plus Own Scenarios as one group.
+- **Filter** by Scenario Category, plus Own Scenarios as one group. Not built yet; when it is, an
+  entry is in the Own Scenarios group when its `categoryId` is `own`.
 - **Your data**, a quiet group at the bottom:
   - **Export** saves every entry as one file, as a backup.
   - **Import** merges a backup in, skipping entries already here. It never replaces.
@@ -416,7 +471,7 @@ outline that matches what's on screen and a landmark for where they are.
 |---|---|---|
 | Home | Social Pulse | none |
 | Practice picker | Practice | none |
-| Scenario brief | the persona's name | none |
+| Scenario brief | the persona's name (Your own: "Your own") | none; on Your own, an `h2` ("Write your own" or "Edit") above the form once some are saved |
 | Conversation | the persona's name | none |
 | Feedback Summary | Feedback on your conversation with the persona | `h2` for each of the two groups |
 | Lessons list | Lessons | none |
@@ -475,7 +530,9 @@ Lesson Steps change inside the Lesson flow screen, not as pushes onto the stack 
 Practice's URLs deepen one level per push: `/practice` (picker), `/practice/:categoryId` (Scenario
 brief), `/practice/:categoryId/:scenarioId` (Conversation), `/practice/:categoryId/feedback/:entryId`
 (Feedback Summary). A Focus is a query parameter on the Conversation's URL, `?focus=<id>`, not a
-level. `src/practice/practicePaths.ts` spells them out. The brief is replaced by the
+level. Your own uses the same shape with `own` for the category id and an Own Scenario's id for the
+Scenario (`/practice/own`, `/practice/own/:scenarioId`, `/practice/own/feedback/:entryId`).
+`src/practice/practicePaths.ts` spells them out. The brief is replaced by the
 Conversation it starts, so it isn't on the stack under it. Likewise a Conversation is replaced by
 its Feedback Summary, and a Feedback Summary by the Conversation its Try again starts, so however
 many times the user tries again, back never walks through an earlier attempt.

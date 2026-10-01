@@ -7,6 +7,19 @@
  * Kept free of imports: `api/_tests/` checks it against the server's Scenarios under NodeNext
  * resolution, which rejects `src/`'s extensionless imports.
  */
+/**
+ * The text of an Own Scenario (`ownScenarios.ts`). Declared here, not there, because this file has
+ * to stay free of imports.
+ */
+export interface OwnScenarioText {
+  /** Who they'll be talking to. */
+  name: string;
+  /** One line about them. May be empty. */
+  about: string;
+  /** Where the conversation is set, and who the user is to them. */
+  situation: string;
+}
+
 export interface Scenario {
   /** Unique within its category. Named in the Conversation's URL, the conversation request and the History entry. */
   id: string;
@@ -17,6 +30,11 @@ export interface Scenario {
   situation: string;
   /** Who the user is in it. */
   role: string;
+  /**
+   * Set only on an Own Scenario (`ownScenarios.ts`), which has no server-side prompt piece: the
+   * user's text is what each reply request sends, in place of a Scenario id the server would look up.
+   */
+  own?: OwnScenarioText;
 }
 
 /** Every category's Scenarios, in the order the Scenario brief's chooser lists them. */

@@ -92,7 +92,14 @@ export async function requestAiProxy(endpoint: string, body: unknown): Promise<C
  * Names the Practice Conversation's Scenario Category and Scenario instead of carrying their
  * prompt: the Persona's sheet and the Scenario's situation live only in the serverless function,
  * keyed by these ids, and it rejects a Scenario it doesn't know.
+ *
+ * An Own Scenario (issue #67) has no id the server could look up, so it sends what the user wrote
+ * instead, which the server validates, caps and wraps in its own Persona instructions.
  */
 export async function requestAiReply(messages: ChatMessage[], scenario: Scenario): Promise<ChatMessage> {
-  return requestAiProxy("/api/conversation", { messages, categoryId: scenario.categoryId, scenarioId: scenario.id });
+  return requestAiProxy("/api/conversation", {
+    messages,
+    categoryId: scenario.categoryId,
+    ...(scenario.own ? { ownScenario: scenario.own } : { scenarioId: scenario.id }),
+  });
 }

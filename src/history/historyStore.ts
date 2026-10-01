@@ -3,7 +3,7 @@ import type { ChatMessage } from "../practice/aiProxyClient";
 import type { FeedbackSummary } from "../practice/feedbackSummary";
 import type { Focus } from "../practice/focuses";
 import type { ScenarioCategory } from "../practice/scenarioCategories";
-import type { Scenario } from "../practice/scenarios";
+import type { OwnScenarioText, Scenario } from "../practice/scenarios";
 
 export interface HistoryEntry {
   id: string;
@@ -24,6 +24,13 @@ export interface HistoryEntry {
    * gives nothing for a Focus since removed.
    */
   focusId?: string;
+  /**
+   * What the user wrote, for a conversation set in an Own Scenario (issue #67), whose `categoryId` is
+   * "own" and whose `scenarioId` is the Own Scenario's. A copy, so the entry still reads the way it
+   * did, and its Feedback Summary can still be asked for, once the Own Scenario is edited or deleted.
+   * Absent on every other entry; like `scenarioId` and `focusId`, it needed no database upgrade.
+   */
+  ownScenario?: OwnScenarioText;
   transcript: ChatMessage[];
   /** Null until the Feedback Summary arrives, and for good if it never did. */
   summary: FeedbackSummary | null;
@@ -87,6 +94,7 @@ export async function saveEndedConversation(conversation: {
       personaName: conversation.category.personaName,
       scenarioId: conversation.scenario.id,
       ...(conversation.focus && { focusId: conversation.focus.id }),
+      ...(conversation.category.own && { ownScenario: conversation.category.own }),
       transcript: conversation.transcript,
       summary: null,
       endedAt: new Date().toISOString(),

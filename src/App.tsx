@@ -11,6 +11,8 @@ import { AppUpdateOffer } from "./AppUpdateOffer";
 import { HomeScreen } from "./HomeScreen";
 import { ConversationScreen } from "./practice/ConversationScreen";
 import { FeedbackSummaryRoute } from "./practice/FeedbackSummaryRoute";
+import { OwnConversationScreen } from "./practice/OwnConversationScreen";
+import { OwnScenarioBriefScreen } from "./practice/OwnScenarioBriefScreen";
 import { PracticePickerScreen } from "./practice/PracticePickerScreen";
 import { ScenarioBriefScreen } from "./practice/ScenarioBriefScreen";
 import { LessonFlowScreen } from "./lessons/LessonFlowScreen";
@@ -45,6 +47,10 @@ export function createAppRouteObjects() {
       <Route path="/" element={<ScreenTransition><HomeScreen /></ScreenTransition>} />
       <Route path="/practice" element={<ScreenTransition><PracticePickerScreen /></ScreenTransition>} />
       {/* The Practice paths are spelled out in practice/practicePaths.ts. */}
+      {/* Own Scenarios (issue #67) have no category: "own" stands in, and its two routes outrank the dynamic ones
+          below. Its Feedback Summary is the route below's, with categoryId "own". */}
+      <Route path="/practice/own" element={<ScreenTransition><OwnScenarioBriefScreen /></ScreenTransition>} />
+      <Route path="/practice/own/:scenarioId" element={<OwnConversationScreen />} />
       <Route path="/practice/:categoryId" element={<ScreenTransition><ScenarioBriefScreen /></ScreenTransition>} />
       {/* Conversation and the Lesson flow are position:fixed/full-viewport; they animate themselves instead of via this wrapper. */}
       <Route path="/practice/:categoryId/:scenarioId" element={<ConversationScreen />} />
