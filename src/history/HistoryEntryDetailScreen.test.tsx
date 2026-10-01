@@ -5,6 +5,7 @@ import { scenarioCategories } from "../practice/scenarioCategories";
 import { mockError, mockFeedbackSummary } from "../test/apiMocks";
 import { findFocus } from "../practice/focuses";
 import { defaultScenarioOf } from "../practice/scenarios";
+import { LocationDisplay } from "../test/LocationDisplay";
 import { putStoredHistoryEntry } from "../test/storedHistory";
 import {
   attachFeedbackSummary,
@@ -24,9 +25,11 @@ vi.mock("./historyStore", async (importOriginal) => {
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
+      <LocationDisplay />
       <Routes>
         <Route path="/history" element={<div>History list</div>} />
         <Route path="/history/:entryId" element={<HistoryEntryDetailScreen />} />
+        <Route path="/practice/:categoryId/:scenarioId" element={<div>Conversation stub</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -246,5 +249,71 @@ describe("HistoryEntryDetailScreen", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("What you did well")).toBeInTheDocument();
+  });
+
+  describe("Try again (issue #66)", () => {
+    // Which Scenario and Focus it starts with, for old and outdated entries too, is TryAgainButton's
+    // own test. These cover where it sits on this screen and what it's handed.
+    const TRY_AGAIN = "Try again in a new conversation";
+
+    function tapTryAgain() {
+      fireEvent.click(screen.getByRole("button", { name: TRY_AGAIN }));
+    }
+
+    function location() {
+      return screen.getByTestId("location").textContent;
+    }
+
+    it("sits after the feedback and before Delete, and starts a fresh conversation in the same Scenario", async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
+      await attachFeedbackSummary("entry-1", {
+        didWell: [{ quote: "Hi, nice to meet you!" }],
+        canImprove: [{ quote: "Hi, nice to meet you!" }],
+      });
+
+      renderAt("/history/entry-1");
+      const canImprove = await screen.findByRole("heading", { name: "What you can do better" });
+      const tryAgain = screen.getByRole("button", { name: TRY_AGAIN });
+      const deleteButton = screen.getByRole("button", { name: "Delete" });
+      expect(canImprove.compareDocumentPosition(tryAgain) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(tryAgain.compareDocumentPosition(deleteButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+      fireEvent.click(tryAgain);
+
+      expect(screen.getByText("Conversation stub")).toBeInTheDocument();
+      expect(location()).toBe("/practice/dating/coffee-first-date");
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("keeps the entry's Focus", async () => {
+      vi.stubGlobal("fetch", vi.fn());
+      await saveEndedConversation({
+        id: "entry-1",
+        category,
+        scenario: defaultScenarioOf(category.id)!,
+        focus: findFocus("wrapping-up"),
+        transcript,
+      });
+
+      renderAt("/history/entry-1");
+      await screen.findByText("Wrapping up gracefully");
+      tapTryAgain();
+
+      expect(location()).toBe("/practice/dating/coffee-first-date?focus=wrapping-up");
+    });
+
+    it("is offered on an entry whose feedback never arrived, too", async () => {
+      vi.stubGlobal("fetch", vi.fn());
+      await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
+
+      renderAt("/history/entry-1");
+      await screen.findByText("Feedback didn't come through for this one.");
+      tapTryAgain();
+
+      expect(location()).toBe("/practice/dating/coffee-first-date");
+    });
+
   });
 });

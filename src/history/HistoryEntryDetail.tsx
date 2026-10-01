@@ -4,6 +4,7 @@ import { FocusLine } from "../practice/FocusLine";
 import { SavedFeedbackSummary } from "../practice/SavedFeedbackSummary";
 import { findCategory } from "../practice/scenarioCategories";
 import { TranscriptView } from "../practice/TranscriptView";
+import { TryAgainButton } from "../practice/TryAgainButton";
 import { DeleteHistoryEntryDialog } from "./DeleteHistoryEntryDialog";
 import { formatEntryTimestamp } from "./formatEntryTimestamp";
 import type { HistoryEntry } from "./historyStore";
@@ -41,6 +42,8 @@ export function HistoryEntryDetail({ entry, deleteFailed, onBack, onDelete }: Hi
         transcript={entry.transcript}
         savedSummary={entry.summary}
       />
+      {/* Pushed, so back from the new conversation returns to this entry. */}
+      <TryAgainButton conversation={entry} />
       {deleteFailed && (
         <div role="alert" className="chat-screen__error history-entry-detail__delete-error">
           <p>Couldn&apos;t delete this conversation. It&apos;s still in History.</p>

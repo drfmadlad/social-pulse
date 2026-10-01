@@ -740,16 +740,27 @@ body {
   font: var(--text-sm);
 }
 
-.button-primary {
+/* The pills: filled for a screen's primary action, outlined for a secondary one beside it. */
+.button-primary,
+.button-secondary {
   min-height: 44px;
   padding: var(--space-3) var(--space-4);
-  border: none;
   border-radius: var(--radius-full);
-  background: var(--primary);
-  color: var(--on-primary);
   font: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
+}
+
+.button-primary {
+  border: none;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.button-secondary {
+  border: 1px solid var(--primary);
+  background: none;
+  color: var(--primary);
 }
 
 .button-primary:disabled {
@@ -889,6 +900,13 @@ body {
   margin: 0 0 var(--space-3);
   color: var(--ink-muted);
   font: var(--text-sm);
+}
+
+/* DESIGN.md §3 (Scenario brief), Try again: an outlined pill sized to its label, on its own line
+   after the feedback, so it doesn't outrank Done. */
+.try-again-button {
+  display: block;
+  margin-top: var(--space-6);
 }
 
 .history-entry-detail__delete-error {

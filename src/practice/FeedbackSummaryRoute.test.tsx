@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   attachFeedbackSummary,
@@ -8,15 +8,11 @@ import {
   saveEndedConversation,
 } from "../history/historyStore";
 import { mockError, mockFeedbackSummary, mockReply } from "../test/apiMocks";
+import { LocationDisplay } from "../test/LocationDisplay";
 import { findFocus } from "./focuses";
 import { defaultScenarioOf } from "./scenarios";
 import { FeedbackSummaryRoute, type EndedConversationState } from "./FeedbackSummaryRoute";
 import { scenarioCategories } from "./scenarioCategories";
-
-function LocationDisplay() {
-  const location = useLocation();
-  return <div data-testid="location">{location.pathname}</div>;
-}
 
 function renderAt(path: string, state?: unknown) {
   return render(
@@ -26,6 +22,7 @@ function renderAt(path: string, state?: unknown) {
         <Route path="/" element={<div>Home</div>} />
         <Route path="/practice" element={<div>Practice picker</div>} />
         <Route path="/practice/:categoryId/feedback/:entryId" element={<FeedbackSummaryRoute />} />
+        <Route path="/practice/:categoryId/:scenarioId" element={<div>Conversation stub</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -318,6 +315,110 @@ describe("FeedbackSummaryRoute", () => {
 
       expect(screen.getByTestId("location")).toHaveTextContent("/");
       expect(await getAllHistoryEntries()).toHaveLength(1);
+    });
+  });
+
+  describe("Try again (issue #66)", () => {
+    const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
+    const savedSummary = {
+      didWell: [{ quote: "Hi, nice to meet you!" }],
+      canImprove: [{ quote: "Hi, nice to meet you!" }],
+    };
+
+    // Which Scenario and Focus it starts with, for old and outdated entries too, is TryAgainButton's
+    // own test. These cover where it sits on this screen and when it's there.
+    const TRY_AGAIN = "Try again in a new conversation";
+
+    function tapTryAgain() {
+      fireEvent.click(screen.getByRole("button", { name: TRY_AGAIN }));
+    }
+
+    it("comes after the feedback, and starts a fresh conversation in the same Scenario without the brief", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating/feedback/entry-1", endedConversation);
+      const canImprove = await screen.findByRole("heading", { name: "What you can do better" });
+      const tryAgain = screen.getByRole("button", { name: TRY_AGAIN });
+      expect(canImprove.compareDocumentPosition(tryAgain) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+      fireEvent.click(tryAgain);
+
+      expect(screen.getByText("Conversation stub")).toBeInTheDocument();
+      expect(screen.getByTestId("location").textContent).toBe("/practice/dating/coffee-first-date");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the conversation's Focus", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockFeedbackSummary()));
+
+      renderAt("/practice/dating/feedback/entry-1", { ...endedConversation, focusId: "staying-calm" });
+      await screen.findByText("What you did well");
+      tapTryAgain();
+
+      expect(screen.getByTestId("location").textContent).toBe("/practice/dating/coffee-first-date?focus=staying-calm");
+    });
+
+    it("is there while the feedback is still generating, too", async () => {
+      const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating/feedback/entry-1", endedConversation);
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      tapTryAgain();
+
+      expect(screen.getByTestId("location").textContent).toBe("/practice/dating/coffee-first-date");
+    });
+
+    it("works after a reload, reading the Scenario and Focus off the saved entry", async () => {
+      vi.stubGlobal("fetch", vi.fn());
+      await saveEndedConversation({
+        id: "entry-1",
+        category,
+        scenario: defaultScenarioOf(category.id)!,
+        focus: findFocus("handling-silences"),
+        transcript,
+      });
+      await attachFeedbackSummary("entry-1", savedSummary);
+
+      renderAt("/practice/dating/feedback/entry-1");
+      await screen.findByText("What you did well");
+      tapTryAgain();
+
+      expect(screen.getByTestId("location").textContent).toBe(
+        "/practice/dating/coffee-first-date?focus=handling-silences",
+      );
+    });
+
+    it("waits for the conversation to save, so leaving can't strand its entry without feedback", async () => {
+      const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating/feedback/entry-1", endedConversation);
+
+      // Still saving: the feedback hasn't been asked for yet.
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: TRY_AGAIN })).not.toBeInTheDocument();
+
+      expect(await screen.findByRole("button", { name: TRY_AGAIN })).toBeInTheDocument();
+      expect(await getAllHistoryEntries()).toHaveLength(1);
+    });
+
+    it("is told apart from the feedback's own retry when the feedback fails", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(mockError(500, "provider_error", "Could not generate feedback right now."));
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating/feedback/entry-1", endedConversation);
+      const alert = await screen.findByRole("alert");
+
+      // The retry keeps its plain name, and is the only button that has it.
+      expect(alert).toContainElement(screen.getByRole("button", { name: "Try again" }));
+      tapTryAgain();
+
+      expect(screen.getByText("Conversation stub")).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 });

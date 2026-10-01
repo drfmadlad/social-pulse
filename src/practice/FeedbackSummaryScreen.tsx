@@ -8,6 +8,7 @@ import { FocusLine } from "./FocusLine";
 import type { ScenarioCategory } from "./scenarioCategories";
 import type { Scenario } from "./scenarios";
 import { SavedFeedbackSummary } from "./SavedFeedbackSummary";
+import { TryAgainButton } from "./TryAgainButton";
 
 interface FeedbackSummaryScreenProps {
   category: ScenarioCategory;
@@ -76,6 +77,15 @@ export function FeedbackSummaryScreen({
         />
       ) : (
         <p role="status">Generating your feedback…</p>
+      )}
+      {/* Only once the conversation has saved: leaving before then would unmount the summary before
+          it's asked for, leaving the entry without feedback. It replaces this screen, which by then
+          is safe in History, so back from the new conversation doesn't walk back through this one. */}
+      {saved && (
+        <TryAgainButton
+          conversation={{ categoryId: category.id, scenarioId: scenario.id, focusId: focus?.id }}
+          replace
+        />
       )}
     </div>
   );

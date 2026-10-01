@@ -4,6 +4,7 @@ import { createMemoryRouter, Outlet, RouterProvider, useLocation } from "react-r
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../requestLimits";
 import { advancePastAiRequestTimeout, hangingFetch, mockError, mockReply } from "../test/apiMocks";
+import { pressSystemBack } from "../test/systemBack";
 import { ConversationScreen } from "./ConversationScreen";
 import { defaultScenarioOf } from "./scenarios";
 
@@ -58,13 +59,6 @@ function requestedMessages(fetchMock: ReturnType<typeof vi.fn>, callIndex: numbe
 function sendMessage(content: string) {
   fireEvent.change(screen.getByLabelText("Message"), { target: { value: content } });
   fireEvent.click(screen.getByRole("button", { name: "Send" }));
-}
-
-/** Simulates the system back gesture / browser back, which react-router surfaces as a POP navigation. */
-async function pressSystemBack(router: ReturnType<typeof createMemoryRouter>) {
-  await act(async () => {
-    await router.navigate(-1);
-  });
 }
 
 afterEach(() => {
@@ -348,6 +342,26 @@ describe("ConversationScreen", () => {
     ]);
     // So its History entry records the Scenario it was set in (issue #53).
     expect(location.state.scenarioId).toBe("coffee-first-date");
+  });
+
+  it("replaces the ended conversation with its Feedback Summary, so system back can't reopen it as a live one", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply("Hey! Good to see you."))
+      .mockResolvedValueOnce(mockReply("Likewise!"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { router } = renderAt("/practice/dating/coffee-first-date");
+    await screen.findByText("Hey! Good to see you.");
+    sendMessage("Hi, nice to meet you!");
+    await screen.findByText("Likewise!");
+    fireEvent.click(screen.getByRole("button", { name: "End & get feedback" }));
+    expect(screen.getByText("Feedback Summary stub")).toBeInTheDocument();
+
+    await pressSystemBack(router);
+
+    expect(screen.getByText("Practice picker")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("disables End & get feedback until the user has sent a message", async () => {

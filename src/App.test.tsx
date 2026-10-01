@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { createMemoryRouter, Outlet, RouterProvider, useLocation } from "react-router-dom";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { createMemoryRouter, Outlet, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App, { createAppRouteObjects } from "./App";
 import {
@@ -14,12 +14,9 @@ import { lessons } from "./lessons/lessons";
 import { mockFeedbackSummary, mockReply } from "./test/apiMocks";
 import { PRACTICE_OFFLINE_NOTICE, startOffline } from "./test/connection";
 import { clickToScreen, settleDeviceReads } from "./test/settleDeviceReads";
+import { LocationDisplay } from "./test/LocationDisplay";
 import { putStoredHistoryEntry } from "./test/storedHistory";
-
-function LocationDisplay() {
-  const location = useLocation();
-  return <div data-testid="location">{location.pathname}</div>;
-}
+import { pressSystemBack } from "./test/systemBack";
 
 async function renderApp(initialPath = "/") {
   const router = createMemoryRouter(
@@ -42,7 +39,17 @@ async function renderApp(initialPath = "/") {
   );
   const view = render(<RouterProvider router={router} />);
   await settleDeviceReads();
-  return view;
+  return { ...view, router };
+}
+
+/** The system back gesture, then whatever the screen it lands on reads from the device. */
+async function pressSystemBackToScreen(router: ReturnType<typeof createMemoryRouter>) {
+  await pressSystemBack(router);
+  await settleDeviceReads();
+}
+
+function currentUrl() {
+  return screen.getByTestId("location").textContent;
 }
 
 afterEach(async () => {
@@ -269,5 +276,124 @@ describe("App", () => {
     await renderApp("/this-does-not-exist");
 
     expect(screen.getByTestId("location")).toHaveTextContent("/");
+  });
+
+  describe("Try again (issue #66)", () => {
+    function say(content: string) {
+      fireEvent.change(screen.getByLabelText("Message"), { target: { value: content } });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    }
+
+    it("from a Feedback Summary, starts a fresh, unlinked conversation that back leads out of to the Practice picker", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(mockReply("Hey! Thanks for coming out tonight."))
+        .mockResolvedValueOnce(mockReply("That sounds like a great start!"))
+        .mockResolvedValueOnce(mockFeedbackSummary())
+        .mockResolvedValueOnce(mockReply("Hi again, nice place, right?"))
+        .mockResolvedValueOnce(mockReply("It really is."))
+        .mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+      const scenario = defaultScenarioOf("dating")!;
+
+      const { router } = await renderApp("/");
+      await clickToScreen(screen.getByRole("link", { name: "Start practicing" }));
+      await clickToScreen(screen.getByRole("link", { name: /^Dating/ }));
+      fireEvent.click(screen.getByRole("radio", { name: scenario.title }));
+      fireEvent.click(screen.getByRole("radio", { name: "Staying calm" }));
+      await clickToScreen(screen.getByRole("button", { name: "Start" }));
+      await screen.findByText("Hey! Thanks for coming out tonight.");
+      say("Hi, nice to meet you!");
+      await screen.findByText("That sounds like a great start!");
+      await clickToScreen(screen.getByRole("button", { name: "End & get feedback" }));
+      await screen.findByText("What you did well");
+      const firstEntryUrl = currentUrl();
+
+      await clickToScreen(screen.getByRole("button", { name: "Try again in a new conversation" }));
+
+      // Straight into the same Scenario and Focus, with no brief on the way.
+      expect(currentUrl()).toBe(`/practice/dating/${scenario.id}?focus=staying-calm`);
+      expect(await screen.findByText("Hi again, nice place, right?")).toBeInTheDocument();
+      expect(screen.queryByText("Hi, nice to meet you!")).not.toBeInTheDocument();
+      expect(screen.queryByText("That sounds like a great start!")).not.toBeInTheDocument();
+
+      say("Hi, nice to meet you!");
+      await screen.findByText("It really is.");
+      await clickToScreen(screen.getByRole("button", { name: "End & get feedback" }));
+      await screen.findByText("What you did well");
+
+      // A History entry like any other: nothing names or compares the earlier attempt.
+      expect(currentUrl()).not.toBe(firstEntryUrl);
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Feedback on your conversation with Jordan");
+      const secondFeedbackRequest = JSON.parse(fetchMock.mock.calls[5][1].body as string);
+      expect(Object.keys(secondFeedbackRequest).sort()).toEqual(["categoryName", "focusId", "personaName", "transcript"]);
+      expect(secondFeedbackRequest.transcript).toEqual([
+        { role: "assistant", content: "Hi again, nice place, right?" },
+        { role: "user", content: "Hi, nice to meet you!" },
+        { role: "assistant", content: "It really is." },
+      ]);
+      const entries = await getAllHistoryEntries();
+      expect(entries).toHaveLength(2);
+      expect(Object.keys(entries[0]).sort()).toEqual(Object.keys(entries[1]).sort());
+
+      // Neither ended conversation is under this one: back leaves Practice the way it came in.
+      await pressSystemBackToScreen(router);
+      expect(currentUrl()).toBe("/practice");
+      expect(screen.getByRole("heading", { level: 1, name: "Practice" })).toBeInTheDocument();
+    });
+
+    it("from a reloaded Feedback Summary, replaces it, so back leaves the new conversation for where the summary was opened from", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Hey! Thanks for coming out tonight.")));
+      const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
+      const transcript = [
+        { role: "assistant" as const, content: "Hey! Thanks for coming out tonight." },
+        { role: "user" as const, content: "Hi, nice to meet you!" },
+      ];
+      await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
+      await attachFeedbackSummary("entry-1", {
+        didWell: [{ quote: "Hi, nice to meet you!" }],
+        canImprove: [{ quote: "Hi, nice to meet you!" }],
+      });
+
+      const { router } = await renderApp("/");
+      await act(async () => {
+        await router.navigate("/practice/dating/feedback/entry-1");
+      });
+      await screen.findByText("What you did well");
+
+      await clickToScreen(screen.getByRole("button", { name: "Try again in a new conversation" }));
+      expect(currentUrl()).toBe("/practice/dating/coffee-first-date");
+      expect(await screen.findByText("Hey! Thanks for coming out tonight.")).toBeInTheDocument();
+
+      await pressSystemBackToScreen(router);
+      expect(currentUrl()).toBe("/");
+    });
+
+    it("from a History entry, pushes the new conversation, so back returns to the entry", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Hey! Thanks for coming out tonight.")));
+      await putStoredHistoryEntry({
+        id: "entry-before-scenarios",
+        categoryId: "dating",
+        categoryName: "Dating",
+        personaName: "Jordan",
+        transcript: [
+          { role: "assistant", content: "Hi there." },
+          { role: "user", content: "Hi, nice to meet you!" },
+        ],
+        summary: { didWell: [{ quote: "Hi, nice to meet you!" }], canImprove: [{ quote: "Hi, nice to meet you!" }] },
+        endedAt: new Date().toISOString(),
+      });
+
+      const { router } = await renderApp("/history");
+      await clickToScreen(await screen.findByRole("link", { name: /Dating/ }));
+      await clickToScreen(screen.getByRole("button", { name: "Try again in a new conversation" }));
+
+      expect(currentUrl()).toBe(`/practice/dating/${defaultScenarioOf("dating")!.id}`);
+      expect(await screen.findByText("Hey! Thanks for coming out tonight.")).toBeInTheDocument();
+
+      await pressSystemBackToScreen(router);
+      expect(currentUrl()).toBe("/history/entry-before-scenarios");
+      expect(await screen.findByText("What you did well")).toBeInTheDocument();
+    });
   });
 });
