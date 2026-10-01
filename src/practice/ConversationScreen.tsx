@@ -32,7 +32,9 @@ export function ConversationScreen() {
     const entryId = crypto.randomUUID();
     // The Focus is only the feedback's business: the Persona never hears about it.
     const state: EndedConversationState = { transcript, scenarioId: scenario!.id, ...(focus && { focusId: focus.id }) };
-    navigate(feedbackSummaryPath(category!.id, entryId), { state });
+    // Replaced, not pushed: an ended conversation can't be picked up again, so back from its Feedback
+    // Summary goes to what was under the conversation rather than opening a fresh one at its URL.
+    navigate(feedbackSummaryPath(category!.id, entryId), { state, replace: true });
   }
 
   // Keyed by Scenario so a different Scenario's URL starts a fresh conversation rather than

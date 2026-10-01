@@ -395,6 +395,24 @@ its timestamp), reads "Your focus:" in `--text-sm` `--ink-muted`, then the Focus
 `--positive` or `--growth`, which mark results, since the Focus is never marked achieved. It adds no
 heading.
 
+**Try again,** on the Feedback Summary and the History entry detail, is the outlined pill
+(`button-secondary`): 1px `--primary` edge, `--primary` text in `--text-sm` 600, no fill, 44px
+minimum. It sits on its own line after the feedback, with `--space-6` above it, since the user reads
+down to it.
+- **Secondary to Done, so sized to its label.** Done is the Feedback Summary's quiet way out, a
+  `--primary` text action at the top. A full-width pill at the foot would outrank it, so Try again is
+  the one pill not stretched to the content width (an exception to "Buttons are full-width pills"
+  above). It's never filled either: the filled `--primary` pill on these screens belongs to getting
+  the feedback (Get feedback, and the retry when it fails).
+- **On the History entry detail** it sits above the quiet Delete, which keeps its own `--space-6`
+  gap, so the two never read as a pair.
+- **The label is only "Try again".** Never "2nd try", "Try to beat it", or anything that counts or
+  compares attempts (INFORMATION-ARCHITECTURE.md §5). When the feedback fails, its retry inside the
+  error block reads "Try again" too, so this one's accessible name says what it starts: "Try again in
+  a new conversation". It begins with the visible label, so voice control still finds it.
+- **It moves like any navigation**, by URL depth (`screenDirection.ts`). From the Feedback Summary
+  the Conversation is a shallower URL, so it plays as back; from a History entry, as forward.
+
 **Lessons list rows** keep §4's medium density.
 - **A finished Lesson** shows a small `--positive` check (16px) at the row's end, announced as
   "Done".

@@ -115,6 +115,16 @@ all. Own Scenarios are kept on-device and can be edited or deleted from here.
 **Try again** (from a Feedback Summary or History entry) skips this screen and starts a fresh
 Conversation with the same Scenario and Focus.
 
+- **Only those two carry over.** The new Conversation is started from the Scenario and Focus alone,
+  so nothing of the last one reaches it, and its History entry is like any other.
+- **Old and outdated entries.** An entry saved before Scenarios existed tries again in its
+  category's default Scenario (`scenarioOfEntry`). An entry naming a Focus since removed tries
+  again without one, the same as its Feedback Summary shows none. An entry whose category the app
+  no longer has offers no Try again, since there's nothing to start.
+- **Paused Conversation waiting elsewhere.** Not built yet: today Try again starts straight away.
+  Once Paused Conversations exist (#76) it will ask first, the same as Start. Both screens start it
+  through `TryAgainButton`, so that's the one place the ask goes.
+
 - **What the brief shows.** The category's name as a small label, the Persona's name as the
   screen's `h1`, and one line on what they're like (`personaDescription`, the same in every
   Scenario). Below the chooser, the chosen Scenario's situation and the user's role. With Surprise
@@ -177,7 +187,8 @@ unknown category redirects to the Practice picker.
 Discard, then Practice picker. A URL naming a Scenario the category doesn't have, or a Focus the app
 doesn't offer, redirects to that category's Scenario brief. Ending
 goes to the Feedback Summary, which the leave confirmation doesn't ask about; every other way out
-(the brief included) is leaving.
+(the brief included) is leaving. The Feedback Summary replaces the ended Conversation in history, so
+back from it goes to what was under the Conversation, never into a fresh one at the ended one's URL.
 
 **The Focus rides along, unseen.** The Focus lives in the Conversation's URL, so a reload keeps it,
 and ending hands it to the Feedback Summary with the transcript and Scenario. The Persona never hears
@@ -208,7 +219,12 @@ its quote and, where present, its explanation.
 - **A Lesson for it.** A "can do better" point may link to the one Lesson that teaches its skill.
   A point with no matching Lesson has no link.
 - **Try again** starts a fresh Conversation with the same Scenario and Focus. It isn't linked to
-  this one.
+  this one. It sits after the feedback, secondary to Done. It appears once the conversation has
+  saved to History, and stays while the feedback is still generating or has failed: leaving before
+  the save settled would drop the request for feedback, leaving the entry without any. It
+  **replaces** this screen in history: the conversation and its
+  feedback are already in History, so back from the new Conversation leaves Practice the way one
+  started from the brief does, and attempts never pile up in the back stack.
 
 **Navigation:** from Conversation's end action, at `/practice/:categoryId/feedback/:entryId`. Done
 → **Home**, not back to the category grid. You finished something; you should land somewhere that
@@ -331,7 +347,9 @@ transcript and its Feedback Summary together. It asks first and says the entry c
 then returns to the History list with the entry gone — or to the empty state if it was the last.
 If the delete fails, the entry stays and a calm note says so.
 
-Shows the entry's Focus, when it had one, and offers **Try again** (see Scenario brief).
+Shows the entry's Focus, when it had one, and offers **Try again** (see Scenario brief) after the
+feedback, above the quiet Delete. It **pushes** the new Conversation, so back from it returns to this
+entry: the entry is a place the user browsed to, and it's still there.
 
 **Navigation:** from History list or an Insight's citation. Back → where it was opened from. Try
 again → Conversation.
@@ -439,7 +457,9 @@ Practice's URLs deepen one level per push: `/practice` (picker), `/practice/:cat
 brief), `/practice/:categoryId/:scenarioId` (Conversation), `/practice/:categoryId/feedback/:entryId`
 (Feedback Summary). A Focus is a query parameter on the Conversation's URL, `?focus=<id>`, not a
 level. `src/practice/practicePaths.ts` spells them out. The brief is replaced by the
-Conversation it starts, so it isn't on the stack under it.
+Conversation it starts, so it isn't on the stack under it. Likewise a Conversation is replaced by
+its Feedback Summary, and a Feedback Summary by the Conversation its Try again starts, so however
+many times the user tries again, back never walks through an earlier attempt.
 
 **Routing.** The app has no router today. Recommendation: `react-router-dom`. It gives a real
 URL per screen, so browser back and the Android system back gesture both work on the installed
