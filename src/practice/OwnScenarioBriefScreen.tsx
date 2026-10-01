@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { DeleteOwnScenarioDialog } from "./DeleteOwnScenarioDialog";
 import type { Focus } from "./focuses";
 import { FocusPicker } from "./FocusPicker";
+import { newConversationStart } from "./inProgressConversation";
 import { deleteOwnScenario, saveOwnScenario } from "./ownScenarioStore";
 import { OwnScenarioForm } from "./OwnScenarioForm";
 import { OWN_CATEGORY_ID, type OwnScenario, type OwnScenarioText } from "./ownScenarios";
@@ -60,7 +61,8 @@ export function OwnScenarioBriefScreen() {
     if (!chosen) return;
     // Replaced, not pushed, the same as a category's brief: back from the Conversation leads to the
     // Practice picker.
-    navigate(conversationPath(OWN_CATEGORY_ID, chosen.id, focus?.id), { replace: true });
+    // A deliberate start: a conversation already in progress with this Own Scenario is left behind, not resumed.
+    navigate(conversationPath(OWN_CATEGORY_ID, chosen.id, focus?.id), { replace: true, state: newConversationStart() });
   }
 
   return (

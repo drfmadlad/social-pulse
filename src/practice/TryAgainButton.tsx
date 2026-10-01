@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { findFocus } from "./focuses";
+import { newConversationStart } from "./inProgressConversation";
 import { getOwnScenario } from "./ownScenarioStore";
 import { OWN_CATEGORY_ID } from "./ownScenarios";
 import { conversationPath } from "./practicePaths";
@@ -86,7 +87,8 @@ function TryAgainLink({ path, replace }: { path: string; replace: boolean }) {
   const navigate = useNavigate();
 
   function tryAgain() {
-    navigate(path, { replace });
+    // A fresh transcript: a conversation left in progress in this Scenario isn't resumed (issue #68).
+    navigate(path, { replace, state: newConversationStart() });
   }
 
   // The accessible name says what it starts, since a failed Feedback Summary's own retry also reads

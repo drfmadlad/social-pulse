@@ -12,7 +12,8 @@ function LocationDisplay() {
   return <div data-testid="location">{JSON.stringify({ pathname: location.pathname, state: location.state })}</div>;
 }
 
-async function renderAt(path: string) {
+async function renderAt(path: string, state?: unknown) {
+  const [pathname, search = ""] = path.split("?");
   const router = createMemoryRouter(
     [
       {
@@ -30,7 +31,7 @@ async function renderAt(path: string) {
         ],
       },
     ],
-    { initialEntries: ["/practice", path], initialIndex: 1 },
+    { initialEntries: ["/practice", { pathname, search: search && `?${search}`, state }], initialIndex: 1 },
   );
   const view = render(<RouterProvider router={router} />);
   await settleDeviceReads();
@@ -107,6 +108,29 @@ describe("OwnConversationScreen (issue #67)", () => {
     expect(pathname).toMatch(/^\/practice\/own\/feedback\/.+/);
     expect(state).toMatchObject({ scenarioId: own.id, focusId: "staying-calm", ownScenario: dana });
     expect(state.transcript.at(-2)).toEqual({ role: "user", content: "Hi Dana." });
+  });
+
+  it("is kept on-device as it goes, and picked up again after a reload (issue #68), without opening afresh", async () => {
+    const own = await saveOwnScenario(dana);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply("Come in."))
+      .mockResolvedValueOnce(mockReply("Sure. Go on."));
+    vi.stubGlobal("fetch", fetchMock);
+    const start = { conversationStart: "start-1" };
+
+    const firstView = await renderAt(`/practice/own/${own.id}`, start);
+    await screen.findByText("Come in.");
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Thanks for making time." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText("Sure. Go on.");
+    firstView.unmount();
+
+    await renderAt(`/practice/own/${own.id}`, start);
+
+    expect(await screen.findByText("Thanks for making time.")).toBeInTheDocument();
+    expect(screen.getByText("Sure. Go on.")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("goes to the Own Scenario brief when the Own Scenario is gone, without asking the AI", async () => {

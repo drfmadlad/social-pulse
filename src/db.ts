@@ -1,8 +1,9 @@
 const DB_NAME = "social-pulse";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export const HISTORY_STORE = "historyEntries";
 export const LESSON_PROGRESS_STORE = "lessonProgress";
+export const LESSON_POSITION_STORE = "lessonPositions";
 export const OWN_SCENARIOS_STORE = "ownScenarios";
 
 export function promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
@@ -26,6 +27,9 @@ export function openDb(): Promise<IDBDatabase> {
     if (!db.objectStoreNames.contains(LESSON_PROGRESS_STORE)) {
       db.createObjectStore(LESSON_PROGRESS_STORE, { keyPath: "lessonId" });
     }
+    if (!db.objectStoreNames.contains(LESSON_POSITION_STORE)) {
+      db.createObjectStore(LESSON_POSITION_STORE, { keyPath: "lessonId" });
+    }
     if (!db.objectStoreNames.contains(OWN_SCENARIOS_STORE)) {
       db.createObjectStore(OWN_SCENARIOS_STORE, { keyPath: "id" });
     }
@@ -33,9 +37,20 @@ export function openDb(): Promise<IDBDatabase> {
   return promisifyRequest(request);
 }
 
+const unsentWriteSources: Array<() => Promise<unknown>> = [];
+
+/**
+ * For stores that save without being awaited: lets a reset wait for what's still in flight, so a
+ * late write can't recreate the database after it was cleared and leak into the next test.
+ */
+export function registerUnsentWritesForTests(inFlight: () => Promise<unknown>): void {
+  unsentWriteSources.push(inFlight);
+}
+
 /** Test-only: clears the whole database between tests, awaiting deletion so it can't race the next test's open. */
-export function resetDbForTests(): Promise<void> {
-  return new Promise((resolve, reject) => {
+export async function resetDbForTests(): Promise<void> {
+  await Promise.all(unsentWriteSources.map((inFlight) => inFlight()));
+  await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(DB_NAME);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);

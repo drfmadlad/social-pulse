@@ -181,7 +181,8 @@ editing and deleting, is all on-device.
 - **Start** opens the Conversation at `/practice/own/:scenarioId` (the Own Scenario's id), with
   `?focus=<id>` for a Focus, replacing the brief like a category's. The Conversation reads the Own
   Scenario from the device as it opens and keeps what it read, so editing it afterwards changes
-  nothing in a conversation already going. One that's been deleted (a stale URL) redirects to this
+  nothing in a conversation already going. It's saved as it goes like any other (the in-progress
+  copy is kept under `own/<id>`). One that's been deleted (a stale URL) redirects to this
   brief, the way an unknown Scenario redirects to its category's.
 - **The server never trusts the text.** The reply request names the category id `own` and sends what
   the user wrote (`ownScenario: { name, about, situation }`) in place of a Scenario id. The server
@@ -222,7 +223,14 @@ unknown category redirects to the Practice picker.
 **Moves here:** `ChatScreen`, currently squeezed into the Practice card.
 
 - **Saved as it goes.** Every turn is kept on-device, so a reload, a crash or the phone closing
-  the app loses nothing. Leaving asks **Save for later** (it becomes the Paused Conversation) or
+  the app loses nothing. Opening the same Conversation's URL again restores the transcript and
+  carries on from it. The copy is kept from the user's first line (before it, there is nothing to
+  lose), one per Scenario, and it stays out of History until the conversation ends; ending or
+  leaving clears it. A deliberate start (Start on the brief, Try again) is never a reload: it
+  begins a new transcript and drops any copy left in that Scenario, which is why those two
+  navigations carry a start token in router state, kept across a reload so the conversation it
+  began still restores. If the device can't save, the conversation runs in memory as before.
+  Leaving asks **Save for later** (it becomes the Paused Conversation) or
   **Discard**. If the user hasn't said anything yet, leaving doesn't ask.
 - **Hint.** A quiet action for a one-line coaching nudge. It appears in the transcript, marked as
   a Hint, and stays there for the Feedback Summary.
@@ -356,6 +364,18 @@ Steps) has the layout.
   navigating elsewhere). Reopening it offers **Pick up at step N** or **Start over**. There's no
   confirmation on leaving, since nothing is lost. Finishing clears the kept position. Answers
   aren't kept, only the position.
+  - **How it's kept.** The position is saved as the user moves between steps, not on the way out,
+    so every way of leaving (a closed tab included) keeps it. Back moves it back too. Step 1 isn't
+    a place to pick up, so a Lesson on step 1 keeps nothing. Reaching the Recap without tapping
+    Finish keeps the Recap as the place. Each Lesson keeps its own.
+  - **The offer** stands in for the step on reopening, from any entry point. Its heading reads
+    "Pick up where you left off?" with the line "You stopped at step N.". The progress row shows
+    how far they got, and the bottom row carries **Pick up at step N** as the pill and **Start
+    over** as the text action in the Back slot. Pick up goes to that step with nothing answered.
+    Start over goes to step 1 and clears the kept position. Leaving from the offer keeps it.
+  - **When it can't be kept.** If the device can't save or read the position, the Lesson works the
+    same and starts at step 1 next time. The Lesson doesn't wait on a slow device: after 1.5
+    seconds it opens at step 1.
 - **Finish leads to Next lesson / Done.** Finish on the Recap:
   1. marks the Lesson finished on-device, next to History;
   2. plays the celebration, the same every time;
@@ -481,8 +501,8 @@ are in DESIGN.md §7 (Update offer).
   and that includes other tabs: the generated register script would reload every open tab when one
   of them took an update, so registration is the app's own (`src/useAppUpdate.ts`) and a tab reloads
   only after its own user tapped Reload.
-- **Held back on the Conversation and the Lesson flow.** Both keep their place on-device, but a reload
-  there still breaks the user's train of thought mid-exchange, so the note doesn't show on those screens and appears on the next
+- **Held back on the Conversation and the Lesson flow.** A Lesson keeps its step position on-device, but a reload
+  there still breaks the user's train of thought mid-exchange, and a Lesson's answers aren't kept, so the note doesn't show on those screens and appears on the next
   screen the user reaches. The Feedback Summary shows it: that conversation is already saved.
 - It adds no heading and no navigation, so it doesn't touch the heading structure above or the
   navigation model below.

@@ -317,6 +317,12 @@ The Lesson flow is chrome-free and full-viewport, like Conversation (INFORMATION
   changes, and the pill is sentence case, flat, with no pressed lower edge.
 - **After Finish:** the pill becomes **Next lesson** and the Back slot becomes a **Done** text link.
   With no next Lesson to offer, **Done** takes the pill and the slot stays empty.
+- **Reopening a Lesson left partway** (INFORMATION-ARCHITECTURE.md, Lesson flow) puts a resume
+  offer where the step would be, laid out like an Explainer with only a title and one paragraph:
+  "Pick up where you left off?" and "You stopped at step N." The progress row shows the steps
+  reached, as on that step. The pill reads **Pick up at step N** and the Back slot holds a **Start
+  over** text action in the same quiet style as Back. The ground is `--canvas`, and the offer
+  enters like a step does. There's no dialog, no scrim, and no tally or percentage.
 
 **Explainer**
 - **Title** in `--text-title`.
@@ -562,8 +568,8 @@ to be text; see §3, Contrast).
 **Lesson flow labels.** On-screen labels are sentence case, even where a spec capitalizes an
 action's name:
 - **The pill:** "Continue", "Check" (commits a Check or Reply Choice), "Send" (Written Reply),
-  "Finish" (Recap), "Next lesson".
-- **Text actions:** "Back", "Done", "Try again".
+  "Finish" (Recap), "Next lesson", "Pick up at step N" (the resume offer).
+- **Text actions:** "Back", "Done", "Try again", "Start over" (the resume offer).
 - **Leaving:** "← Lessons" or "← Home".
 
 **Check and Reply Choice results.** "That's it." when right and "Not quite." when not, followed
@@ -649,8 +655,9 @@ safe area. It's a polite status region, never a modal, so nothing dims and nothi
   usable either way.
 - **Room for it:** while the note is showing, the page keeps `--space-16` × 2 of extra space under
   its content, so the note never covers a last row or a primary action.
-- **Where it doesn't appear:** the Conversation and the Lesson flow. A Practice Conversation lives
-  only in memory and a Lesson's step position isn't kept, so a reload there loses something. The
+- **Where it doesn't appear:** the Conversation and the Lesson flow. A reload would break the
+  user's train of thought mid-exchange in a Practice Conversation (which comes back from its
+  on-device copy) and cost a Lesson's answers (only its step position is kept). The
   note waits and shows on the next screen the user reaches. It also stays off Home's five elements:
   it's an overlay on any screen, not a card in one.
 

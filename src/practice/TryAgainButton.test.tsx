@@ -1,7 +1,10 @@
+import type { ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { mockReply } from "../test/apiMocks";
 import { LocationDisplay } from "../test/LocationDisplay";
+import { ConversationScreen } from "./ConversationScreen";
 import { defaultScenarioOf } from "./scenarios";
 import { TryAgainButton, type FinishedConversation } from "./TryAgainButton";
 
@@ -26,6 +29,10 @@ function tryAgainFrom(conversation: FinishedConversation) {
   expect(screen.getByText("Conversation stub")).toBeInTheDocument();
   return screen.getByTestId("location").textContent;
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("TryAgainButton (issue #66)", () => {
   it("reads Try again, and names what it starts for a screen reader", () => {
@@ -66,5 +73,59 @@ describe("TryAgainButton (issue #66)", () => {
     renderFor({ categoryId: "a-category-since-removed", scenarioId: "coffee-first-date" });
 
     expect(screen.queryByRole("button", { name: TRY_AGAIN })).not.toBeInTheDocument();
+  });
+
+  describe("a fresh start, not a reload (issue #68)", () => {
+    const PATH = "/practice/dating/coffee-first-date";
+
+    function renderRouter(initialEntry: string, element: ReactNode = <ConversationScreen />) {
+      const router = createMemoryRouter(
+        [
+          { path: "/feedback", element },
+          { path: "/practice/:categoryId/:scenarioId", element: <ConversationScreen /> },
+        ],
+        { initialEntries: [initialEntry] },
+      );
+      return { router, ...render(<RouterProvider router={router} />) };
+    }
+
+    it("carries a different start with each tap, so no two starts look alike", () => {
+      const starts = [1, 2].map(() => {
+        const { router, unmount } = renderRouter(
+          "/feedback",
+          <TryAgainButton conversation={{ categoryId: "dating", scenarioId: "coffee-first-date" }} />,
+        );
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockReply("Hello.")));
+        fireEvent.click(screen.getByRole("button", { name: TRY_AGAIN }));
+        const { conversationStart } = router.state.location.state as { conversationStart: string };
+        unmount();
+        return conversationStart;
+      });
+
+      expect(starts[0]).toEqual(expect.any(String));
+      expect(starts[1]).not.toBe(starts[0]);
+    });
+
+    it("opens a new transcript in the Scenario even though a conversation there is still in progress", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValueOnce(mockReply("Old opening.")).mockResolvedValueOnce(mockReply("Old reply.")),
+      );
+      const old = renderRouter(PATH);
+      await screen.findByText("Old opening.");
+      fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Hi there" } });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+      await screen.findByText("Old reply.");
+      // The conversation is left in progress (the app went away), and Try again is tapped afterwards.
+      old.unmount();
+
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Fresh opening.")));
+      renderRouter("/feedback", <TryAgainButton conversation={{ categoryId: "dating", scenarioId: "coffee-first-date" }} />);
+      fireEvent.click(screen.getByRole("button", { name: TRY_AGAIN }));
+
+      expect(await screen.findByText("Fresh opening.")).toBeInTheDocument();
+      expect(screen.queryByText("Old reply.")).not.toBeInTheDocument();
+      expect(screen.queryByText("Hi there")).not.toBeInTheDocument();
+    });
   });
 });

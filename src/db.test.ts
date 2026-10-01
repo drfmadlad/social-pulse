@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { HISTORY_STORE, LESSON_PROGRESS_STORE, openDb, OWN_SCENARIOS_STORE, resetDbForTests } from "./db";
+import {
+  HISTORY_STORE,
+  LESSON_POSITION_STORE,
+  LESSON_PROGRESS_STORE,
+  openDb,
+  OWN_SCENARIOS_STORE,
+  resetDbForTests,
+} from "./db";
 import { getAllHistoryEntries } from "./history/historyStore";
 
 const DB_NAME = "social-pulse";
@@ -35,29 +42,6 @@ function createVersion1DbWithHistoryEntry(): Promise<void> {
   });
 }
 
-/** Simulates a device on the version-2 database (before Own Scenarios): History and a finished Lesson saved. */
-function createVersion2DbWithData(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 2);
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore(HISTORY_STORE, { keyPath: "id" });
-      request.result.createObjectStore(LESSON_PROGRESS_STORE, { keyPath: "lessonId" });
-    };
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction([HISTORY_STORE, LESSON_PROGRESS_STORE], "readwrite");
-      transaction.objectStore(HISTORY_STORE).add(version1HistoryEntry);
-      transaction.objectStore(LESSON_PROGRESS_STORE).add({ lessonId: "lesson-1", finishedAt: "2026-01-01T00:00:00Z" });
-      transaction.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-      transaction.onerror = () => reject(transaction.error);
-    };
-    request.onerror = () => reject(request.error);
-  });
-}
-
 afterEach(async () => {
   await resetDbForTests();
 });
@@ -68,27 +52,8 @@ describe("db", () => {
 
     expect(db.objectStoreNames.contains(HISTORY_STORE)).toBe(true);
     expect(db.objectStoreNames.contains(LESSON_PROGRESS_STORE)).toBe(true);
+    expect(db.objectStoreNames.contains(LESSON_POSITION_STORE)).toBe(true);
     expect(db.objectStoreNames.contains(OWN_SCENARIOS_STORE)).toBe(true);
-
-    db.close();
-  });
-
-  it("upgrading a version-2 database (before Own Scenarios) adds the Own Scenarios store and keeps History and Lesson progress", async () => {
-    await createVersion2DbWithData();
-
-    const db = await openDb();
-
-    expect(db.version).toBe(3);
-    expect(db.objectStoreNames.contains(OWN_SCENARIOS_STORE)).toBe(true);
-    const read = (store: string) =>
-      new Promise((resolve, reject) => {
-        const request = db.transaction(store, "readonly").objectStore(store).getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-    expect(await read(HISTORY_STORE)).toEqual([version1HistoryEntry]);
-    expect(await read(LESSON_PROGRESS_STORE)).toEqual([{ lessonId: "lesson-1", finishedAt: "2026-01-01T00:00:00Z" }]);
-    expect(await read(OWN_SCENARIOS_STORE)).toEqual([]);
 
     db.close();
   });
@@ -100,6 +65,7 @@ describe("db", () => {
 
     expect(db.objectStoreNames.contains(HISTORY_STORE)).toBe(true);
     expect(db.objectStoreNames.contains(LESSON_PROGRESS_STORE)).toBe(true);
+    expect(db.objectStoreNames.contains(LESSON_POSITION_STORE)).toBe(true);
 
     const entries = await new Promise((resolve, reject) => {
       const request = db.transaction(HISTORY_STORE, "readonly").objectStore(HISTORY_STORE).getAll();
@@ -112,5 +78,80 @@ describe("db", () => {
 
     // Also confirm the entry is still listed through the app's own read path, not just raw IndexedDB.
     expect(await getAllHistoryEntries()).toEqual([version1HistoryEntry]);
+  });
+
+  it("upgrading an existing version-2 database adds the position store and keeps its finished Lessons", async () => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 2);
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore(HISTORY_STORE, { keyPath: "id" });
+        request.result.createObjectStore(LESSON_PROGRESS_STORE, { keyPath: "lessonId" });
+      };
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(LESSON_PROGRESS_STORE, "readwrite");
+        transaction.objectStore(LESSON_PROGRESS_STORE).add({ lessonId: "active-listening", finishedAt: "2026-01-01" });
+        transaction.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        transaction.onerror = () => reject(transaction.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    const db = await openDb();
+
+    expect(db.objectStoreNames.contains(LESSON_POSITION_STORE)).toBe(true);
+    const finished = await new Promise((resolve, reject) => {
+      const request = db.transaction(LESSON_PROGRESS_STORE, "readonly").objectStore(LESSON_PROGRESS_STORE).getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    expect(finished).toEqual([{ lessonId: "active-listening", finishedAt: "2026-01-01" }]);
+
+    db.close();
+  });
+
+  it("upgrading an existing version-3 database (before Own Scenarios) adds the Own Scenarios store and keeps everything in it", async () => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 3);
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore(HISTORY_STORE, { keyPath: "id" });
+        request.result.createObjectStore(LESSON_PROGRESS_STORE, { keyPath: "lessonId" });
+        request.result.createObjectStore(LESSON_POSITION_STORE, { keyPath: "lessonId" });
+      };
+      request.onsuccess = () => {
+        const db = request.result;
+        const stores = [HISTORY_STORE, LESSON_PROGRESS_STORE, LESSON_POSITION_STORE];
+        const transaction = db.transaction(stores, "readwrite");
+        transaction.objectStore(HISTORY_STORE).add(version1HistoryEntry);
+        transaction.objectStore(LESSON_PROGRESS_STORE).add({ lessonId: "active-listening", finishedAt: "2026-01-01" });
+        transaction.objectStore(LESSON_POSITION_STORE).add({ lessonId: "active-listening", stepIndex: 3 });
+        transaction.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        transaction.onerror = () => reject(transaction.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    const db = await openDb();
+
+    expect(db.version).toBe(4);
+    expect(db.objectStoreNames.contains(OWN_SCENARIOS_STORE)).toBe(true);
+    const read = (store: string) =>
+      new Promise((resolve, reject) => {
+        const request = db.transaction(store, "readonly").objectStore(store).getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    expect(await read(HISTORY_STORE)).toEqual([version1HistoryEntry]);
+    expect(await read(LESSON_PROGRESS_STORE)).toEqual([{ lessonId: "active-listening", finishedAt: "2026-01-01" }]);
+    expect(await read(LESSON_POSITION_STORE)).toEqual([{ lessonId: "active-listening", stepIndex: 3 }]);
+    expect(await read(OWN_SCENARIOS_STORE)).toEqual([]);
+
+    db.close();
   });
 });
