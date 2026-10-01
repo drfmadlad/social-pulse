@@ -21,7 +21,7 @@ function LocationDisplay() {
  * The brief as the Practice picker opens it: pushed on top of the picker, with stand-ins for the
  * picker and the Conversation. A data router, so a test can press the system back gesture.
  */
-function renderBrief(path = "/practice/dating") {
+function renderBriefWithRouter(path = "/practice/dating") {
   const router = createMemoryRouter(
     [
       {
@@ -40,8 +40,12 @@ function renderBrief(path = "/practice/dating") {
     ],
     { initialEntries: ["/practice", path], initialIndex: 1 },
   );
-  render(<RouterProvider router={router} />);
-  return router;
+  const view = render(<RouterProvider router={router} />);
+  return { router, ...view };
+}
+
+function renderBrief(path = "/practice/dating") {
+  return renderBriefWithRouter(path).router;
 }
 
 function location() {
@@ -102,6 +106,19 @@ describe("ScenarioBriefScreen", () => {
 
     expect(screen.getByText("Conversation opened")).toBeInTheDocument();
     expect(location()).toBe(`/practice/dating/${datingScenario.id}`);
+  });
+
+  it("starts a fresh conversation, so one left in progress in that Scenario isn't resumed (issue #68)", () => {
+    const starts = [1, 2].map(() => {
+      const { router, unmount } = renderBriefWithRouter();
+      fireEvent.click(screen.getByRole("button", { name: "Start" }));
+      const { conversationStart } = router.state.location.state as { conversationStart: string };
+      unmount();
+      return conversationStart;
+    });
+
+    expect(starts[0]).toEqual(expect.any(String));
+    expect(starts[1]).not.toBe(starts[0]);
   });
 
   it("with Surprise me, picks the Scenario at random only when Start is tapped, and starts in that one", () => {

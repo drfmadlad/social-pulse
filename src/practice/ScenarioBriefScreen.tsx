@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { focuses, type Focus } from "./focuses";
+import { newConversationStart } from "./inProgressConversation";
 import { conversationPath } from "./practicePaths";
 import { findCategory } from "./scenarioCategories";
 import { findScenario, pickSurpriseScenario, scenariosIn } from "./scenarios";
@@ -51,7 +52,8 @@ export function ScenarioBriefScreen() {
     const scenario = chosen ?? pickSurpriseScenario(category!.id)!;
     // Replaced, not pushed: once the conversation starts, back from it leads to the Practice picker
     // (INFORMATION-ARCHITECTURE.md, Conversation), the system back gesture included.
-    navigate(conversationPath(category!.id, scenario.id, focus?.id), { replace: true });
+    // A deliberate start: a conversation already in progress in this Scenario is left behind, not resumed.
+    navigate(conversationPath(category!.id, scenario.id, focus?.id), { replace: true, state: newConversationStart() });
   }
 
   return (

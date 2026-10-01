@@ -169,7 +169,14 @@ unknown category redirects to the Practice picker.
 **Moves here:** `ChatScreen`, currently squeezed into the Practice card.
 
 - **Saved as it goes.** Every turn is kept on-device, so a reload, a crash or the phone closing
-  the app loses nothing. Leaving asks **Save for later** (it becomes the Paused Conversation) or
+  the app loses nothing. Opening the same Conversation's URL again restores the transcript and
+  carries on from it. The copy is kept from the user's first line (before it, there is nothing to
+  lose), one per Scenario, and it stays out of History until the conversation ends; ending or
+  leaving clears it. A deliberate start (Start on the brief, Try again) is never a reload: it
+  begins a new transcript and drops any copy left in that Scenario, which is why those two
+  navigations carry a start token in router state, kept across a reload so the conversation it
+  began still restores. If the device can't save, the conversation runs in memory as before.
+  Leaving asks **Save for later** (it becomes the Paused Conversation) or
   **Discard**. If the user hasn't said anything yet, leaving doesn't ask.
 - **Hint.** A quiet action for a one-line coaching nudge. It appears in the transcript, marked as
   a Hint, and stays there for the Feedback Summary.

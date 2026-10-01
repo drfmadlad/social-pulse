@@ -1,8 +1,9 @@
-import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { ChatMessage } from "./aiProxyClient";
 import { ChatScreen } from "./ChatScreen";
 import type { EndedConversationState } from "./FeedbackSummaryRoute";
 import { findFocus } from "./focuses";
+import { startTokenOf } from "./inProgressConversation";
 import { feedbackSummaryPath, FOCUS_PARAM, scenarioBriefPath } from "./practicePaths";
 import { findCategory } from "./scenarioCategories";
 import { findScenario } from "./scenarios";
@@ -11,6 +12,7 @@ export function ConversationScreen() {
   const { categoryId, scenarioId } = useParams<{ categoryId: string; scenarioId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const startToken = startTokenOf(useLocation().state);
   const category = findCategory(categoryId);
   const scenario = category && findScenario(category.id, scenarioId);
   const focusId = searchParams.get(FOCUS_PARAM);
@@ -38,12 +40,15 @@ export function ConversationScreen() {
   }
 
   // Keyed by Scenario so a different Scenario's URL starts a fresh conversation rather than
-  // carrying this one's turns across.
+  // carrying this one's turns across, and by start so a deliberate new start in the same Scenario
+  // does too (a reload keeps the start, so it doesn't).
   return (
     <ChatScreen
-      key={`${category.id}/${scenario.id}`}
+      key={`${category.id}/${scenario.id}/${startToken}`}
       category={category}
       scenario={scenario}
+      focusId={focus?.id ?? null}
+      startToken={startToken}
       onBack={() => navigate("/practice")}
       onEnd={handleEnd}
     />

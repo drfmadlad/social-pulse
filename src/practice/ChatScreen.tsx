@@ -5,6 +5,7 @@ import type { ChatMessage } from "./aiProxyClient";
 import { LeaveConversationDialog } from "./LeaveConversationDialog";
 import { useScreenDirection } from "../ScreenTransition";
 import { screenTransitionClassName } from "../screenDirection";
+import { openConversationSlot } from "./inProgressConversation";
 import { feedbackSummaryPathPrefix } from "./practicePaths";
 import type { ScenarioCategory } from "./scenarioCategories";
 import type { Scenario } from "./scenarios";
@@ -14,13 +15,19 @@ import { usePracticeConversation } from "./usePracticeConversation";
 interface ChatScreenProps {
   category: ScenarioCategory;
   scenario: Scenario;
+  /** Null when the conversation has no Focus. */
+  focusId: string | null;
+  /** From the navigation that opened it, when the user deliberately started it; see `ConversationStart`. */
+  startToken: string | null;
   onBack: () => void;
   onEnd: (transcript: ChatMessage[]) => void;
 }
 
-export function ChatScreen({ category, scenario, onBack, onEnd }: ChatScreenProps) {
+export function ChatScreen({ category, scenario, focusId, startToken, onBack, onEnd }: ChatScreenProps) {
+  // Opened once, so whether this is a reload or a fresh start is decided at the moment it opens.
+  const [slot] = useState(() => openConversationSlot({ scenarioKey: `${category.id}/${scenario.id}`, focusId, startToken }));
   const { turns, isAwaitingReply, errorMessage, hasSaidSomething, canEnd, lengthLimit, send, retry } =
-    usePracticeConversation(scenario);
+    usePracticeConversation(scenario, slot);
   const [draft, setDraft] = useState("");
   const direction = useScreenDirection();
 
@@ -43,10 +50,16 @@ export function ChatScreen({ category, scenario, onBack, onEnd }: ChatScreenProp
     setDraft("");
   }
 
+  // Ending hands the transcript on to be saved to History, so the in-progress copy has done its job.
+  function endConversation() {
+    slot.discard();
+    onEnd(turns);
+  }
+
   // The top bar always has it; at the length limit it also takes the composer's place.
   function endButton(className: string) {
     return (
-      <button type="button" className={className} disabled={!canEnd} onClick={() => onEnd(turns)}>
+      <button type="button" className={className} disabled={!canEnd} onClick={endConversation}>
         End &amp; get feedback
       </button>
     );
@@ -110,7 +123,14 @@ export function ChatScreen({ category, scenario, onBack, onEnd }: ChatScreenProp
       )}
 
       {blocker.state === "blocked" && (
-        <LeaveConversationDialog onCancel={() => blocker.reset()} onLeave={() => blocker.proceed()} />
+        <LeaveConversationDialog
+          onCancel={() => blocker.reset()}
+          onLeave={() => {
+            // Leaving through the dialog gives the conversation up, its in-progress copy included.
+            slot.discard();
+            blocker.proceed();
+          }}
+        />
       )}
     </div>
   );
