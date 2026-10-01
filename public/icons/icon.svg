@@ -2,20 +2,24 @@
   <!--
     Social Pulse app icon: the source for every icon raster (npm run gen-icons) and the SVG favicon.
 
-    Two round speech bubbles in an exchange: one speaks, the other answers a beat lower, and the
-    space they share is lit. Colours are DESIGN.md tokens only: the ground is primary, the bubbles
-    primary-soft, the shared space surface. Flat fills, no gradients, glows or depth.
+    One speech bubble with a pulse running through it: the line arrives from the left, rises and
+    falls inside the conversation, and carries on out the other side. Outside the bubble the line
+    is primary-soft; where it crosses the bubble it turns primary, the ground's own colour. The
+    bubble is surface. DESIGN.md tokens only, flat fills, no gradients, glows or depth.
 
     The generator reuses the #ground fill and the #mark group on full-bleed grounds for the
-    maskable and Apple touch icons, so keep the mark inside that group, as plain paths.
+    maskable and Apple touch icons, so keep the mark inside that group, with no nested groups.
   -->
   <rect id="ground" width="512" height="512" rx="115" fill="#2F6F6A"/>
   <g id="mark">
-    <!-- The first speaker: circle centred (194, 218), r 108, tail to the lower left. -->
-    <path d="M100.5 272A108 108 0 1 1 148.4 315.9L83.8 328.2Z" fill="#D7E6E3"/>
-    <!-- The reply: circle centred (318, 290), r 108, tail to the lower right. -->
-    <path d="M411.5 344A108 108 0 1 0 363.6 387.9L428.2 400.2Z" fill="#D7E6E3"/>
-    <!-- The shared space: where the two circles overlap. -->
-    <path d="M296.6 184.1A108 108 0 0 1 215.4 323.9A108 108 0 0 1 296.6 184.1Z" fill="#FDFBF7"/>
+    <!-- The bubble: a circle centred (258, 248), r 142, tail to the lower left. -->
+    <clipPath id="inside-bubble">
+      <path d="M135 319A142 142 0 1 1 198 376.7L113.2 392.8Z"/>
+    </clipPath>
+    <!-- The pulse, whole, in primary-soft: only its ends outside the bubble stay visible. -->
+    <path d="M96 248H148C170 248 178 172 202 172C230 172 232 328 260 328C288 328 292 188 316 188C336 188 340 248 362 248H420" fill="none" stroke="#D7E6E3" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M135 319A142 142 0 1 1 198 376.7L113.2 392.8Z" fill="#FDFBF7"/>
+    <!-- The same pulse in primary, clipped to the bubble. -->
+    <path d="M96 248H148C170 248 178 172 202 172C230 172 232 328 260 328C288 328 292 188 316 188C336 188 340 248 362 248H420" fill="none" stroke="#2F6F6A" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#inside-bubble)"/>
   </g>
 </svg>

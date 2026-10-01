@@ -13,10 +13,10 @@ const SOURCE = "public/icons/icon.svg";
 const VIEWBOX = 512;
 
 // A maskable icon's platform mask may crop anything outside a centred circle of 40% of the
-// icon's size (the W3C manifest spec's safe zone). The mark's farthest point, the reply
-// bubble's tail tip, sits about 225 units from the centre at full size, so 0.84 brings it to
-// about 189, inside the 204.8 limit with some air to spare.
-const MASKABLE_SCALE = 0.84;
+// icon's size (the W3C manifest spec's safe zone). The mark's farthest point, the bubble's tail
+// tip, sits about 198 units from the centre at full size, so 0.88 brings it to about 174,
+// inside the 204.8 limit with some air to spare.
+const MASKABLE_SCALE = 0.88;
 const SAFE_ZONE_RADIUS = 0.4;
 
 const source = readFileSync(SOURCE, "utf8");
