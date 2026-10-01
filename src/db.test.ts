@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { HISTORY_STORE, LESSON_PROGRESS_STORE, openDb, resetDbForTests } from "./db";
+import { HISTORY_STORE, LESSON_POSITION_STORE, LESSON_PROGRESS_STORE, openDb, resetDbForTests } from "./db";
 import { getAllHistoryEntries } from "./history/historyStore";
 
 const DB_NAME = "social-pulse";
@@ -45,6 +45,7 @@ describe("db", () => {
 
     expect(db.objectStoreNames.contains(HISTORY_STORE)).toBe(true);
     expect(db.objectStoreNames.contains(LESSON_PROGRESS_STORE)).toBe(true);
+    expect(db.objectStoreNames.contains(LESSON_POSITION_STORE)).toBe(true);
 
     db.close();
   });
@@ -56,6 +57,7 @@ describe("db", () => {
 
     expect(db.objectStoreNames.contains(HISTORY_STORE)).toBe(true);
     expect(db.objectStoreNames.contains(LESSON_PROGRESS_STORE)).toBe(true);
+    expect(db.objectStoreNames.contains(LESSON_POSITION_STORE)).toBe(true);
 
     const entries = await new Promise((resolve, reject) => {
       const request = db.transaction(HISTORY_STORE, "readonly").objectStore(HISTORY_STORE).getAll();
@@ -68,5 +70,38 @@ describe("db", () => {
 
     // Also confirm the entry is still listed through the app's own read path, not just raw IndexedDB.
     expect(await getAllHistoryEntries()).toEqual([version1HistoryEntry]);
+  });
+
+  it("upgrading an existing version-2 database adds the position store and keeps its finished Lessons", async () => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 2);
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore(HISTORY_STORE, { keyPath: "id" });
+        request.result.createObjectStore(LESSON_PROGRESS_STORE, { keyPath: "lessonId" });
+      };
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(LESSON_PROGRESS_STORE, "readwrite");
+        transaction.objectStore(LESSON_PROGRESS_STORE).add({ lessonId: "active-listening", finishedAt: "2026-01-01" });
+        transaction.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        transaction.onerror = () => reject(transaction.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    const db = await openDb();
+
+    expect(db.objectStoreNames.contains(LESSON_POSITION_STORE)).toBe(true);
+    const finished = await new Promise((resolve, reject) => {
+      const request = db.transaction(LESSON_PROGRESS_STORE, "readonly").objectStore(LESSON_PROGRESS_STORE).getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    expect(finished).toEqual([{ lessonId: "active-listening", finishedAt: "2026-01-01" }]);
+
+    db.close();
   });
 });

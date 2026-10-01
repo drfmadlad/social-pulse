@@ -1,14 +1,17 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LESSON_POSITION_STORE } from "../db";
 import { MAX_MESSAGE_LENGTH } from "../requestLimits";
 import { AppRoutes } from "../App";
 import { resetHistoryStoreForTests } from "../history/historyStore";
 import { advancePastAiRequestTimeout, hangingFetch, mockReply, mockWrittenReplyVerdict } from "../test/apiMocks";
 import { clickToScreen, settleDeviceReads } from "../test/settleDeviceReads";
 import { isChoiceStep, lessons, type ChoiceStep, type Lesson, type LessonStep } from "./lessons";
+import { saveLessonPosition } from "./lessonPositionStore";
 import { markLessonFinished } from "./lessonProgressStore";
 import { pickTodaysLesson } from "./pickTodaysLesson";
+import { SAVED_POSITION_TIMEOUT_MS } from "./useSavedLessonPosition";
 
 function LocationDisplay() {
   const location = useLocation();
@@ -103,6 +106,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   await resetHistoryStoreForTests();
 });
@@ -336,6 +340,8 @@ describe("Lesson flow", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     await openLesson();
     vi.restoreAllMocks();
+    // Left partway, so the Lesson offers to pick up; a fresh start is the one under test.
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
     await advanceTo(activeListening, index);
     const secondOrder = displayedOptionTexts();
 
@@ -449,7 +455,7 @@ describe("Lesson flow", () => {
     await advanceTo(activeListening, activeListening.steps.length - 1);
 
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Next lesson" }));
+    await clickToScreen(await screen.findByRole("button", { name: "Next lesson" }));
 
     expect(screen.getByTestId("location")).toHaveTextContent(`/lessons/${openQuestions.id}`);
     expectOnStep(openQuestions, 0);
@@ -487,21 +493,323 @@ describe("Lesson flow", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
   });
 
-  it("starts the Lesson from step 1 again after leaving mid-Lesson, by the leave action or by system back", async () => {
-    await renderApp("/lessons");
-    const openLesson = () => clickToScreen(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+  describe("keeping your place", () => {
+    const openFromList = () => clickToScreen(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
+    const lastStepIndex = activeListening.steps.length - 1;
 
-    await openLesson();
-    await advanceTo(activeListening, 3);
-    await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
-    await openLesson();
-    expectOnStep(activeListening, 0);
+    function expectPickUpOffer(stepNumber: number) {
+      expect(screen.getByRole("heading", { name: "Pick up where you left off?" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: `Pick up at step ${stepNumber}` })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Start over" })).toBeEnabled();
+      // The offer stands in for the step, so no step's content or Back sits beside it.
+      expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+    }
 
-    await advanceTo(activeListening, 3);
-    await clickToScreen(screen.getByRole("button", { name: "System back" }));
-    expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
-    await openLesson();
-    expectOnStep(activeListening, 0);
+    function expectNoOffer() {
+      expect(screen.queryByRole("button", { name: /^Pick up at step/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Start over" })).not.toBeInTheDocument();
+      expectOnStep(activeListening, 0);
+    }
+
+    it("opens at step 1 with no offer when the Lesson was never left partway", async () => {
+      await renderApp("/lessons");
+
+      await openFromList();
+
+      expectNoOffer();
+    });
+
+    it("offers Pick up at step N and Start over when reopened after the leave action", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, 3);
+
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openFromList();
+
+      expectPickUpOffer(4);
+    });
+
+    it("offers it when reopened after system back, with no confirmation on the way out", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, 3);
+
+      await clickToScreen(screen.getByRole("button", { name: "System back" }));
+      expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      await openFromList();
+
+      expectPickUpOffer(4);
+    });
+
+    it("offers it when the Lesson was left by unmounting, with no tap at all, and reopened from a direct link", async () => {
+      const view = await renderApp(`/lessons/${activeListening.id}`);
+      await advanceTo(activeListening, 5);
+      view.unmount();
+
+      await renderApp(`/lessons/${activeListening.id}`);
+
+      expectPickUpOffer(6);
+    });
+
+    it("offers it when reopened from Today's idea", async () => {
+      const todaysLesson = pickTodaysLesson(lessons);
+      await renderApp("/");
+      await clickToScreen(screen.getByRole("link", { name: /Today.s idea/ }));
+      await advanceTo(todaysLesson, 3);
+      await clickToScreen(screen.getByRole("link", { name: "← Home" }));
+
+      await clickToScreen(screen.getByRole("link", { name: /Today.s idea/ }));
+
+      expectPickUpOffer(4);
+      expect(screen.getByRole("link", { name: "← Home" })).toBeInTheDocument();
+    });
+
+    it("offers it on a Lesson opened by Next lesson", async () => {
+      const openQuestions = lessons.find((lesson) => lesson.id === "open-questions")!;
+      saveLessonPosition(openQuestions.id, 3);
+      await renderApp(`/lessons/${activeListening.id}`);
+      await advanceTo(activeListening, lastStepIndex);
+      fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+
+      await clickToScreen(await screen.findByRole("button", { name: "Next lesson" }));
+
+      expect(screen.getByTestId("location")).toHaveTextContent(`/lessons/${openQuestions.id}`);
+      expectPickUpOffer(4);
+    });
+
+    it("keeps the place for each Lesson separately", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, 3);
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+
+      await clickToScreen(screen.getByRole("link", { name: /Open Questions/ }));
+
+      expect(screen.queryByRole("button", { name: "Start over" })).not.toBeInTheDocument();
+    });
+
+    it("keeps the latest step, not the furthest: going Back moves the place back with it", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, 3);
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+
+      await openFromList();
+
+      expectPickUpOffer(3);
+    });
+
+    it("offers nothing after going Back to step 1, since there's no place to pick up", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+
+      await openFromList();
+
+      expectNoOffer();
+    });
+
+    it("shows the step reached in the progress bar and keeps the Lesson's leave destination while the offer is up", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, 3);
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+
+      await openFromList();
+
+      expect(screen.getByRole("progressbar", { name: "Lesson progress" })).toHaveAttribute(
+        "aria-valuetext",
+        `Step 4 of ${activeListening.steps.length}`,
+      );
+      expect(screen.getByRole("link", { name: "← Lessons" })).toBeInTheDocument();
+    });
+
+    it("keeps the place when the Lesson is left from the offer itself, without choosing", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, 3);
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openFromList();
+
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openFromList();
+
+      expectPickUpOffer(4);
+    });
+
+    it("Pick up resumes at that step, with Back moving to the one before it", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, 3);
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openFromList();
+
+      fireEvent.click(screen.getByRole("button", { name: "Pick up at step 4" }));
+
+      expectOnStep(activeListening, 3);
+      expect(screen.queryByRole("heading", { name: "Pick up where you left off?" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+      expectOnStep(activeListening, 2);
+    });
+
+    it("keeps the place moving as the Lesson is picked up and continued", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, 3);
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openFromList();
+      fireEvent.click(screen.getByRole("button", { name: "Pick up at step 4" }));
+      await advanceTo(activeListening, 6, 3);
+
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openFromList();
+
+      expectPickUpOffer(7);
+    });
+
+    it("Start over begins at step 1 and clears the kept place", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, 3);
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openFromList();
+
+      fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+
+      expectNoOffer();
+      expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openFromList();
+      expectNoOffer();
+    });
+
+    it("reaching the Recap without tapping Finish still keeps the place, at the Recap", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, lastStepIndex);
+
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openFromList();
+
+      expectPickUpOffer(lastStepIndex + 1);
+    });
+
+    it("Finish clears the kept place, so a finished Lesson reopened starts at step 1", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, lastStepIndex);
+      fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+      await clickToScreen(await screen.findByRole("link", { name: "Done" }));
+      expect(screen.getByTestId("location")).toHaveTextContent(/^\/lessons$/);
+
+      await openFromList();
+
+      expectNoOffer();
+    });
+
+    it("keeps no answer: a committed pick isn't there when the Lesson is picked up on the same step", async () => {
+      const { index, step } = firstStepOfKind(activeListening, "check");
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, index);
+      fireEvent.click(screen.getByRole("radio", { name: optionText(step, "wrong") }));
+      fireEvent.click(screen.getByRole("button", { name: "Check" }));
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openFromList();
+
+      fireEvent.click(screen.getByRole("button", { name: `Pick up at step ${index + 1}` }));
+
+      expectOnStep(activeListening, index);
+      for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
+      expect(screen.getByRole("button", { name: "Check" })).toBeDisabled();
+      expect(screen.queryByText("Not quite.")).not.toBeInTheDocument();
+    });
+
+    it("shows no score, percentage or tally on the offer", async () => {
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, 3);
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+
+      await openFromList();
+
+      expect(document.body.textContent).not.toMatch(/\d+\s*(of|out of|\/)\s*\d+|%|\bscore\b/i);
+    });
+
+    it("never calls the network to keep or read the place", async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      await renderApp("/lessons");
+      await openFromList();
+      await advanceTo(activeListening, 3);
+      await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+      await openFromList();
+
+      expectPickUpOffer(4);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    describe("when the device can't keep the place", () => {
+      const realTransaction = IDBDatabase.prototype.transaction;
+
+      /** A device that refuses the position store but works for everything else. */
+      const connectionsLeftHanging: IDBDatabase[] = [];
+      function breakPositionStore(onRead: "throw" | "hang") {
+        vi.spyOn(IDBDatabase.prototype, "transaction").mockImplementation(function (
+          this: IDBDatabase,
+          storeNames: string | Iterable<string>,
+          mode?: IDBTransactionMode,
+        ) {
+          if (storeNames !== LESSON_POSITION_STORE) return realTransaction.call(this, storeNames, mode);
+          if (mode === "readonly" && onRead === "hang") {
+            connectionsLeftHanging.push(this);
+            return { objectStore: () => ({ get: () => ({}) }) } as unknown as IDBTransaction;
+          }
+          throw new DOMException("The device is full.", "QuotaExceededError");
+        });
+      }
+
+      it("still runs the whole Lesson, and simply starts at step 1 next time", async () => {
+        breakPositionStore("throw");
+        await renderApp("/lessons");
+        await openFromList();
+
+        await advanceTo(activeListening, 3);
+        expectOnStep(activeListening, 3);
+        await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
+        await openFromList();
+
+        expectNoOffer();
+        await advanceTo(activeListening, lastStepIndex);
+        fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+        expect(await screen.findByRole("button", { name: "Next lesson" })).toBeInTheDocument();
+      });
+
+      it("opens at step 1 when the device is too slow to say, rather than waiting on it", async () => {
+        breakPositionStore("hang");
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        render(
+          <MemoryRouter initialEntries={[`/lessons/${activeListening.id}`]}>
+            <AppRoutes />
+          </MemoryRouter>,
+        );
+        expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(SAVED_POSITION_TIMEOUT_MS);
+        });
+
+        expectNoOffer();
+        // The read that never answered still holds its connection; free it so the test database can be cleared.
+        connectionsLeftHanging.forEach((db) => db.close());
+      });
+    });
   });
 
   it("never shows a score, percentage or tally of answers, and completes even offline, through a whole Lesson", async () => {
@@ -672,7 +980,7 @@ describe("Lesson flow", () => {
       expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
     });
 
-    it("saves nothing the user writes: a fresh Lesson start shows an empty composer again", async () => {
+    it("saves nothing the user writes: picking the Lesson up on this step shows an empty composer again", async () => {
       await renderApp("/lessons");
       const openLesson = () => clickToScreen(screen.getByRole("link", { name: new RegExp(activeListening.title) }));
 
@@ -682,7 +990,7 @@ describe("Lesson flow", () => {
 
       await clickToScreen(screen.getByRole("link", { name: "← Lessons" }));
       await openLesson();
-      await advanceTo(activeListening, index);
+      fireEvent.click(screen.getByRole("button", { name: `Pick up at step ${index + 1}` }));
 
       expect(screen.getByLabelText("Your reply")).toHaveValue("");
     });

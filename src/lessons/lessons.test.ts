@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compositions } from "./artwork/compositions";
+import { findLessonStepProblems } from "./lessonAuthoring";
 import { isChoiceStep, lessons, type ExplainerArtwork, type ExplainerStep, type Lesson, type LessonStep } from "./lessons";
 
 /** The Lesson's Explainers that carry artwork, in step order, whatever steps sit between them. */
@@ -12,16 +13,8 @@ function explainersWithArtwork(lesson: Lesson) {
 
 describe("lessons", () => {
   describe.each(lessons.map((lesson) => [lesson.id, lesson] as const))("%s", (_id, lesson) => {
-    it("has 8–12 Lesson Steps", () => {
-      expect(lesson.steps.length).toBeGreaterThanOrEqual(8);
-      expect(lesson.steps.length).toBeLessThanOrEqual(12);
-    });
-
-    it("has exactly one Recap, and it is the last step", () => {
-      const recaps = lesson.steps.filter((step) => step.kind === "recap");
-
-      expect(recaps).toHaveLength(1);
-      expect(lesson.steps.at(-1)?.kind).toBe("recap");
+    it("has the right number of Lesson Steps, with exactly one Recap, last", () => {
+      expect(findLessonStepProblems(lesson)).toEqual([]);
     });
 
     it("ends with a Recap of 2–3 takeaways and a non-empty Apply It", () => {

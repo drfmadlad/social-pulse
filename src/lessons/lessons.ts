@@ -89,7 +89,7 @@ export interface Lesson {
   title: string;
   /** One-line description shown in the Lessons list and Home's Today's idea. */
   summary: string;
-  /** 8–12 Lesson Steps, ending in exactly one Recap. */
+  /** About 20 Lesson Steps (18–24, see `lessonAuthoring.ts`), ending in exactly one Recap. */
   steps: LessonStep[];
   /**
    * True while the Lesson carries stub content. Real Lesson content is authored
