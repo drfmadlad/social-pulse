@@ -2,6 +2,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { linkedIconAssets, manifestIcons } from "./pwaIcons";
 
 export default defineConfig({
   plugins: [
@@ -13,7 +14,7 @@ export default defineConfig({
       // reloads every open tab when any one of them takes an update.
       registerType: "prompt",
       injectRegister: false,
-      includeAssets: ["icons/icon-192.png", "icons/icon-512.png"],
+      includeAssets: linkedIconAssets,
       manifest: {
         name: "Social Pulse",
         short_name: "Social Pulse",
@@ -22,24 +23,7 @@ export default defineConfig({
         display: "standalone",
         background_color: "#F3F0E8",
         theme_color: "#F3F0E8",
-        icons: [
-          {
-            src: "icons/icon-192.png",
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "icons/icon-512.png",
-            sizes: "512x512",
-            type: "image/png",
-          },
-          {
-            src: "icons/icon-512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
-        ],
+        icons: manifestIcons,
       },
     }),
   ],
