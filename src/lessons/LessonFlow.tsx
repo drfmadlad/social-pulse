@@ -11,8 +11,10 @@ import { Explainer } from "./Explainer";
 import { findNextUnfinishedLesson } from "./findNextUnfinishedLesson";
 import { Recap } from "./Recap";
 import { ReplyChoice } from "./ReplyChoice";
+import { ResumeOffer } from "./ResumeOffer";
 import { shuffleOptions } from "./shuffleOptions";
 import { isChoiceStep, lessons, type ChoiceOption, type Lesson } from "./lessons";
+import { clearLessonPosition, saveLessonPosition } from "./lessonPositionStore";
 import { markLessonFinished } from "./lessonProgressStore";
 import { useFinishedLessonIds } from "./useFinishedLessonIds";
 import { WrittenReply, type WrittenReplyAnswer } from "./WrittenReply";
@@ -28,6 +30,8 @@ interface LessonFlowProps {
   leaveTo: LeaveDestination;
   /** The navigation state this Lesson was opened with, forwarded to Next lesson so it keeps the same leave destination. */
   openerState?: unknown;
+  /** The zero-based step this Lesson was left on, or null when it wasn't left partway. Offered, never assumed. */
+  resumeStepIndex?: number | null;
 }
 
 interface PrimaryAction {
@@ -37,13 +41,17 @@ interface PrimaryAction {
 }
 
 /**
- * One run through a Lesson. Step position and answers live only here, never in the URL or
- * storage, so leaving the route by any means discards them and the next visit starts at step 1.
+ * One run through a Lesson. Answers live only here, never in the URL or storage, so leaving the
+ * route by any means discards them. The step position is the one thing kept on-device, saved as
+ * the user moves, so leaving by any means (even a closed tab) loses nothing and the next visit
+ * offers to pick up there.
  */
-export function LessonFlow({ lesson, leaveTo, openerState }: LessonFlowProps) {
+export function LessonFlow({ lesson, leaveTo, openerState, resumeStepIndex = null }: LessonFlowProps) {
   const direction = useScreenDirection();
   const navigate = useNavigate();
-  const [stepIndex, setStepIndex] = useState(0);
+  // While the offer shows, this is the step on offer (so the progress row shows how far they got).
+  const [stepIndex, setStepIndex] = useState(resumeStepIndex ?? 0);
+  const [offeringResume, setOfferingResume] = useState(resumeStepIndex !== null);
   // True once Finish has been tapped on the Recap; reaching the Recap without tapping it doesn't count.
   const [finished, setFinished] = useState(false);
   const finishedLessonIds = useFinishedLessonIds();
@@ -67,18 +75,38 @@ export function LessonFlow({ lesson, leaveTo, openerState }: LessonFlowProps) {
   });
   const primaryRef = useRef<HTMLButtonElement>(null);
   const step = lesson.steps[stepIndex];
-  const isYourMove = isChoiceStep(step) || step.kind === "written-reply";
+  const isYourMove = !offeringResume && (isChoiceStep(step) || step.kind === "written-reply");
+
+  /** Moves to a step and keeps it as the place to pick up from, whichever way the Lesson is left. */
+  function goToStep(index: number, stepChangeDirection: ScreenDirection) {
+    setStepDirection(stepChangeDirection);
+    setStepIndex(index);
+    saveLessonPosition(lesson.id, index);
+  }
 
   function goForward() {
-    setStepDirection("forward");
-    setStepIndex((current) => Math.min(current + 1, lesson.steps.length - 1));
+    goToStep(Math.min(stepIndex + 1, lesson.steps.length - 1), "forward");
   }
 
   function goBack() {
-    setStepDirection("back");
-    setStepIndex(stepIndex - 1);
+    goToStep(stepIndex - 1, "back");
     // Back leaves the row on step 1; keep keyboard focus in the pinned row rather than dropping it.
     if (stepIndex === 1) primaryRef.current?.focus();
+  }
+
+  // The kept position already stands, so picking up writes nothing.
+  function pickUp() {
+    setStepDirection("forward");
+    setOfferingResume(false);
+  }
+
+  function startOver() {
+    clearLessonPosition(lesson.id);
+    setStepDirection("back");
+    setStepIndex(0);
+    setOfferingResume(false);
+    // The button that was clicked is gone; keep keyboard focus in the pinned row.
+    primaryRef.current?.focus();
   }
 
   function selectOption(optionId: string) {
@@ -125,6 +153,8 @@ export function LessonFlow({ lesson, leaveTo, openerState }: LessonFlowProps) {
 
   function finishLesson() {
     void markLessonFinished(lesson.id);
+    // Done is done: the next visit starts at step 1, not at the Recap.
+    clearLessonPosition(lesson.id);
     setFinished(true);
   }
 
@@ -135,6 +165,7 @@ export function LessonFlow({ lesson, leaveTo, openerState }: LessonFlowProps) {
   }
 
   function primaryAction(): PrimaryAction {
+    if (offeringResume) return { label: `Pick up at step ${stepIndex + 1}`, onClick: pickUp };
     if (isChoiceStep(step) && !answers[stepIndex]?.committed) {
       return { label: "Check", disabled: !answers[stepIndex], onClick: commitAnswer };
     }
@@ -190,13 +221,16 @@ export function LessonFlow({ lesson, leaveTo, openerState }: LessonFlowProps) {
       </header>
 
       <div
-        key={stepIndex}
+        key={offeringResume ? "resume-offer" : stepIndex}
         className={`lesson-flow__step${stepDirection ? ` lesson-flow__step--enter-${stepDirection}` : ""}`}
       >
         <div className="lesson-flow__content">
-          {step.kind === "explainer" && <Explainer step={step} />}
-          {step.kind === "check" && <Check step={step} answer={answers[stepIndex]} onSelect={selectOption} />}
-          {step.kind === "reply-choice" && (
+          {offeringResume && <ResumeOffer stepNumber={stepIndex + 1} />}
+          {!offeringResume && step.kind === "explainer" && <Explainer step={step} />}
+          {!offeringResume && step.kind === "check" && (
+            <Check step={step} answer={answers[stepIndex]} onSelect={selectOption} />
+          )}
+          {!offeringResume && step.kind === "reply-choice" && (
             <ReplyChoice
               step={step}
               options={shuffledOptions[stepIndex]}
@@ -204,7 +238,7 @@ export function LessonFlow({ lesson, leaveTo, openerState }: LessonFlowProps) {
               onSelect={selectOption}
             />
           )}
-          {step.kind === "written-reply" && (
+          {!offeringResume && step.kind === "written-reply" && (
             <WrittenReply
               step={step}
               answer={writtenReplies[stepIndex]}
@@ -212,13 +246,17 @@ export function LessonFlow({ lesson, leaveTo, openerState }: LessonFlowProps) {
               onRetry={() => void sendWrittenReply()}
             />
           )}
-          {step.kind === "recap" && <Recap step={step} />}
+          {!offeringResume && step.kind === "recap" && <Recap step={step} />}
         </div>
       </div>
 
       <footer className="lesson-flow__bottom">
         <div className="lesson-flow__back-slot">
-          {finished ? (
+          {offeringResume ? (
+            <button type="button" className="lesson-flow__back" onClick={startOver}>
+              Start over
+            </button>
+          ) : finished ? (
             nextLesson && (
               <Link className="lesson-flow__back" to={leaveTo.path}>
                 Done

@@ -303,6 +303,18 @@ Steps) has the layout.
   navigating elsewhere). Reopening it offers **Pick up at step N** or **Start over**. There's no
   confirmation on leaving, since nothing is lost. Finishing clears the kept position. Answers
   aren't kept, only the position.
+  - **How it's kept.** The position is saved as the user moves between steps, not on the way out,
+    so every way of leaving (a closed tab included) keeps it. Back moves it back too. Step 1 isn't
+    a place to pick up, so a Lesson on step 1 keeps nothing. Reaching the Recap without tapping
+    Finish keeps the Recap as the place. Each Lesson keeps its own.
+  - **The offer** stands in for the step on reopening, from any entry point. Its heading reads
+    "Pick up where you left off?" with the line "You stopped at step N.". The progress row shows
+    how far they got, and the bottom row carries **Pick up at step N** as the pill and **Start
+    over** as the text action in the Back slot. Pick up goes to that step with nothing answered.
+    Start over goes to step 1 and clears the kept position. Leaving from the offer keeps it.
+  - **When it can't be kept.** If the device can't save or read the position, the Lesson works the
+    same and starts at step 1 next time. The Lesson doesn't wait on a slow device: after 1.5
+    seconds it opens at step 1.
 - **Finish leads to Next lesson / Done.** Finish on the Recap:
   1. marks the Lesson finished on-device, next to History;
   2. plays the celebration, the same every time;
@@ -427,8 +439,8 @@ are in DESIGN.md §7 (Update offer).
   and that includes other tabs: the generated register script would reload every open tab when one
   of them took an update, so registration is the app's own (`src/useAppUpdate.ts`) and a tab reloads
   only after its own user tapped Reload.
-- **Held back on the Conversation and the Lesson flow.** Both keep their place on-device, but a reload
-  there still breaks the user's train of thought mid-exchange, so the note doesn't show on those screens and appears on the next
+- **Held back on the Conversation and the Lesson flow.** A Lesson keeps its step position on-device, but a reload
+  there still breaks the user's train of thought mid-exchange, and a Lesson's answers aren't kept, so the note doesn't show on those screens and appears on the next
   screen the user reaches. The Feedback Summary shows it: that conversation is already saved.
 - It adds no heading and no navigation, so it doesn't touch the heading structure above or the
   navigation model below.
