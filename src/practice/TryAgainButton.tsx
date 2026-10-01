@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { findFocus } from "./focuses";
+import { newConversationStart } from "./inProgressConversation";
 import { conversationPath } from "./practicePaths";
 import { scenarioOfEntry } from "./scenarios";
 
@@ -39,7 +40,8 @@ export function TryAgainButton({ conversation, replace = false }: TryAgainButton
   const path = conversationPath(scenario.categoryId, scenario.id, findFocus(conversation.focusId)?.id);
 
   function tryAgain() {
-    navigate(path, { replace });
+    // A fresh transcript: a conversation left in progress in this Scenario isn't resumed (issue #68).
+    navigate(path, { replace, state: newConversationStart() });
   }
 
   // The accessible name says what it starts, since a failed Feedback Summary's own retry also reads

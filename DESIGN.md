@@ -631,9 +631,9 @@ safe area. It's a polite status region, never a modal, so nothing dims and nothi
   usable either way.
 - **Room for it:** while the note is showing, the page keeps `--space-16` × 2 of extra space under
   its content, so the note never covers a last row or a primary action.
-- **Where it doesn't appear:** the Conversation and the Lesson flow. A Practice Conversation lives
-  only in memory and a Lesson's answers aren't kept (only its step position is), so a reload there
-  loses something. The
+- **Where it doesn't appear:** the Conversation and the Lesson flow. A reload would break the
+  user's train of thought mid-exchange in a Practice Conversation (which comes back from its
+  on-device copy) and cost a Lesson's answers (only its step position is kept). The
   note waits and shows on the next screen the user reaches. It also stays off Home's five elements:
   it's an overlay on any screen, not a card in one.
 

@@ -17,7 +17,11 @@ function LocationDisplay() {
 // `useBlocker`, which only reports blocked navigation against a data router. The extra "/practice"
 // entry before `path` gives the system-back tests somewhere to go back to, the way a real user
 // always reaches a Practice Conversation via the Practice picker.
-function renderAt(path: string, { strictMode = false }: { strictMode?: boolean } = {}) {
+function renderAt(
+  path: string,
+  { strictMode = false, state }: { strictMode?: boolean; state?: unknown } = {},
+) {
+  const [pathname, query] = path.split("?");
   const router = createMemoryRouter(
     [
       {
@@ -35,7 +39,7 @@ function renderAt(path: string, { strictMode = false }: { strictMode?: boolean }
         ],
       },
     ],
-    { initialEntries: ["/practice", path], initialIndex: 1 },
+    { initialEntries: ["/practice", { pathname, search: query ? `?${query}` : "", state }], initialIndex: 1 },
   );
   const app = <RouterProvider router={router} />;
   const view = render(strictMode ? <StrictMode>{app}</StrictMode> : app);
@@ -868,6 +872,320 @@ describe("ConversationScreen", () => {
       expectEveryRequestWithinTheLimit(fetchMock);
       const location = endFromWhereTheComposerWas();
       expect(location.state.transcript).toHaveLength(MAX_CONVERSATION_MESSAGES);
+    });
+  });
+});
+
+describe("ConversationScreen keeps a conversation across a reload or crash (issue #68)", () => {
+  const PATH = "/practice/dating/coffee-first-date";
+  const OPENING = "Hey! Good to see you.";
+  const HI = "Hi, nice to meet you!";
+
+  const TRANSCRIPT = [
+    { role: "assistant", content: OPENING },
+    { role: "user", content: HI },
+    { role: "assistant", content: "Likewise!" },
+  ];
+
+  /** What is on the device for in-progress conversations: every value, parsed. */
+  function storedCopies(): { turns: { role: string; content: string }[] }[] {
+    return Array.from({ length: window.localStorage.length }, (_, index) =>
+      JSON.parse(window.localStorage.getItem(window.localStorage.key(index)!)!),
+    );
+  }
+
+  function storedTurns() {
+    return storedCopies().map((copy) => copy.turns);
+  }
+
+  /** Plays the first exchange: the opening line, the user's Hi, and the Persona's reply. */
+  async function haveAnExchange(path = PATH, options: Parameters<typeof renderAt>[1] = {}) {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockReply(OPENING))
+      .mockResolvedValueOnce(mockReply("Likewise!"));
+    vi.stubGlobal("fetch", fetchMock);
+    const view = renderAt(path, options);
+    await screen.findByText(OPENING);
+    sendMessage(HI);
+    await screen.findByText("Likewise!");
+    return view;
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("keeps nothing while the user hasn't said anything: an opening line alone is no loss", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply(OPENING)));
+
+    renderAt(PATH);
+    await screen.findByText(OPENING);
+
+    expect(storedCopies()).toEqual([]);
+  });
+
+  it("keeps each turn on the device as it happens", async () => {
+    const reply = deferred<Response>();
+    const fetchMock = vi.fn().mockResolvedValueOnce(mockReply(OPENING)).mockReturnValueOnce(reply.promise);
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt(PATH);
+    await screen.findByText(OPENING);
+
+    sendMessage(HI);
+    // The user's line is kept the moment it's sent, before the Persona has answered.
+    expect(storedTurns()).toEqual([TRANSCRIPT.slice(0, 2)]);
+
+    await act(async () => reply.resolve(mockReply("Likewise!")));
+    await screen.findByText("Likewise!");
+    expect(storedTurns()).toEqual([TRANSCRIPT]);
+  });
+
+  it("restores the transcript after a reload and lets the user carry on, without a new opening line", async () => {
+    const first = await haveAnExchange();
+    first.unmount();
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("Great, tell me more."));
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt(PATH);
+
+    expect(screen.getByText(OPENING)).toBeInTheDocument();
+    expect(screen.getByText(HI)).toBeInTheDocument();
+    expect(screen.getByText("Likewise!")).toBeInTheDocument();
+    expect(screen.getByLabelText("Message")).toBeEnabled();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    sendMessage("I'm Sam.");
+    await screen.findByText("Great, tell me more.");
+    expect(requestedMessages(fetchMock, 0)).toEqual([...TRANSCRIPT, { role: "user", content: "I'm Sam." }]);
+  });
+
+  it("restores through React StrictMode's double mount too", async () => {
+    const first = await haveAnExchange();
+    first.unmount();
+
+    vi.stubGlobal("fetch", vi.fn());
+    renderAt(PATH, { strictMode: true });
+
+    expect(screen.getByText("Likewise!")).toBeInTheDocument();
+    expect(storedTurns()).toEqual([TRANSCRIPT]);
+  });
+
+  it("asks again for the reply the Persona never gave when the app went away with the user's line in flight", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(mockReply(OPENING)).mockReturnValueOnce(new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    const first = renderAt(PATH);
+    await screen.findByText(OPENING);
+    sendMessage(HI);
+    first.unmount();
+
+    const reopened = vi.fn().mockResolvedValueOnce(mockReply("Likewise!"));
+    vi.stubGlobal("fetch", reopened);
+    renderAt(PATH);
+
+    expect(screen.getByText(HI)).toBeInTheDocument();
+    await screen.findByText("Likewise!");
+    expect(requestedMessages(reopened, 0)).toEqual(TRANSCRIPT.slice(0, 2));
+    expect(reopened).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores a conversation as a live one, still out of History until it ends", async () => {
+    const first = await haveAnExchange();
+    first.unmount();
+    vi.stubGlobal("fetch", vi.fn());
+
+    renderAt(PATH);
+
+    expect(screen.getByRole("button", { name: "End & get feedback" })).toBeEnabled();
+    expect(screen.queryByText("Feedback Summary stub")).not.toBeInTheDocument();
+  });
+
+  it("restores a conversation opened by URL alone, such as a reopened tab", async () => {
+    // Begun by Start (with its token), then reopened with no navigation state at all.
+    const first = await haveAnExchange(PATH, { state: { conversationStart: "start-1" } });
+    first.unmount();
+    vi.stubGlobal("fetch", vi.fn());
+
+    renderAt(PATH);
+
+    expect(screen.getByText("Likewise!")).toBeInTheDocument();
+  });
+
+  it("restores only for the same Focus: another Focus in the same Scenario opens afresh", async () => {
+    const first = await haveAnExchange(`${PATH}?focus=staying-calm`);
+    first.unmount();
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("A new opening.")));
+    renderAt(`${PATH}?focus=follow-up-questions`);
+
+    expect(await screen.findByText("A new opening.")).toBeInTheDocument();
+    expect(screen.queryByText("Likewise!")).not.toBeInTheDocument();
+  });
+
+  it("restores a Focus conversation from its own URL", async () => {
+    const first = await haveAnExchange(`${PATH}?focus=staying-calm`);
+    first.unmount();
+
+    vi.stubGlobal("fetch", vi.fn());
+    renderAt(`${PATH}?focus=staying-calm`);
+
+    expect(screen.getByText("Likewise!")).toBeInTheDocument();
+  });
+
+  describe("a fresh start is not a reload", () => {
+    it("opens a new transcript when the user deliberately starts again, and never shows the old one", async () => {
+      const first = await haveAnExchange(PATH, { state: { conversationStart: "start-1" } });
+      first.unmount();
+
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockReply("A different opening."));
+      vi.stubGlobal("fetch", fetchMock);
+      renderAt(PATH, { state: { conversationStart: "start-2" } });
+
+      expect(await screen.findByText("A different opening.")).toBeInTheDocument();
+      expect(screen.queryByText("Likewise!")).not.toBeInTheDocument();
+      expect(screen.queryByText(HI)).not.toBeInTheDocument();
+      // It asked for an opening line rather than carrying on from the old transcript.
+      expect(requestedMessages(fetchMock, 0)).toEqual([]);
+      // And the old copy is gone straight away, before the new conversation has said anything.
+      expect(storedCopies()).toEqual([]);
+    });
+
+    it("then restores the new conversation, not the old one, when that start is reloaded", async () => {
+      const old = await haveAnExchange(PATH, { state: { conversationStart: "start-1" } });
+      old.unmount();
+
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(mockReply("A different opening."))
+        .mockResolvedValueOnce(mockReply("Nice!"));
+      vi.stubGlobal("fetch", fetchMock);
+      const fresh = renderAt(PATH, { state: { conversationStart: "start-2" } });
+      await screen.findByText("A different opening.");
+      sendMessage("Hello again.");
+      await screen.findByText("Nice!");
+      fresh.unmount();
+
+      // The reload keeps the start's state, so it must restore this conversation rather than start over.
+      vi.stubGlobal("fetch", vi.fn());
+      renderAt(PATH, { state: { conversationStart: "start-2" } });
+
+      expect(screen.getByText("Nice!")).toBeInTheDocument();
+      expect(screen.getByText("Hello again.")).toBeInTheDocument();
+      expect(screen.queryByText("Likewise!")).not.toBeInTheDocument();
+    });
+
+    it("drops the old copy even when the fresh conversation is left before the user says anything", async () => {
+      const old = await haveAnExchange(PATH, { state: { conversationStart: "start-1" } });
+      old.unmount();
+
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("A different opening.")));
+      const fresh = renderAt(PATH, { state: { conversationStart: "start-2" } });
+      await screen.findByText("A different opening.");
+      fresh.unmount();
+
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Yet another opening.")));
+      renderAt(PATH);
+      expect(await screen.findByText("Yet another opening.")).toBeInTheDocument();
+      expect(screen.queryByText("Likewise!")).not.toBeInTheDocument();
+    });
+  });
+
+  it("clears the in-progress copy when the conversation ends, so reopening its URL starts afresh", async () => {
+    const view = await haveAnExchange();
+
+    fireEvent.click(screen.getByRole("button", { name: "End & get feedback" }));
+
+    expect(screen.getByText("Feedback Summary stub")).toBeInTheDocument();
+    expect(storedCopies()).toEqual([]);
+    // The ended conversation's transcript still goes on to the Feedback Summary, to be saved to History.
+    expect(JSON.parse(screen.getByTestId("location").textContent!).state.transcript).toEqual(TRANSCRIPT);
+    view.unmount();
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Brand new opening.")));
+    renderAt(PATH);
+    expect(await screen.findByText("Brand new opening.")).toBeInTheDocument();
+    expect(screen.queryByText("Likewise!")).not.toBeInTheDocument();
+  });
+
+  it("clears the in-progress copy when the user leaves through the confirm dialog", async () => {
+    await haveAnExchange();
+
+    fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
+    expect(storedCopies()).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+
+    expect(screen.getByText("Practice picker")).toBeInTheDocument();
+    expect(storedCopies()).toEqual([]);
+  });
+
+  it("keeps the in-progress copy when the user stays after the leave dialog", async () => {
+    await haveAnExchange();
+
+    fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(storedTurns()).toEqual([TRANSCRIPT]);
+  });
+
+  it("clears it when leaving via the system back gesture's confirmation, too", async () => {
+    const view = await haveAnExchange();
+
+    await pressSystemBack(view.router);
+    fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+
+    expect(storedCopies()).toEqual([]);
+  });
+
+  it("opens afresh, as before, when the copy on the device is damaged", async () => {
+    const first = await haveAnExchange();
+    first.unmount();
+    const key = window.localStorage.key(0)!;
+    const damagedCopies = [
+      "{not json",
+      "[]",
+      JSON.stringify({ version: 1, turns: "nope" }),
+      JSON.stringify({ version: 1, turns: [{ role: "user" }] }),
+      JSON.stringify({ version: 99, focusId: null, startToken: null, turns: TRANSCRIPT }),
+    ];
+
+    for (const damaged of damagedCopies) {
+      window.localStorage.setItem(key, damaged);
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Fresh opening.")));
+      const view = renderAt(PATH);
+      expect(await screen.findByText("Fresh opening.")).toBeInTheDocument();
+      view.unmount();
+    }
+  });
+
+  describe("when the device can't save", () => {
+    it("works in memory when writing fails", async () => {
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+      });
+
+      await haveAnExchange();
+
+      fireEvent.click(screen.getByRole("button", { name: "End & get feedback" }));
+      expect(screen.getByText("Feedback Summary stub")).toBeInTheDocument();
+    });
+
+    it("works in memory when storage can't be reached at all", async () => {
+      vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+        throw new DOMException("The operation is insecure.", "SecurityError");
+      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValueOnce(mockReply(OPENING)).mockResolvedValueOnce(mockReply("Likewise!")),
+      );
+
+      renderAt(PATH);
+      await screen.findByText(OPENING);
+      sendMessage(HI);
+      await screen.findByText("Likewise!");
+
+      fireEvent.click(screen.getByRole("button", { name: "← Practice" }));
+      fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+      expect(screen.getByText("Practice picker")).toBeInTheDocument();
     });
   });
 });

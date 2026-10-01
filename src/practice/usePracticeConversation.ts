@@ -1,6 +1,7 @@
 import { useEffect, useReducer } from "react";
 import { MAX_CONVERSATION_MESSAGES, MAX_MESSAGE_LENGTH } from "../requestLimits";
 import { describeAiError, requestAiReply, type ChatMessage } from "./aiProxyClient";
+import type { ConversationSlot } from "./inProgressConversation";
 import type { Scenario } from "./scenarios";
 
 /**
@@ -40,6 +41,25 @@ function awaitingReplyTo(scenario: Scenario, turns: ChatMessage[]): Conversation
 /** A conversation opens on the Persona's first line, so it starts out waiting for it. */
 function opening(scenario: Scenario): ConversationState {
   return awaitingReplyTo(scenario, []);
+}
+
+/**
+ * A conversation carried on from a saved transcript (issue #68). If the saved copy ends on the
+ * user's line, the Persona never answered it before the app went away, so it's asked for again.
+ */
+function resumed(scenario: Scenario, turns: ChatMessage[]): ConversationState {
+  if (turns[turns.length - 1]?.role === "user") return awaitingReplyTo(scenario, turns);
+  return { scenario, turns, phase: { kind: "ready" } };
+}
+
+interface ConversationStart {
+  scenario: Scenario;
+  /** The saved transcript to carry on from, or null for a new conversation. */
+  restoredTurns: ChatMessage[] | null;
+}
+
+function start({ scenario, restoredTurns }: ConversationStart): ConversationState {
+  return restoredTurns ? resumed(scenario, restoredTurns) : opening(scenario);
 }
 
 /**
@@ -121,9 +141,13 @@ export interface PracticeConversation {
  * conversation keeps that Scenario for its life, so a later change to the argument never sends its
  * turns under another Scenario or Persona; to start over in a different one, remount the caller
  * (the Conversation screen is keyed by Scenario for exactly this).
+ *
+ * With a `slot` (issue #68) the conversation is kept on-device as it goes and, when the slot holds a
+ * saved copy, carries on from it instead of opening afresh. The caller discards the slot when the
+ * conversation ends or is left. Without one it lives in memory only.
  */
-export function usePracticeConversation(scenario: Scenario): PracticeConversation {
-  const [state, dispatch] = useReducer(conversationReducer, scenario, opening);
+export function usePracticeConversation(scenario: Scenario, slot?: ConversationSlot): PracticeConversation {
+  const [state, dispatch] = useReducer(conversationReducer, { scenario, restoredTurns: slot?.restoredTurns ?? null }, start);
   const pendingRequest = state.phase.kind === "awaiting-reply" ? state.phase.request : null;
   const conversationScenario = state.scenario;
 
@@ -150,6 +174,18 @@ export function usePracticeConversation(scenario: Scenario): PracticeConversatio
 
   const isAwaitingReply = pendingRequest !== null;
   const hasSaidSomething = state.turns.some((turn) => turn.role === "user");
+
+  // A copy left by an earlier conversation in this Scenario is dropped once this one is open.
+  useEffect(() => {
+    slot?.dropStale();
+  }, [slot]);
+
+  // Keeps the transcript on-device as each turn lands (issue #68). Nothing is kept until the user
+  // has said something, the same moment leaving starts asking: an opening line alone is no loss.
+  // Whatever changes the turns later (a Rewind, a Hint) is kept by this same effect.
+  useEffect(() => {
+    if (hasSaidSomething) slot?.save(state.turns);
+  }, [slot, state.turns, hasSaidSomething]);
 
   return {
     turns: state.turns,
