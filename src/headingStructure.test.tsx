@@ -6,7 +6,10 @@ import { attachFeedbackSummary, resetHistoryStoreForTests, saveEndedConversation
 import { isChoiceStep, lessons } from "./lessons/lessons";
 import { scenarioCategories } from "./practice/scenarioCategories";
 import { mockReply, mockWrittenReplyVerdict } from "./test/apiMocks";
+import { PRACTICE_OFFLINE_NOTICE, startOffline } from "./test/connection";
 import { expectSaneHeadingHierarchy } from "./test/headingStructure";
+import { findFocus } from "./practice/focuses";
+import { defaultScenarioOf } from "./practice/scenarios";
 import { settleDeviceReads } from "./test/settleDeviceReads";
 
 async function renderScreen(path: string) {
@@ -45,15 +48,34 @@ describe("heading structure", () => {
     expectSaneHeadingHierarchy(container);
   });
 
+  it("Practice picker keeps the same outline offline, where its notice adds no heading", async () => {
+    startOffline();
+    const { container } = await renderScreen("/practice");
+    expect(screen.getByRole("status")).toHaveTextContent(PRACTICE_OFFLINE_NOTICE);
+    expectSaneHeadingHierarchy(container);
+  });
+
+  it("Scenario brief has exactly one h1, the Persona's name, and no skipped levels, whatever is chosen", async () => {
+    const { container } = await renderScreen("/practice/dating");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Jordan");
+    expectSaneHeadingHierarchy(container);
+
+    fireEvent.click(screen.getByRole("radio", { name: defaultScenarioOf(datingCategory.id)!.title }));
+    expectSaneHeadingHierarchy(container);
+
+    fireEvent.click(screen.getByRole("radio", { name: "Staying calm" }));
+    expectSaneHeadingHierarchy(container);
+  });
+
   it("Conversation has exactly one h1 and no skipped levels", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you.")));
-    const { container, findByText } = await renderScreen("/practice/dating");
+    const { container, findByText } = await renderScreen(`/practice/dating/${defaultScenarioOf(datingCategory.id)!.id}`);
     await findByText("Hey! Good to see you.");
     expectSaneHeadingHierarchy(container);
   });
 
   it("Feedback Summary has exactly one h1 and no skipped levels", async () => {
-    await saveEndedConversation({ id: "entry-1", category: datingCategory, transcript });
+    await saveEndedConversation({ id: "entry-1", category: datingCategory, scenario: defaultScenarioOf(datingCategory.id)!, transcript });
     await attachFeedbackSummary("entry-1", summary);
     const { container, findByText } = await renderScreen("/practice/dating/feedback/entry-1");
     await findByText("What you did well");
@@ -95,8 +117,27 @@ describe("heading structure", () => {
     expectSaneHeadingHierarchy(container);
   });
 
+  it("Feedback Summary and History entry detail keep their outline with a Focus, whose line adds no heading", async () => {
+    await saveEndedConversation({
+      id: "entry-1",
+      category: datingCategory,
+      scenario: defaultScenarioOf(datingCategory.id)!,
+      focus: findFocus("staying-calm"),
+      transcript,
+    });
+    await attachFeedbackSummary("entry-1", summary);
+
+    for (const path of ["/practice/dating/feedback/entry-1", "/history/entry-1"]) {
+      const view = await renderScreen(path);
+      await view.findByText("What you did well");
+      expect(view.getByText("Staying calm")).toBeInTheDocument();
+      expectSaneHeadingHierarchy(view.container);
+      view.unmount();
+    }
+  });
+
   it("History entry detail has exactly one h1 and no skipped levels", async () => {
-    await saveEndedConversation({ id: "entry-1", category: datingCategory, transcript });
+    await saveEndedConversation({ id: "entry-1", category: datingCategory, scenario: defaultScenarioOf(datingCategory.id)!, transcript });
     await attachFeedbackSummary("entry-1", summary);
     const { container, findByText } = await renderScreen("/history/entry-1");
     await findByText("What you did well");

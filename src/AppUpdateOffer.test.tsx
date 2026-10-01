@@ -108,7 +108,7 @@ describe("AppUpdateOffer", () => {
   });
 
   it.each([
-    ["a Practice Conversation", "/practice/dating"],
+    ["a Practice Conversation", "/practice/dating/coffee-first-date"],
     ["a Lesson", "/lessons/active-listening"],
   ])("holds the offer back during %s and shows it once the user has left", (_name, path) => {
     const router = renderAt(path);
@@ -151,7 +151,7 @@ describe("AppUpdateOffer in the app shell", () => {
 
   it("holds the offer back during a Practice Conversation in the real app and shows it after leaving", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockReply("Hey! Good to see you.")));
-    const router = await renderApp("/practice/dating");
+    const router = await renderApp("/practice/dating/coffee-first-date");
     await screen.findByText("Hey! Good to see you.");
     waitingUpdate();
 

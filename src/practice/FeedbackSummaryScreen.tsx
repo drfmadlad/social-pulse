@@ -3,18 +3,32 @@ import { saveEndedConversation } from "../history/historyStore";
 import { HistorySaveNotice } from "../history/HistorySaveNotice";
 import type { ChatMessage } from "./aiProxyClient";
 import type { FeedbackSummary } from "./feedbackSummary";
+import type { Focus } from "./focuses";
+import { FocusLine } from "./FocusLine";
 import type { ScenarioCategory } from "./scenarioCategories";
+import type { Scenario } from "./scenarios";
 import { SavedFeedbackSummary } from "./SavedFeedbackSummary";
 
 interface FeedbackSummaryScreenProps {
   category: ScenarioCategory;
+  /** The Scenario the conversation was set in, recorded on its History entry. */
+  scenario: Scenario;
+  /** The Focus the user picked on the Scenario brief, if any, also recorded on the History entry. */
+  focus: Focus | undefined;
   /** Minted when the conversation ended, so coming back to this screen finds the same History entry. */
   entryId: string;
   transcript: ChatMessage[];
   onDone: () => void;
 }
 
-export function FeedbackSummaryScreen({ category, entryId, transcript, onDone }: FeedbackSummaryScreenProps) {
+export function FeedbackSummaryScreen({
+  category,
+  scenario,
+  focus,
+  entryId,
+  transcript,
+  onDone,
+}: FeedbackSummaryScreenProps) {
   // Undefined while the conversation saves, then whatever summary the saved entry holds: null for a
   // conversation that just ended, or the one already attached when this screen is revisited.
   const [saved, setSaved] = useState<{ summary: FeedbackSummary | null; saveFailed: boolean }>();
@@ -25,7 +39,7 @@ export function FeedbackSummaryScreen({ category, entryId, transcript, onDone }:
       let summary: FeedbackSummary | null = null;
       let saveFailed = false;
       try {
-        summary = (await saveEndedConversation({ id: entryId, category, transcript })).summary;
+        summary = (await saveEndedConversation({ id: entryId, category, scenario, focus, transcript })).summary;
       } catch (error) {
         // Still worth showing the feedback even if History can't hold it.
         console.error("Failed to save Practice Conversation to History", error);
@@ -37,7 +51,7 @@ export function FeedbackSummaryScreen({ category, entryId, transcript, onDone }:
     return () => {
       cancelled = true;
     };
-  }, [entryId, category, transcript]);
+  }, [entryId, category, scenario, focus, transcript]);
 
   return (
     <div className="feedback-summary">
@@ -45,6 +59,7 @@ export function FeedbackSummaryScreen({ category, entryId, transcript, onDone }:
         Done
       </button>
       <h1 className="screen-title">Feedback on your conversation with {category.personaName}</h1>
+      {focus && <FocusLine focus={focus} />}
       {saved?.saveFailed && (
         <HistorySaveNotice>
           This conversation couldn't be saved, so it won't show up in History.
@@ -54,6 +69,7 @@ export function FeedbackSummaryScreen({ category, entryId, transcript, onDone }:
         <SavedFeedbackSummary
           entryId={entryId}
           category={category}
+          focus={focus}
           transcript={transcript}
           savedSummary={saved.summary}
           generateOnMount

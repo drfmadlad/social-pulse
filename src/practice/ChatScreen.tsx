@@ -1,22 +1,26 @@
 import { useState, type FormEvent } from "react";
 import { useBlocker } from "react-router-dom";
+import { MAX_MESSAGE_LENGTH } from "../requestLimits";
 import type { ChatMessage } from "./aiProxyClient";
 import { LeaveConversationDialog } from "./LeaveConversationDialog";
 import { useScreenDirection } from "../ScreenTransition";
 import { screenTransitionClassName } from "../screenDirection";
+import { feedbackSummaryPathPrefix } from "./practicePaths";
 import type { ScenarioCategory } from "./scenarioCategories";
+import type { Scenario } from "./scenarios";
 import { TranscriptView } from "./TranscriptView";
 import { usePracticeConversation } from "./usePracticeConversation";
 
 interface ChatScreenProps {
   category: ScenarioCategory;
+  scenario: Scenario;
   onBack: () => void;
   onEnd: (transcript: ChatMessage[]) => void;
 }
 
-export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
-  const { turns, isAwaitingReply, errorMessage, hasSaidSomething, canEnd, send, retry } =
-    usePracticeConversation(category.id);
+export function ChatScreen({ category, scenario, onBack, onEnd }: ChatScreenProps) {
+  const { turns, isAwaitingReply, errorMessage, hasSaidSomething, canEnd, lengthLimit, send, retry } =
+    usePracticeConversation(scenario);
   const [draft, setDraft] = useState("");
   const direction = useScreenDirection();
 
@@ -26,8 +30,8 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
   // system back gesture both attempt navigation through this same router, so one blocker catches
   // both. Ending the conversation navigates to its Feedback Summary (issue #35 put the History
   // entry id on the end of that URL), which isn't leaving, so that path is exempted rather than
-  // asked about.
-  const feedbackPathPrefix = `/practice/${category.id}/feedback/`;
+  // asked about. Nothing else is: the Scenario brief and the Practice picker are both leaving.
+  const feedbackPathPrefix = feedbackSummaryPathPrefix(category.id);
   const blocker = useBlocker(
     ({ nextLocation }) => hasSaidSomething && !nextLocation.pathname.startsWith(feedbackPathPrefix),
   );
@@ -39,6 +43,15 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
     setDraft("");
   }
 
+  // The top bar always has it; at the length limit it also takes the composer's place.
+  function endButton(className: string) {
+    return (
+      <button type="button" className={className} disabled={!canEnd} onClick={() => onEnd(turns)}>
+        End &amp; get feedback
+      </button>
+    );
+  }
+
   return (
     <div className={`conversation-screen ${screenTransitionClassName(direction)}`}>
       <header className="conversation-screen__header">
@@ -46,18 +59,21 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
           ← Practice
         </button>
         <h1>{category.personaName}</h1>
-        <button
-          type="button"
-          className="button-primary conversation-screen__end-button"
-          disabled={!canEnd}
-          onClick={() => onEnd(turns)}
-        >
-          End &amp; get feedback
-        </button>
+        {endButton("button-primary conversation-screen__end-button")}
       </header>
 
       <div className="conversation-screen__transcript">
+        {/* The Scenario stays in view from the first line, so a Surprise me pick is known too. */}
+        <div className="conversation-screen__scenario">
+          <p>{scenario.situation}</p>
+          <p>Your role: {scenario.role}</p>
+        </div>
         <TranscriptView transcript={turns} personaName={category.personaName} isTyping={isAwaitingReply} />
+        {lengthLimit === "near" && (
+          <p role="status" className="conversation-screen__length-note">
+            This conversation is nearly as long as it can go. You&apos;ve got a few more lines.
+          </p>
+        )}
         {errorMessage && (
           <div role="alert" className="chat-screen__error">
             <p>{errorMessage}</p>
@@ -68,18 +84,30 @@ export function ChatScreen({ category, onBack, onEnd }: ChatScreenProps) {
         )}
       </div>
 
-      <form className="conversation-screen__composer" onSubmit={handleSend}>
-        <label htmlFor="chat-draft">Message</label>
-        <input
-          id="chat-draft"
-          value={draft}
-          disabled={isAwaitingReply}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <button type="submit" className="button-primary" disabled={!canSend}>
-          Send
-        </button>
-      </form>
+      {lengthLimit === "reached" ? (
+        // At the length limit the composer gives way to ending (issue #58), so the user is never
+        // left facing the server's validation error.
+        <div className="conversation-screen__composer conversation-screen__composer--full">
+          <p role="status" className="conversation-screen__full-note">
+            This conversation is as long as it can go.
+          </p>
+          {endButton("button-primary")}
+        </div>
+      ) : (
+        <form className="conversation-screen__composer" onSubmit={handleSend}>
+          <label htmlFor="chat-draft">Message</label>
+          <input
+            id="chat-draft"
+            value={draft}
+            maxLength={MAX_MESSAGE_LENGTH}
+            disabled={isAwaitingReply}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <button type="submit" className="button-primary" disabled={!canSend}>
+            Send
+          </button>
+        </form>
+      )}
 
       {blocker.state === "blocked" && (
         <LeaveConversationDialog onCancel={() => blocker.reset()} onLeave={() => blocker.proceed()} />

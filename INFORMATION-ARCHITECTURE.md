@@ -88,7 +88,11 @@ needs a user-facing `blurb` field on `ScenarioCategory`.
   straight back into it, skipping the Scenario brief. Only one card can show this.
 - **Offline.** Practice needs a connection. Offline, the screen says so ("You're offline — Practice
   needs a connection. Lessons work offline.") instead of letting a Conversation fail on its first
-  line.
+  line. The category cards stay on screen but can't be opened: each is a disabled link, still reachable
+  by keyboard and described by the notice, so a screen reader hears the category, that it's
+  unavailable, and why. Focus stays on a card as the connection changes. The screen
+  follows the connection live, so the notice appears if it drops while the picker is showing and
+  goes when it returns, without a reload. Lessons and History don't change offline.
 
 **Navigation:** from Home's primary action. A card → Scenario brief (or a Paused Conversation →
 Conversation). Back → Home.
@@ -111,13 +115,44 @@ all. Own Scenarios are kept on-device and can be edited or deleted from here.
 **Try again** (from a Feedback Summary or History entry) skips this screen and starts a fresh
 Conversation with the same Scenario and Focus.
 
-**Navigation:** from Practice picker. Back → Practice picker.
+- **What the brief shows.** The category's name as a small label, the Persona's name as the
+  screen's `h1`, and one line on what they're like (`personaDescription`, the same in every
+  Scenario). Below the chooser, the chosen Scenario's situation and the user's role. With Surprise
+  me chosen, nothing is given away: a line says one of the Persona's situations is picked when you
+  start, and that it'll show at the top of the conversation.
+- **Where the Scenario lives.** Each Scenario's user-facing text (title, situation, role) is in
+  `src/practice/scenarios.ts`; its prompt situation is server-side only (`scenariosByCategory` in
+  `api/_lib/scenarioPrompts.ts`), keyed by the same category and Scenario ids. The conversation
+  request names both ids, and the server builds the prompt as the category's Persona sheet, then
+  that Scenario's situation, then the shared Persona rules. It rejects a Scenario it doesn't know,
+  including a real one named under another category.
+- **Default Scenario.** Each category names its default Scenario explicitly, on both sides (a test
+  checks they agree): the situation every conversation had before Scenarios existed. A History
+  entry saved then has no Scenario of its own and reads as its category's default
+  (`scenarioOfEntry`). A request with no Scenario gets the default too, as a safety net for an
+  installed app still on the version from before Scenarios until it reloads.
+- **Focus.** Seven aims, each worded as something to practise rather than a target to hit, after
+  **None** (the default): Asking follow-up questions, Showing you're listening, Sharing about
+  yourself, Reading the room, Staying calm, Handling silences, Wrapping up gracefully. They follow the
+  Lessons' skills and fit every category. The list is fixed in the app (`src/practice/focuses.ts`,
+  ids and labels only). What each one means to the Feedback Summary is server-side only
+  (`api/_lib/focusPrompts.ts`), keyed by the same ids, so the request names a Focus by id, no free
+  text reaches the prompt, and the server rejects an id it doesn't know. A test checks the two lists
+  agree.
+- **Start replaces the brief** in history rather than pushing on top of it, so back from the
+  Conversation — its back action and the system back gesture alike — lands on the Practice picker.
+
+**Navigation:** from Practice picker, at `/practice/:categoryId`. Back → Practice picker. Start →
+Conversation, at `/practice/:categoryId/:scenarioId`, with `?focus=<id>` when a Focus was picked. An
+unknown category redirects to the Practice picker.
 
 ### Conversation
 **Responsible for:** one live Practice Conversation. Chrome-free, full viewport.
 
 - Compact top bar: back, persona name, and **End & get feedback** as a top-bar action
-- Transcript fills the screen
+- Transcript fills the screen. It opens with a quiet note of the Scenario's situation and the
+  user's role, so a Surprise me pick is known from the first line; it scrolls away with the
+  transcript.
 - Composer pinned to the bottom, above the keyboard
 - Typing indicator sits in the transcript, not as a floating status line
 
@@ -137,8 +172,22 @@ Conversation with the same Scenario and Focus.
 - **Natural ending.** When the Persona wraps up in character, a quiet note ("Jordan's wrapping
   up") offers **Get feedback** as the primary action and **Keep talking** as secondary.
 
-**Navigation:** from Scenario brief, a Paused Conversation's card, or Try again. Back → Save for
-later / Discard, then Practice picker.
+**Navigation:** from Scenario brief, a Paused Conversation's card, or Try again, at
+`/practice/:categoryId/:scenarioId` (plus `?focus=<id>` with a Focus). Back → Save for later /
+Discard, then Practice picker. A URL naming a Scenario the category doesn't have, or a Focus the app
+doesn't offer, redirects to that category's Scenario brief. Ending
+goes to the Feedback Summary, which the leave confirmation doesn't ask about; every other way out
+(the brief included) is leaving.
+
+**The Focus rides along, unseen.** The Focus lives in the Conversation's URL, so a reload keeps it,
+and ending hands it to the Feedback Summary with the transcript and Scenario. The Persona never hears
+about it: it shapes the feedback, not the conversation.
+
+**Recording the Scenario and Focus.** The History entry records the Focus (`focusId`) only when there
+was one, so an entry without a Focus is stored exactly as before; like `scenarioId`, it needed no
+database upgrade. It also records the Scenario the conversation was set in (`scenarioId`). Entries saved before Scenarios existed are read as they were stored, with no
+database upgrade or rewrite, and open as usual; wherever their Scenario is needed, it's their
+category's default (see Scenario brief).
 
 ### Feedback Summary
 **Responsible for:** the review of one finished conversation. The app's payoff screen, and the
@@ -147,8 +196,13 @@ one place richer density is wanted.
 Two clearly-separated groups — what you did well, what you can do better — each point showing
 its quote and, where present, its explanation.
 
-- **Focus.** When one was set, a line at the top names it, and at least one point speaks to it.
-  Nothing says whether it was achieved.
+- **Focus.** When one was set, a line under the title names it ("Your focus: Staying calm"), and at
+  least one point speaks to it: a moment that shows it, or one where it would have helped. Focus
+  points can sit in either group, and in both where the conversation has both kinds of moment, so
+  where they fall isn't a verdict. Nothing says whether it was achieved, not overall and not for one
+  moment, and the line itself is neutral. After a reload the Focus is read back
+  off the saved History entry. An entry naming a Focus since removed shows none, and asks for
+  feedback without one.
 - **Try saying it this way.** Each "can do better" point also shows a rewritten version of the
   quote.
 - **A Lesson for it.** A "can do better" point may link to the one Lesson that teaches its skill.
@@ -380,6 +434,12 @@ Home
 ```
 
 Lesson Steps change inside the Lesson flow screen, not as pushes onto the stack (DESIGN.md §6).
+
+Practice's URLs deepen one level per push: `/practice` (picker), `/practice/:categoryId` (Scenario
+brief), `/practice/:categoryId/:scenarioId` (Conversation), `/practice/:categoryId/feedback/:entryId`
+(Feedback Summary). A Focus is a query parameter on the Conversation's URL, `?focus=<id>`, not a
+level. `src/practice/practicePaths.ts` spells them out. The brief is replaced by the
+Conversation it starts, so it isn't on the stack under it.
 
 **Routing.** The app has no router today. Recommendation: `react-router-dom`. It gives a real
 URL per screen, so browser back and the Android system back gesture both work on the installed

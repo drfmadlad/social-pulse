@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { findFocus } from "../practice/focuses";
+import { FocusLine } from "../practice/FocusLine";
 import { SavedFeedbackSummary } from "../practice/SavedFeedbackSummary";
-import { scenarioCategories } from "../practice/scenarioCategories";
+import { findCategory } from "../practice/scenarioCategories";
 import { TranscriptView } from "../practice/TranscriptView";
 import { DeleteHistoryEntryDialog } from "./DeleteHistoryEntryDialog";
 import { formatEntryTimestamp } from "./formatEntryTimestamp";
@@ -16,6 +18,8 @@ interface HistoryEntryDetailProps {
 
 export function HistoryEntryDetail({ entry, deleteFailed, onBack, onDelete }: HistoryEntryDetailProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  // Nothing for an entry without a Focus, including one saved before Focuses existed or naming one since removed.
+  const focus = findFocus(entry.focusId);
 
   return (
     <div className="history-entry-detail">
@@ -28,10 +32,12 @@ export function HistoryEntryDetail({ entry, deleteFailed, onBack, onDelete }: Hi
       <p className="history-entry-detail__meta">
         <time dateTime={entry.endedAt}>{formatEntryTimestamp(entry.endedAt)}</time>
       </p>
+      {focus && <FocusLine focus={focus} />}
       <TranscriptView transcript={entry.transcript} personaName={entry.personaName} />
       <SavedFeedbackSummary
         entryId={entry.id}
-        category={scenarioCategories.find((category) => category.id === entry.categoryId)}
+        category={findCategory(entry.categoryId)}
+        focus={focus}
         transcript={entry.transcript}
         savedSummary={entry.summary}
       />

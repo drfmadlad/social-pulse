@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiProviderError } from "../_lib/aiProvider.js";
+import { getFocusPrompt } from "../_lib/focusPrompts.js";
 import { RATE_LIMIT_MAX_REQUESTS, _resetRateLimiterForTests } from "../_lib/rateLimiter.js";
 import { APP_HOST, APP_ORIGIN, createMockReq, createMockRes } from "./testHelpers.js";
 
@@ -82,8 +83,10 @@ describe("POST /api/feedback-summary", () => {
     expect(res.body).toMatchObject({ error: { code: "invalid_request" } });
   });
 
+  // The limits are literals here on purpose: they pin the HTTP contract (issue #58's ~80 messages,
+  // 2000 characters), so an accidental change to the shared constants in _lib/requestLimits.ts fails here.
   it("rejects a transcript over the max message count", async () => {
-    const transcript = Array.from({ length: 41 }, () => ({ role: "user" as const, content: "hi" }));
+    const transcript = Array.from({ length: 81 }, () => ({ role: "user" as const, content: "hi" }));
     const req = createMockReq({ body: { categoryName: "Dating", personaName: "Jordan", transcript } });
     const res = createMockRes();
 
@@ -91,6 +94,30 @@ describe("POST /api/feedback-summary", () => {
 
     expect(res.statusCode).toBe(400);
     expect(callAiProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts a transcript at the max message count", async () => {
+    callAiProviderMock.mockResolvedValue({ content: "{}" });
+    const transcript = Array.from({ length: 80 }, () => ({ role: "user" as const, content: "hi" }));
+    const req = createMockReq({ body: { categoryName: "Dating", personaName: "Jordan", transcript } });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    const [sentMessages] = callAiProviderMock.mock.calls[0];
+    expect(sentMessages.slice(1, -1)).toEqual(transcript);
+  });
+
+  it("accepts a transcript message at the max content length", async () => {
+    callAiProviderMock.mockResolvedValue({ content: "{}" });
+    const transcript = [{ role: "user" as const, content: "a".repeat(2000) }];
+    const req = createMockReq({ body: { categoryName: "Dating", personaName: "Jordan", transcript } });
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
   });
 
   it("rejects a transcript message over the max content length", async () => {
@@ -138,6 +165,64 @@ describe("POST /api/feedback-summary", () => {
     expect(sentMessages.slice(1, -1)).toEqual(validBody.transcript);
     expect(sentMessages.at(-1)!.role).toBe("user");
     expect(JSON.stringify(res.body)).not.toContain(sentMessages[0].content);
+  });
+
+  describe("with a Focus (issue #65)", () => {
+    it("resolves the Focus's wording from its id, and asks for a point that speaks to it without a verdict", async () => {
+      callAiProviderMock.mockResolvedValue({ content: "{}" });
+      const req = createMockReq({ body: { ...validBody, focusId: "staying-calm" } });
+      const res = createMockRes();
+
+      await handler(req, res);
+
+      expect(res.statusCode).toBe(200);
+      const [sentMessages] = callAiProviderMock.mock.calls[0];
+      const systemPrompt = sentMessages[0].content;
+      const focus = getFocusPrompt("staying-calm")!;
+      expect(systemPrompt).toContain(focus.name);
+      expect(systemPrompt).toContain(focus.guidance);
+      expect(systemPrompt).toMatch(/at least one of your points/i);
+      expect(systemPrompt).toMatch(/never say or imply whether/i);
+      // Still the whole conversation's review: the transcript and closing message are unchanged.
+      expect(sentMessages.slice(1, -1)).toEqual(validBody.transcript);
+      expect(JSON.stringify(res.body)).not.toContain(focus.guidance);
+    });
+
+    it("mentions no Focus when none was picked", async () => {
+      callAiProviderMock.mockResolvedValue({ content: "{}" });
+      const req = createMockReq({ body: validBody });
+
+      await handler(req, createMockRes());
+
+      const [sentMessages] = callAiProviderMock.mock.calls[0];
+      expect(sentMessages[0].content).not.toMatch(/focus/i);
+    });
+
+    it("rejects a Focus id it doesn't know, without asking the AI", async () => {
+      for (const focusId of ["not-a-real-focus", "constructor", "__proto__", "Staying calm"]) {
+        const req = createMockReq({ body: { ...validBody, focusId } });
+        const res = createMockRes();
+
+        await handler(req, res);
+
+        expect(res.statusCode, focusId).toBe(400);
+        expect(res.body, focusId).toMatchObject({ error: { code: "unknown_focus" } });
+      }
+      expect(callAiProviderMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects a focusId that isn't a non-empty string", async () => {
+      for (const focusId of ["", null, 3, { id: "staying-calm" }, ["staying-calm"]]) {
+        const req = createMockReq({ body: { ...validBody, focusId } });
+        const res = createMockRes();
+
+        await handler(req, res);
+
+        expect(res.statusCode, JSON.stringify(focusId)).toBe(400);
+        expect(res.body).toMatchObject({ error: { code: "invalid_request" } });
+      }
+      expect(callAiProviderMock).not.toHaveBeenCalled();
+    });
   });
 
   it("propagates a rate-limit error from the AI provider as a distinguishable 429 response", async () => {

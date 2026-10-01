@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AiProviderError } from "../_lib/aiProvider.js";
 import { RATE_LIMIT_MAX_REQUESTS, _resetRateLimiterForTests } from "../_lib/rateLimiter.js";
+import { getDefaultScenarioId, getScenarioPrompt, scenariosByCategory } from "../_lib/scenarioPrompts.js";
 import { APP_HOST, APP_ORIGIN, createMockReq, createMockRes } from "./testHelpers.js";
 
 vi.mock("../_lib/aiProvider.js", async () => {
@@ -80,8 +81,10 @@ describe("POST /api/conversation", () => {
     expect(res.body).toMatchObject({ error: { code: "invalid_request" } });
   });
 
+  // The limits are literals here on purpose: they pin the HTTP contract (issue #58's ~80 messages,
+  // 2000 characters), so an accidental change to the shared constants in _lib/requestLimits.ts fails here.
   it("rejects a request over the max message count", async () => {
-    const messages = Array.from({ length: 41 }, () => chatMessage());
+    const messages = Array.from({ length: 81 }, () => chatMessage());
     const req = createMockReq({ body: { messages } });
     const res = createMockRes();
 
@@ -94,7 +97,7 @@ describe("POST /api/conversation", () => {
 
   it("accepts a request at the max message count", async () => {
     callAiProviderMock.mockResolvedValue({ content: "ok" });
-    const messages = Array.from({ length: 40 }, () => chatMessage());
+    const messages = Array.from({ length: 80 }, () => chatMessage());
     const req = createMockReq({ body: { messages, categoryId: "dating" } });
     const res = createMockRes();
 
@@ -379,6 +382,95 @@ describe("POST /api/conversation", () => {
     expect(res.statusCode).toBe(400);
     expect(res.body).toMatchObject({ error: { code: "unknown_category" } });
     expect(callAiProviderMock).not.toHaveBeenCalled();
+  });
+
+  describe("Scenarios (issue #53)", () => {
+    it("builds the system prompt for the named Scenario: its category's Persona sheet, its situation and the rules", async () => {
+      callAiProviderMock.mockResolvedValue({ content: "Hi! You made it." });
+      const req = createMockReq({ body: { messages: [], categoryId: "dating", scenarioId: "coffee-first-date" } });
+      const res = createMockRes();
+
+      await handler(req, res);
+
+      expect(res.statusCode).toBe(200);
+      const [sentMessages] = callAiProviderMock.mock.calls[0];
+      expect(sentMessages).toEqual([
+        {
+          role: "system",
+          content: getScenarioPrompt("dating", "coffee-first-date"),
+        },
+      ]);
+    });
+
+    it("rejects a Scenario the server doesn't know, without calling the AI", async () => {
+      const req = createMockReq({
+        body: { messages: [{ role: "user", content: "hi" }], categoryId: "dating", scenarioId: "not-a-real-scenario" },
+      });
+      const res = createMockRes();
+
+      await handler(req, res);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toMatchObject({ error: { code: "unknown_scenario" } });
+      expect(callAiProviderMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects a real Scenario named under the wrong category", async () => {
+      const req = createMockReq({ body: { messages: [], categoryId: "networking", scenarioId: "coffee-first-date" } });
+      const res = createMockRes();
+
+      await handler(req, res);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toMatchObject({ error: { code: "unknown_scenario" } });
+      expect(callAiProviderMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects a scenarioId that isn't a non-empty string", async () => {
+      for (const scenarioId of ["", 42, null, ["coffee-first-date"]]) {
+        const req = createMockReq({ body: { messages: [], categoryId: "dating", scenarioId } });
+        const res = createMockRes();
+
+        await handler(req, res);
+
+        expect(res.statusCode, JSON.stringify(scenarioId)).toBe(400);
+        expect(res.body).toMatchObject({ error: { code: "invalid_request" } });
+      }
+      expect(callAiProviderMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects an unknown category even with a Scenario named", async () => {
+      const req = createMockReq({ body: { messages: [], categoryId: "toString", scenarioId: "coffee-first-date" } });
+      const res = createMockRes();
+
+      await handler(req, res);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toMatchObject({ error: { code: "unknown_category" } });
+      expect(callAiProviderMock).not.toHaveBeenCalled();
+    });
+
+    it("sets a request with no Scenario, from an app built before Scenarios existed, in the category's default", async () => {
+      callAiProviderMock.mockResolvedValue({ content: "Hi!" });
+      const req = createMockReq({ body: { messages: [], categoryId: "dating" } });
+      const res = createMockRes();
+
+      await handler(req, res);
+
+      expect(res.statusCode).toBe(200);
+      const [sentMessages] = callAiProviderMock.mock.calls[0];
+      expect(sentMessages[0].content).toBe(getScenarioPrompt("dating", getDefaultScenarioId("dating")!));
+    });
+
+    it("never sends the Scenario's situation back to the caller", async () => {
+      callAiProviderMock.mockResolvedValue({ content: "Hi!" });
+      const req = createMockReq({ body: { messages: [], categoryId: "dating", scenarioId: "coffee-first-date" } });
+      const res = createMockRes();
+
+      await handler(req, res);
+
+      expect(JSON.stringify(res.body)).not.toContain(scenariosByCategory.dating.situations["coffee-first-date"]);
+    });
   });
 
   it("rejects an empty-string categoryId", async () => {

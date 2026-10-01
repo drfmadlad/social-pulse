@@ -1,15 +1,20 @@
+/* Two palettes, light and dark, and the phone's setting picks one (DESIGN.md §3, Color). Every
+   color token is defined in both of these `:root` blocks and nowhere else; the rest of the app
+   only ever uses the tokens, so switching the setting switches the whole app live. */
 :root {
-  color-scheme: light;
+  /* Lets the browser's own UI, like scrollbars and form controls, follow the same setting. */
+  color-scheme: light dark;
 
   /* Grounds */
   --canvas: #F3F0E8;
   --surface: #FDFBF7;
   --line: #E2DDD2;
 
-  /* Ink */
+  /* Ink. Text is --ink or --ink-muted, 4.5:1 on every ground. --ink-faint is never readable text:
+     it's the 3:1 tier for input edges, the typing indicator and receded options. */
   --ink: #23302F;
-  --ink-muted: #5E6B69;
-  --ink-faint: #8E9895;
+  --ink-muted: #56635F;
+  --ink-faint: #768380;
 
   /* Primary */
   --primary: #2F6F6A;
@@ -57,12 +62,54 @@
 
   --shadow-card: 0 1px 2px rgba(35, 48, 47, 0.04), 0 8px 24px rgba(35, 48, 47, 0.06);
 
+  /* Dims the screen behind a dialog. */
+  --scrim: rgba(35, 48, 47, 0.4);
+
   /* Motion (DESIGN.md §6) */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   font: var(--text-body);
+}
+
+/* Dark: Social Pulse's own night palette, not an inversion. A deep green-cast slate rather than a
+   warm-tinted or purple-black ground; raised surfaces step lighter; the hues lift so they read as
+   text and edges on dark, which puts dark ink on the filled primary. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Grounds */
+    --canvas: #121A19;
+    --surface: #293734;
+    --line: #3C4B48;
+
+    /* Ink */
+    --ink: #E4EBE8;
+    --ink-muted: #A4B2AE;
+    --ink-faint: #7F8E8A;
+
+    /* Primary */
+    --primary: #72B8AE;
+    --primary-soft: #132C29;
+    --on-primary: #0F1A19;
+
+    /* Feedback semantics */
+    --positive: #8AC498;
+    --positive-soft: #1C3224;
+    --growth: #DE9C7F;
+    --growth-soft: #332822;
+
+    /* Celebration only. On a dark ground the teal lifts so it still leads, and the sunflower
+       deepens a little so the brightest piece isn't the 20% one. */
+    --confetti-teal: #22C3B3;
+    --confetti-berry: #E8528A;
+    --confetti-leaf: #5DBE4B;
+    --confetti-sunflower: #E0A30B;
+
+    /* A shadow the ink's color can't cast on a dark ground; the ground's own darkest shade can. */
+    --shadow-card: 0 1px 2px rgba(6, 10, 9, 0.3), 0 8px 24px rgba(6, 10, 9, 0.4);
+    --scrim: rgba(6, 10, 9, 0.6);
+  }
 }
 
 * {
@@ -188,7 +235,7 @@ body {
 }
 
 .home-nav__count {
-  color: var(--ink-faint);
+  color: var(--ink-muted);
   font: var(--text-sm);
 }
 
@@ -225,6 +272,115 @@ body {
 .scenario-list__detail {
   font: var(--text-sm);
   color: var(--ink-muted);
+}
+
+/* Offline, a category can't open a Conversation: dimmed the way a disabled pill is. */
+.scenario-list__card[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The Scenario brief (DESIGN.md §3, Scenario brief): medium density, like the picker it opens from. */
+/* The brief's small labels: the category above the Persona's name, and the situation panel's. */
+.scenario-brief__label {
+  font: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.scenario-brief__category {
+  margin: 0 0 var(--space-1);
+}
+
+.scenario-brief__persona {
+  margin: 0 0 var(--space-6);
+  color: var(--ink-muted);
+}
+
+.scenario-brief__chooser {
+  min-width: 0;
+  margin: 0 0 var(--space-6);
+  padding: 0;
+  border: none;
+}
+
+/* Floating the legend lets it lay out like an ordinary block above the options. */
+.scenario-brief__chooser legend {
+  float: left;
+  width: 100%;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  font: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.scenario-brief__options {
+  clear: both;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* The Focus picker's one line of explanation sits between its legend and its options, so the legend
+   gives up its gap to it. */
+.scenario-brief__chooser:has(.scenario-brief__hint) legend {
+  margin-bottom: var(--space-1);
+}
+
+.scenario-brief__hint {
+  clear: both;
+  margin: 0 0 var(--space-3);
+  font: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+/* Focus options are the same pills as the chooser's, sized to their label and wrapping, so eight of
+   them stay a compact block rather than a long column (DESIGN.md §3, Scenario brief). */
+.scenario-brief__focus-options {
+  clear: both;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.scenario-brief__focus-options .check-option {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font: var(--text-sm);
+}
+
+.scenario-brief__situation {
+  margin: 0 0 var(--space-6);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--primary-soft);
+  color: var(--ink);
+}
+
+.scenario-brief__situation p,
+.scenario-brief__situation dl {
+  margin: 0;
+}
+
+.scenario-brief__situation dt {
+  margin-bottom: var(--space-1);
+}
+
+.scenario-brief__situation dd {
+  margin: 0;
+}
+
+.scenario-brief__situation dd + dt {
+  margin-top: var(--space-4);
+}
+
+.scenario-brief__start {
+  width: 100%;
 }
 
 /* DESIGN.md §6, Screen push. Movement and opacity are separate animations because they run for
@@ -339,6 +495,20 @@ body {
   padding: var(--space-4);
 }
 
+/* The Scenario, kept in view at the top of the transcript: quiet, and scrolls away with it. */
+.conversation-screen__scenario {
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-muted);
+  font: var(--text-sm);
+  text-align: center;
+}
+
+.conversation-screen__scenario p {
+  margin: 0;
+}
+
 .conversation-screen__composer {
   display: flex;
   gap: var(--space-2);
@@ -361,10 +531,23 @@ body {
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
+  border: 1px solid var(--ink-faint);
   font: var(--text-body);
   color: var(--ink);
   background: var(--canvas);
+}
+
+/* At the length limit (issue #58, DESIGN.md §7), a note and End & get feedback take the composer's
+   place. The note a few lines before it is the shared quiet notice, further down. */
+.conversation-screen__composer--full {
+  align-items: center;
+}
+
+.conversation-screen__full-note {
+  flex: 1;
+  margin: 0;
+  color: var(--ink);
+  font: var(--text-sm);
 }
 
 /* The in-app replacement for `window.confirm` when leaving a Practice Conversation (issue #33). */
@@ -375,7 +558,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: rgba(35, 48, 47, 0.4);
+  background: var(--scrim);
   animation: screen-fade-in 200ms var(--ease-out);
 }
 
@@ -479,7 +662,11 @@ body {
 .chat-message__author {
   display: block;
   font: var(--text-xs);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
+}
+
+.chat-message--user .chat-message__author {
+  color: var(--on-primary);
 }
 
 .chat-message p {
@@ -539,7 +726,11 @@ body {
   font: var(--text-sm);
 }
 
-.history-save-notice {
+/* DESIGN.md §7's quiet notice: save failures, Practice's offline note, and the Conversation's
+   note that it's nearly as long as it can go. */
+.history-save-notice,
+.offline-notice,
+.conversation-screen__length-note {
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -632,18 +823,13 @@ body {
   }
 }
 
+/* In --ink rather than the group's hue: in light mode neither --positive nor --growth reaches
+   4.5:1 on its own tint, and the tint already says which group a point is in. */
 .feedback-points__quote {
   margin: 0;
   font-style: italic;
   font: var(--text-body);
-}
-
-.feedback-points--positive .feedback-points__quote {
-  color: var(--positive);
-}
-
-.feedback-points--growth .feedback-points__quote {
-  color: var(--growth);
+  color: var(--ink);
 }
 
 .feedback-points__explanation {
@@ -684,6 +870,19 @@ body {
   font: var(--text-sm);
   font-weight: 400;
   color: var(--ink-muted);
+}
+
+/* Names a conversation's Focus at the top of its Feedback Summary and History entry. Neutral on
+   purpose: no outcome colour, no ground, since it never says whether the Focus was achieved. */
+.focus-line {
+  margin: 0 0 var(--space-6);
+  font: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.focus-line__name {
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .history-entry-detail__meta {
@@ -796,7 +995,7 @@ body {
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--line);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
   font: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1341,7 +1540,7 @@ body {
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
+  border: 1px solid var(--ink-faint);
   font: var(--text-body);
   color: var(--ink);
   background: var(--surface);

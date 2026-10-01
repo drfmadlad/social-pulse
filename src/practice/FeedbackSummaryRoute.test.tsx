@@ -8,7 +8,9 @@ import {
   saveEndedConversation,
 } from "../history/historyStore";
 import { mockError, mockFeedbackSummary, mockReply } from "../test/apiMocks";
-import { FeedbackSummaryRoute } from "./FeedbackSummaryRoute";
+import { findFocus } from "./focuses";
+import { defaultScenarioOf } from "./scenarios";
+import { FeedbackSummaryRoute, type EndedConversationState } from "./FeedbackSummaryRoute";
 import { scenarioCategories } from "./scenarioCategories";
 
 function LocationDisplay() {
@@ -34,7 +36,7 @@ const transcript = [
   { role: "user" as const, content: "Hi, nice to meet you!" },
 ];
 
-const endedConversation = { transcript };
+const endedConversation: EndedConversationState = { transcript, scenarioId: "coffee-first-date" };
 
 afterEach(async () => {
   vi.unstubAllGlobals();
@@ -68,6 +70,7 @@ describe("FeedbackSummaryRoute", () => {
       const entries = await getAllHistoryEntries();
       expect(entries).toHaveLength(1);
       expect(entries[0].categoryId).toBe("dating");
+      expect(entries[0].scenarioId).toBe("coffee-first-date");
       expect(entries[0].summary).not.toBeNull();
     });
 
@@ -152,7 +155,7 @@ describe("FeedbackSummaryRoute", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
-    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
     await attachFeedbackSummary("entry-1", {
       didWell: [{ quote: "Hi, nice to meet you!" }],
       canImprove: [{ quote: "Hi, nice to meet you!" }],
@@ -172,7 +175,7 @@ describe("FeedbackSummaryRoute", () => {
       .mockResolvedValueOnce(mockFeedbackSummary());
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/networking/feedback/entry-1", endedConversation);
+    renderAt("/practice/networking/feedback/entry-1", { transcript, scenarioId: "networking-event" });
 
     expect(await screen.findByText("Could not generate feedback right now.")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
@@ -189,10 +192,83 @@ describe("FeedbackSummaryRoute", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    renderAt("/practice/public-speaking/feedback/entry-1", endedConversation);
+    renderAt("/practice/public-speaking/feedback/entry-1", { transcript, scenarioId: "talk-rehearsal" });
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.queryByText("What you did well")).not.toBeInTheDocument();
+  });
+
+  describe("with a Focus (issue #65)", () => {
+    const withFocus: EndedConversationState = { ...endedConversation, focusId: "follow-up-questions" };
+
+    it("names the Focus in a line at the top, above the feedback", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockFeedbackSummary()));
+
+      renderAt("/practice/dating/feedback/entry-1", withFocus);
+
+      const didWell = await screen.findByRole("heading", { name: "What you did well" });
+      const focusLine = screen.getByText("Asking follow-up questions").closest("p")!;
+      expect(focusLine).toHaveTextContent("Your focus: Asking follow-up questions");
+      expect(focusLine.compareDocumentPosition(didWell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(screen.getByRole("heading", { level: 1 }).compareDocumentPosition(focusLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("names it while the feedback is still generating, too", async () => {
+      const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating/feedback/entry-1", withFocus);
+      // The request itself, not the waiting copy: that copy also covers the save before it.
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+      expect(screen.getByText("Generating your feedback…")).toBeInTheDocument();
+      expect(screen.getByText("Asking follow-up questions")).toBeInTheDocument();
+    });
+
+    it("asks for feedback on the Focus by id, and records it on the History entry", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating/feedback/entry-1", withFocus);
+      await screen.findByText("What you did well");
+
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).focusId).toBe("follow-up-questions");
+      await waitFor(async () => {
+        const [entry] = await getAllHistoryEntries();
+        expect(entry.focusId).toBe("follow-up-questions");
+        expect(entry.summary).not.toBeNull();
+      });
+    });
+
+    it("keeps the Focus across a reload, reading it off the saved entry", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+      const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
+      await saveEndedConversation({
+        id: "entry-1",
+        category,
+        scenario: defaultScenarioOf(category.id)!,
+        focus: findFocus("follow-up-questions"),
+        transcript,
+      });
+
+      renderAt("/practice/dating/feedback/entry-1");
+
+      expect(await screen.findByText("What you did well")).toBeInTheDocument();
+      expect(screen.getByText("Asking follow-up questions")).toBeInTheDocument();
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).focusId).toBe("follow-up-questions");
+    });
+
+    it("shows no Focus line, and asks about none, when the conversation had no Focus", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderAt("/practice/dating/feedback/entry-1", endedConversation);
+      await screen.findByText("What you did well");
+
+      expect(screen.queryByText(/your focus/i)).not.toBeInTheDocument();
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).not.toHaveProperty("focusId");
+    });
   });
 
   describe("reloading the screen (no router state)", () => {
@@ -200,7 +276,7 @@ describe("FeedbackSummaryRoute", () => {
       const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
       const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
-      await saveEndedConversation({ id: "entry-1", category, transcript });
+      await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
       await attachFeedbackSummary("entry-1", {
         didWell: [{ quote: "Hi, nice to meet you!" }],
         canImprove: [{ quote: "Hi, nice to meet you!" }],
@@ -216,7 +292,7 @@ describe("FeedbackSummaryRoute", () => {
       const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
       vi.stubGlobal("fetch", fetchMock);
       const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
-      await saveEndedConversation({ id: "entry-1", category, transcript });
+      await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
 
       renderAt("/practice/dating/feedback/entry-1");
 
@@ -229,7 +305,7 @@ describe("FeedbackSummaryRoute", () => {
       const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
       const category = scenarioCategories.find((candidate) => candidate.id === "dating")!;
-      await saveEndedConversation({ id: "entry-1", category, transcript });
+      await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
       await attachFeedbackSummary("entry-1", {
         didWell: [{ quote: "Hi, nice to meet you!" }],
         canImprove: [{ quote: "Hi, nice to meet you!" }],

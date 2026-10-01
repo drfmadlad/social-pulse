@@ -1,3 +1,5 @@
+import type { Scenario } from "./scenarios";
+
 export type ChatRole = "system" | "user" | "assistant";
 
 export interface ChatMessage {
@@ -87,10 +89,10 @@ export async function requestAiProxy(endpoint: string, body: unknown): Promise<C
 }
 
 /**
- * `categoryId` names the Practice Conversation's Scenario Category instead of carrying its
- * prompt: the prompt itself lives only in the serverless function, keyed by that id. The server
- * requires it on every request, so it's never optional here either.
+ * Names the Practice Conversation's Scenario Category and Scenario instead of carrying their
+ * prompt: the Persona's sheet and the Scenario's situation live only in the serverless function,
+ * keyed by these ids, and it rejects a Scenario it doesn't know.
  */
-export async function requestAiReply(messages: ChatMessage[], categoryId: string): Promise<ChatMessage> {
-  return requestAiProxy("/api/conversation", { messages, categoryId });
+export async function requestAiReply(messages: ChatMessage[], scenario: Scenario): Promise<ChatMessage> {
+  return requestAiProxy("/api/conversation", { messages, categoryId: scenario.categoryId, scenarioId: scenario.id });
 }

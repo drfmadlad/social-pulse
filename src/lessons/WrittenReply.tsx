@@ -1,3 +1,4 @@
+import { MAX_MESSAGE_LENGTH } from "../requestLimits";
 import type { WrittenReplyStep } from "./lessons";
 import type { WrittenReplyVerdict } from "./writtenReplyVerdict";
 
@@ -53,6 +54,7 @@ export function WrittenReply({ step, answer, onDraftChange, onRetry }: WrittenRe
             <input
               id="written-reply-draft"
               value={draft}
+              maxLength={MAX_MESSAGE_LENGTH}
               onChange={(event) => onDraftChange(event.target.value)}
             />
           </div>

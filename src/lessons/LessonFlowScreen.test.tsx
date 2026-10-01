@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MAX_MESSAGE_LENGTH } from "../requestLimits";
 import { AppRoutes } from "../App";
 import { resetHistoryStoreForTests } from "../history/historyStore";
 import { advancePastAiRequestTimeout, hangingFetch, mockReply, mockWrittenReplyVerdict } from "../test/apiMocks";
@@ -551,6 +552,13 @@ describe("Lesson flow", () => {
 
       const lowered = step.movePractised.charAt(0).toLowerCase() + step.movePractised.slice(1);
       expect(screen.getByText(`How would you respond, ${lowered}?`)).toBeInTheDocument();
+    });
+
+    it("caps the reply at the length the server accepts, so a long paste can't be rejected (issue #58)", async () => {
+      await renderApp(`/lessons/${activeListening.id}`);
+      await advanceTo(activeListening, index);
+
+      expect(screen.getByLabelText("Your reply")).toHaveAttribute("maxLength", String(MAX_MESSAGE_LENGTH));
     });
 
     it("disables Send while the reply is empty, and shows a waiting state while the AI responds", async () => {

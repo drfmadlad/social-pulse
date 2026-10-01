@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getHistoryEntry, resetHistoryStoreForTests, saveEndedConversation } from "../history/historyStore";
 import { advancePastAiRequestTimeout, hangingFetch, mockFeedbackSummary } from "../test/apiMocks";
+import { defaultScenarioOf } from "./scenarios";
 import { SavedFeedbackSummary } from "./SavedFeedbackSummary";
 import { scenarioCategories } from "./scenarioCategories";
 
@@ -28,6 +29,7 @@ describe("SavedFeedbackSummary", () => {
       <SavedFeedbackSummary
         entryId="entry-1"
         category={category}
+        focus={undefined}
         transcript={transcript}
         savedSummary={null}
         generateOnMount
@@ -45,14 +47,21 @@ describe("SavedFeedbackSummary", () => {
   });
 
   it("tells the user their feedback couldn't be saved when attaching it throws, without losing the feedback on screen", async () => {
-    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
     vi.spyOn(IDBObjectStore.prototype, "put").mockImplementation(() => {
       throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
     });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(mockFeedbackSummary()));
 
     render(
-      <SavedFeedbackSummary entryId="entry-1" category={category} transcript={transcript} savedSummary={null} generateOnMount />,
+      <SavedFeedbackSummary
+        entryId="entry-1"
+        category={category}
+        focus={undefined}
+        transcript={transcript}
+        savedSummary={null}
+        generateOnMount
+      />,
     );
 
     expect(await screen.findByText("What you did well")).toBeInTheDocument();

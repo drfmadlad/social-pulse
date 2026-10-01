@@ -3,6 +3,9 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { scenarioCategories } from "../practice/scenarioCategories";
 import { mockError, mockFeedbackSummary } from "../test/apiMocks";
+import { findFocus } from "../practice/focuses";
+import { defaultScenarioOf } from "../practice/scenarios";
+import { putStoredHistoryEntry } from "../test/storedHistory";
 import {
   attachFeedbackSummary,
   deleteHistoryEntry,
@@ -52,7 +55,7 @@ describe("HistoryEntryDetailScreen", () => {
   it("shows a saved conversation's transcript and Feedback Summary without asking the AI", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
     await attachFeedbackSummary("entry-1", {
       didWell: [{ quote: "Hi, nice to meet you!" }],
       canImprove: [{ quote: "Hi, nice to meet you!" }],
@@ -68,7 +71,7 @@ describe("HistoryEntryDetailScreen", () => {
   it("offers to get feedback for a conversation whose feedback never arrived, and saves it once it does", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
     vi.stubGlobal("fetch", fetchMock);
-    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
 
     renderAt("/history/entry-1");
 
@@ -86,8 +89,90 @@ describe("HistoryEntryDetailScreen", () => {
     });
   });
 
+  describe("Focus (issue #65)", () => {
+    it("shows the entry's Focus above its transcript", async () => {
+      vi.stubGlobal("fetch", vi.fn());
+      await saveEndedConversation({
+        id: "entry-1",
+        category,
+        scenario: defaultScenarioOf(category.id)!,
+        focus: findFocus("reading-the-room"),
+        transcript,
+      });
+
+      renderAt("/history/entry-1");
+
+      const focusLine = (await screen.findByText("Reading the room")).closest("p")!;
+      expect(focusLine).toHaveTextContent("Your focus: Reading the room");
+      const firstLine = screen.getByText("Hey! Thanks for coming out tonight.");
+      expect(focusLine.compareDocumentPosition(firstLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("asks for missing feedback on the entry's Focus", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+      await saveEndedConversation({
+        id: "entry-1",
+        category,
+        scenario: defaultScenarioOf(category.id)!,
+        focus: findFocus("reading-the-room"),
+        transcript,
+      });
+
+      renderAt("/history/entry-1");
+      fireEvent.click(await screen.findByRole("button", { name: "Get feedback" }));
+
+      expect(await screen.findByText("What you did well")).toBeInTheDocument();
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).focusId).toBe("reading-the-room");
+    });
+
+    it("shows no Focus for an entry without one, including one saved before Focuses existed", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+      await putStoredHistoryEntry({
+        id: "entry-1",
+        categoryId: "dating",
+        categoryName: "Dating",
+        personaName: "Jordan",
+        transcript,
+        summary: null,
+        endedAt: new Date().toISOString(),
+      });
+
+      renderAt("/history/entry-1");
+      fireEvent.click(await screen.findByRole("button", { name: "Get feedback" }));
+
+      expect(await screen.findByText("What you did well")).toBeInTheDocument();
+      expect(screen.queryByText(/your focus/i)).not.toBeInTheDocument();
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).not.toHaveProperty("focusId");
+    });
+
+    it("shows no Focus, and asks about none, for a Focus the app no longer offers", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(mockFeedbackSummary());
+      vi.stubGlobal("fetch", fetchMock);
+      await putStoredHistoryEntry({
+        id: "entry-1",
+        categoryId: "dating",
+        categoryName: "Dating",
+        personaName: "Jordan",
+        scenarioId: "coffee-first-date",
+        focusId: "a-focus-since-removed",
+        transcript,
+        summary: null,
+        endedAt: new Date().toISOString(),
+      });
+
+      renderAt("/history/entry-1");
+      fireEvent.click(await screen.findByRole("button", { name: "Get feedback" }));
+
+      expect(await screen.findByText("What you did well")).toBeInTheDocument();
+      expect(screen.queryByText(/your focus/i)).not.toBeInTheDocument();
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).not.toHaveProperty("focusId");
+    });
+  });
+
   it("asks before deleting, and leaves the entry alone when cancelled", async () => {
-    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
 
     renderAt("/history/entry-1");
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
@@ -101,7 +186,7 @@ describe("HistoryEntryDetailScreen", () => {
   });
 
   it("deletes the entry and returns to the History list once confirmed", async () => {
-    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
 
     renderAt("/history/entry-1");
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
@@ -112,7 +197,7 @@ describe("HistoryEntryDetailScreen", () => {
   });
 
   it("says so plainly when the entry couldn't be deleted, leaves it in History, and lets the user try again", async () => {
-    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
     vi.mocked(deleteHistoryEntry).mockRejectedValueOnce(new Error("disk full"));
 
     renderAt("/history/entry-1");
@@ -132,7 +217,7 @@ describe("HistoryEntryDetailScreen", () => {
   });
 
   it("deletes once however many times the confirm button is tapped", async () => {
-    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
 
     renderAt("/history/entry-1");
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
@@ -152,7 +237,7 @@ describe("HistoryEntryDetailScreen", () => {
         .mockResolvedValueOnce(mockError(500, "provider_error", "Could not generate feedback right now."))
         .mockResolvedValueOnce(mockFeedbackSummary()),
     );
-    await saveEndedConversation({ id: "entry-1", category, transcript });
+    await saveEndedConversation({ id: "entry-1", category, scenario: defaultScenarioOf(category.id)!, transcript });
 
     renderAt("/history/entry-1");
     fireEvent.click(await screen.findByRole("button", { name: "Get feedback" }));
